@@ -7,40 +7,50 @@
   // Props from SvelteFlow
   export let id: string;
   export let data: {
-    config: {
-      path: string;
-      name_only_mode: boolean;
-      create_shortcuts: boolean;
-      trash_only: boolean;
+    config?: {
+      path?: string;
+      name_only_mode?: boolean;
+      create_shortcuts?: boolean;
+      trash_only?: boolean;
     };
-    status: 'idle' | 'running' | 'completed' | 'error';
-    hasInputConnection: boolean;
-    logs: string[];
-  };
+    status?: 'idle' | 'running' | 'completed' | 'error';
+    hasInputConnection?: boolean;
+    logs?: string[];
+    label?: string;
+  } = {};
+
+  // 本地状态 - 直接从 data 获取默认值
+  let localPath = data?.config?.path ?? '';
+  let localNameOnlyMode = data?.config?.name_only_mode ?? false;
+  let localCreateShortcuts = data?.config?.create_shortcuts ?? false;
+  let localTrashOnly = data?.config?.trash_only ?? false;
+  let localStatus: 'idle' | 'running' | 'completed' | 'error' = data?.status ?? 'idle';
+  let localLogs: string[] = data?.logs ? [...data.logs] : [];
+  let localHasInputConnection = data?.hasInputConnection ?? false;
   
   // 执行节点
   async function handleExecute() {
-    data.status = 'running';
-    data.logs = [...data.logs, `开始执行 rawfilter...`];
+    localStatus = 'running';
+    localLogs = [...localLogs, `开始执行 rawfilter...`];
     
     try {
       const result = await api.executeNode('rawfilter', {
-        path: data.config.path,
-        name_only_mode: data.config.name_only_mode,
-        create_shortcuts: data.config.create_shortcuts,
-        trash_only: data.config.trash_only
+        path: localPath,
+        name_only_mode: localNameOnlyMode,
+        create_shortcuts: localCreateShortcuts,
+        trash_only: localTrashOnly
       });
       
       if (result.success) {
-        data.status = 'completed';
-        data.logs = [...data.logs, result.message];
+        localStatus = 'completed';
+        localLogs = [...localLogs, result.message];
       } else {
-        data.status = 'error';
-        data.logs = [...data.logs, `错误: ${result.message}`];
+        localStatus = 'error';
+        localLogs = [...localLogs, `错误: ${result.message}`];
       }
     } catch (error) {
-      data.status = 'error';
-      data.logs = [...data.logs, `执行失败: ${error}`];
+      localStatus = 'error';
+      localLogs = [...localLogs, `执行失败: ${error}`];
     }
   }
 </script>
@@ -49,10 +59,10 @@
   {id}
   icon="🔍"
   displayName="相似文件过滤"
-  bind:status={data.status}
-  bind:hasInputConnection={data.hasInputConnection}
-  bind:path={data.config.path}
-  bind:logs={data.logs}
+  bind:status={localStatus}
+  bind:hasInputConnection={localHasInputConnection}
+  bind:path={localPath}
+  bind:logs={localLogs}
   onExecute={handleExecute}
 >
   <div slot="config" class="space-y-2">
@@ -60,8 +70,8 @@
     <div class="flex items-center gap-2">
       <Checkbox 
         id="name-only-{id}" 
-        bind:checked={data.config.name_only_mode}
-        disabled={data.status === 'running'}
+        bind:checked={localNameOnlyMode}
+        disabled={localStatus === 'running'}
       />
       <Label for="name-only-{id}" class="text-xs cursor-pointer">
         仅名称模式（跳过内部分析）
@@ -72,8 +82,8 @@
     <div class="flex items-center gap-2">
       <Checkbox 
         id="shortcuts-{id}" 
-        bind:checked={data.config.create_shortcuts}
-        disabled={data.status === 'running'}
+        bind:checked={localCreateShortcuts}
+        disabled={localStatus === 'running'}
       />
       <Label for="shortcuts-{id}" class="text-xs cursor-pointer">
         创建快捷方式而非移动
@@ -84,8 +94,8 @@
     <div class="flex items-center gap-2">
       <Checkbox 
         id="trash-only-{id}" 
-        bind:checked={data.config.trash_only}
-        disabled={data.status === 'running'}
+        bind:checked={localTrashOnly}
+        disabled={localStatus === 'running'}
       />
       <Label for="trash-only-{id}" class="text-xs cursor-pointer">
         仅移动到 trash

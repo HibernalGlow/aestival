@@ -23,7 +23,7 @@ class AestivalFlowApp:
     # 默认配置
     DEFAULT_PORT = 8009
     DEFAULT_HOST = "127.0.0.1"
-    FRONTEND_DEV_PORT = 5173  # SvelteKit 开发服务器端口
+    FRONTEND_DEV_PORT = 5175  # Vite 开发服务器端口
     WINDOW_TITLE = "AestivalFlow"
     WINDOW_WIDTH = 1400
     WINDOW_HEIGHT = 900

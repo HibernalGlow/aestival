@@ -3,7 +3,7 @@
   import { Button } from '$lib/components/ui/button';
   import { Badge } from '$lib/components/ui/badge';
   import { PathInput } from '$lib/components/input';
-  import { Play, Loader2 } from '@lucide/svelte';
+  import { Play, LoaderCircle } from '@lucide/svelte';
   
   // Props
   export let id: string;
@@ -14,6 +14,9 @@
   export let path: string = '';
   export let logs: string[] = [];
   export let onExecute: (() => Promise<void>) | null = null;
+  
+  // 计算按钮是否可用
+  $: canExecute = status !== 'running' && (path.trim() !== '' || hasInputConnection);
   
   // 状态样式映射
   const statusStyles: Record<string, string> = {
@@ -39,15 +42,18 @@
   
   // 执行处理
   async function handleExecute() {
-    if (onExecute && status !== 'running') {
+    if (onExecute && canExecute) {
       await onExecute();
     }
   }
+
+  // 忽略未使用的 id 警告
+  void id;
 </script>
 
 <div class="rounded-lg border-2 bg-card p-4 min-w-[300px] {statusStyles[status]}">
   <!-- 输入端口 -->
-  <Handle type="target" position={Position.Left} class="!bg-primary" />
+  <Handle type="target" position={Position.Left} class="bg-primary!" />
   
   <!-- 标题栏 -->
   <div class="flex items-center justify-between mb-3">
@@ -78,11 +84,11 @@
   <!-- 执行按钮 -->
   <Button 
     class="w-full mt-3" 
-    on:click={handleExecute}
-    disabled={status === 'running' || (!path && !hasInputConnection)}
+    onclick={handleExecute}
+    disabled={!canExecute}
   >
     {#if status === 'running'}
-      <Loader2 class="h-4 w-4 mr-2 animate-spin" />
+      <LoaderCircle class="h-4 w-4 mr-2 animate-spin" />
       执行中...
     {:else}
       <Play class="h-4 w-4 mr-2" />
@@ -100,5 +106,5 @@
   {/if}
   
   <!-- 输出端口 -->
-  <Handle type="source" position={Position.Right} class="!bg-primary" />
+  <Handle type="source" position={Position.Right} class="bg-primary!" />
 </div>

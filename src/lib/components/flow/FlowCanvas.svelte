@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     SvelteFlow,
+    SvelteFlowProvider,
     Background,
     Controls,
     MiniMap,
@@ -15,6 +16,22 @@
   import RepackuNode from '$lib/components/nodes/RepackuNode.svelte';
   import RawfilterNode from '$lib/components/nodes/RawfilterNode.svelte';
   import CrashuNode from '$lib/components/nodes/CrashuNode.svelte';
+
+  let nodeIdCounter = 1;
+  let containerRef: HTMLDivElement;
+
+  // 使用 $state.raw 创建响应式数组
+  let nodes = $state.raw<any[]>([]);
+  let edges = $state.raw<any[]>([]);
+
+  // 同步 flowStore 到本地状态
+  $effect(() => {
+    nodes = $flowStore.nodes as any[];
+  });
+
+  $effect(() => {
+    edges = $flowStore.edges as any[];
+  });
 
   const nodeTypes: NodeTypes = {
     // 输入节点
@@ -37,90 +54,103 @@
     log_output: OutputNode
   };
 
-  let nodes = $derived($flowStore.nodes as any[]);
-  let edges = $derived($flowStore.edges as any[]);
-
   function handleKeyDown(e: KeyboardEvent) {
     if ((e.key === 'Delete' || e.key === 'Backspace') && $flowStore.selectedNodeId) {
       e.preventDefault();
       flowStore.removeNode($flowStore.selectedNodeId);
     }
   }
+
+  // 处理拖拽放置
+  function handleDrop(event: DragEvent) {
+    event.preventDefault();
+
+    const data = event.dataTransfer?.getData('application/json');
+    if (!data) return;
+
+    try {
+      const { type, label } = JSON.parse(data);
+
+      // 获取容器的边界
+      const bounds = containerRef?.getBoundingClientRect();
+      if (!bounds) return;
+
+      // 计算相对于容器的位置
+      const position = {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top
+      };
+
+      const node = {
+        id: `node-${nodeIdCounter++}-${Date.now()}`,
+        type,
+        position,
+        data: { label, status: 'idle' as const }
+      };
+
+      flowStore.addNode(node);
+    } catch (e) {
+      console.error('Failed to parse drop data:', e);
+    }
+  }
+
+  function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+  }
 </script>
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="h-full w-full">
-  <SvelteFlow
-    {nodes}
-    {edges}
-    {nodeTypes}
-    onnodeclick={(event) => flowStore.selectNode(event.detail.node.id)}
-    onpaneclick={() => flowStore.selectNode(null)}
-    onnodeschange={(event) => {
-      const changes = event.detail;
-      if (Array.isArray(changes)) {
-        const currentNodes = $flowStore.nodes;
-        let newNodes = [...currentNodes];
-        for (const change of changes) {
-          if (change.type === 'remove') {
-            newNodes = newNodes.filter(n => n.id !== change.id);
-          } else if (change.type === 'position' && change.position) {
-            newNodes = newNodes.map(n => 
-              n.id === change.id ? { ...n, position: change.position } : n
-            );
-          } else if (change.type === 'select') {
-            newNodes = newNodes.map(n =>
-              n.id === change.id ? { ...n, selected: change.selected } : n
-            );
-          }
-        }
-        flowStore.setNodes(newNodes as any);
-      }
-    }}
-    onedgeschange={(event) => {
-      const changes = event.detail;
-      if (Array.isArray(changes)) {
-        const currentEdges = $flowStore.edges;
-        let newEdges = [...currentEdges];
-        for (const change of changes) {
-          if (change.type === 'remove') {
-            newEdges = newEdges.filter(e => e.id !== change.id);
-          } else if (change.type === 'select') {
-            newEdges = newEdges.map(e =>
-              e.id === change.id ? { ...e, selected: change.selected } : e
-            );
-          }
-        }
-        flowStore.setEdges(newEdges as any);
-      }
-    }}
-    onconnect={(event) => {
-      const conn = event.detail;
-      flowStore.addEdge({
-        id: `e-${conn.source}-${conn.target}-${Date.now()}`,
-        source: conn.source,
-        target: conn.target,
-        sourceHandle: conn.sourceHandle,
-        targetHandle: conn.targetHandle,
-        animated: true
-      });
-    }}
-    fitView
-    snapToGrid
+<SvelteFlowProvider>
+  <div
+    bind:this={containerRef}
+    class="h-full w-full"
+    ondrop={handleDrop}
+    ondragover={handleDragOver}
+    role="application"
   >
-    <Background />
-    <Controls />
-    <MiniMap 
-      nodeColor={(node) => {
-        if (node.type?.startsWith('tool_')) return '#3b82f6';
-        if (node.type?.includes('input')) return '#22c55e';
-        if (node.type?.includes('output')) return '#f59e0b';
-        return '#64748b';
+    <SvelteFlow
+      {nodes}
+      {edges}
+      {nodeTypes}
+      onnodeclick={({ node }) => flowStore.selectNode(node.id)}
+      onnodedragstop={({ targetNode }) => {
+        flowStore.updateNode(targetNode.id, { position: targetNode.position });
       }}
-    />
-  </SvelteFlow>
-</div>
+      onpaneclick={() => flowStore.selectNode(null)}
+      onconnect={(conn) => {
+        flowStore.addEdge({
+          id: `e-${conn.source}-${conn.target}-${Date.now()}`,
+          source: conn.source,
+          target: conn.target,
+          sourceHandle: conn.sourceHandle,
+          targetHandle: conn.targetHandle,
+          animated: true
+        });
+      }}
+      ondelete={({ nodes: deletedNodes, edges: deletedEdges }) => {
+        deletedNodes?.forEach(n => flowStore.removeNode(n.id));
+        deletedEdges?.forEach(e => flowStore.removeEdge(e.id));
+      }}
+      fitView
+      snapGrid={[15, 15]}
+    >
+      <Background />
+      <Controls />
+      <MiniMap
+        nodeColor={(node) => {
+          if (node.type?.startsWith('tool_')) return '#3b82f6';
+          if (node.type?.includes('input')) return '#22c55e';
+          if (node.type?.includes('output')) return '#f59e0b';
+          return '#64748b';
+        }}
+      />
+    </SvelteFlow>
+  </div>
+</SvelteFlowProvider>
 
 <style>
   :global(.svelte-flow) {

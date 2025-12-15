@@ -78,8 +78,12 @@ app = FastAPI(title="Test App API", version="1.0.0")
 # 根据运行模式配置允许的来源
 cors_origins = [
     "http://localhost:5173",   # SvelteKit dev server
+    "http://localhost:5174",   # Vite dev server (备用端口)
+    "http://localhost:5175",   # Vite dev server (备用端口)
     "http://localhost:1420",   # Tauri dev server
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+    "http://127.0.0.1:5175",
     "http://127.0.0.1:1420",
     "http://127.0.0.1:8009",   # pywebview 本地服务器
     "http://localhost:8009",
