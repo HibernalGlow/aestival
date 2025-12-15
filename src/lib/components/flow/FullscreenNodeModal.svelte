@@ -7,13 +7,13 @@
   import { X, Minimize2 } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   
-  // 导入全屏内容组件
-  import TrenameFullscreen from '$lib/components/fullscreen/TrenameFullscreen.svelte';
+  // 导入全屏内容组件 - 直接使用节点组件的全屏模式
+  import TrenameNode from '$lib/components/nodes/TrenameNode.svelte';
   import RepackuFullscreen from '$lib/components/fullscreen/RepackuFullscreen.svelte';
 
   // 全屏内容组件映射
   const fullscreenComponents: Record<string, any> = {
-    trename: TrenameFullscreen,
+    trename: TrenameNode,
     repacku: RepackuFullscreen
   };
 
@@ -73,6 +73,7 @@
           this={FullscreenComponent} 
           nodeId={$fullscreenNodeStore.nodeId}
           data={$fullscreenNodeStore.nodeData}
+          fullscreen={true}
         />
       {:else}
         <div class="text-muted-foreground text-center py-8">
