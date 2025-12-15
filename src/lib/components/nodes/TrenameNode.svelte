@@ -1,7 +1,8 @@
 <script lang="ts">
   /**
    * TrenameNode - 批量重命名节点
-   * 全屏功能由 NodeWrapper 自动处理，无需额外代码
+   * 使用 TanStack Store 在全屏/普通模式间共享状态
+   * 全屏模式使用 Bento Grid 布局
    */
   import { Handle, Position, NodeResizer } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
@@ -9,6 +10,7 @@
   import { Input } from '$lib/components/ui/input';
   import * as TreeView from '$lib/components/ui/tree-view';
   import { api } from '$lib/services/api';
+  import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
   import NodeWrapper from './NodeWrapper.svelte';
   import * as Table from '$lib/components/ui/table';
   import { 
@@ -26,33 +28,6 @@
   interface DirNode { src_dir: string; tgt_dir: string; children: (FileNode | DirNode)[]; }
   type TreeNode = FileNode | DirNode;
 
-  // 状态
-  type Phase = 'idle' | 'scanning' | 'ready' | 'renaming' | 'completed' | 'error';
-  let phase: Phase = 'idle';
-  let logs: string[] = data?.logs ? [...data.logs] : [];
-  let copied = false;
-  let showTree = data?.showTree ?? true;
-  let showOptions = false;
-  let showJsonInput = false;
-  let jsonInputText = '';
-  
-  // 配置
-  let scanPath = data?.config?.path ?? '';
-  let includeHidden = false;
-  let excludeExts = '.json,.txt,.html,.htm,.md,.log';
-  let maxLines = 1000;
-  let useCompact = true;
-  let basePath = '';
-  let dryRun = false;
-  
-  // 数据
-  let treeData: TreeNode[] = [];
-  let segments: string[] = [];
-  let currentSegment = 0;
-  let stats = { total: 0, pending: 0, ready: 0, conflicts: 0 };
-  let conflicts: string[] = [];
-  let lastOperationId = '';
-  
   // 操作历史记录
   interface OperationRecord {
     id: string;
@@ -60,7 +35,75 @@
     count: number;
     canUndo: boolean;
   }
-  let operationHistory: OperationRecord[] = [];
+  
+  // 节点状态类型
+  type Phase = 'idle' | 'scanning' | 'ready' | 'renaming' | 'completed' | 'error';
+  interface TrenameState {
+    phase: Phase;
+    logs: string[];
+    showTree: boolean;
+    showOptions: boolean;
+    showJsonInput: boolean;
+    jsonInputText: string;
+    scanPath: string;
+    includeHidden: boolean;
+    excludeExts: string;
+    maxLines: number;
+    useCompact: boolean;
+    basePath: string;
+    dryRun: boolean;
+    treeData: TreeNode[];
+    segments: string[];
+    currentSegment: number;
+    stats: { total: number; pending: number; ready: number; conflicts: number };
+    conflicts: string[];
+    lastOperationId: string;
+    operationHistory: OperationRecord[];
+  }
+  
+  // 从 TanStack Store 恢复状态
+  const savedState = getNodeState<TrenameState>(id);
+  
+  // 状态初始化
+  let phase: Phase = savedState?.phase ?? 'idle';
+  let logs: string[] = savedState?.logs ?? (data?.logs ? [...data.logs] : []);
+  let copied = false;
+  let showTree = savedState?.showTree ?? data?.showTree ?? true;
+  let showOptions = savedState?.showOptions ?? false;
+  let showJsonInput = savedState?.showJsonInput ?? false;
+  let jsonInputText = savedState?.jsonInputText ?? '';
+  
+  // 配置
+  let scanPath = savedState?.scanPath ?? data?.config?.path ?? '';
+  let includeHidden = savedState?.includeHidden ?? false;
+  let excludeExts = savedState?.excludeExts ?? '.json,.txt,.html,.htm,.md,.log';
+  let maxLines = savedState?.maxLines ?? 1000;
+  let useCompact = savedState?.useCompact ?? true;
+  let basePath = savedState?.basePath ?? '';
+  let dryRun = savedState?.dryRun ?? false;
+  
+  // 数据
+  let treeData: TreeNode[] = savedState?.treeData ?? [];
+  let segments: string[] = savedState?.segments ?? [];
+  let currentSegment = savedState?.currentSegment ?? 0;
+  let stats = savedState?.stats ?? { total: 0, pending: 0, ready: 0, conflicts: 0 };
+  let conflicts: string[] = savedState?.conflicts ?? [];
+  let lastOperationId = savedState?.lastOperationId ?? '';
+  let operationHistory: OperationRecord[] = savedState?.operationHistory ?? [];
+  
+  // 保存状态到 TanStack Store
+  function saveState() {
+    setNodeState<TrenameState>(id, {
+      phase, logs, showTree, showOptions, showJsonInput, jsonInputText,
+      scanPath, includeHidden, excludeExts, maxLines, useCompact, basePath, dryRun,
+      treeData, segments, currentSegment, stats, conflicts, lastOperationId, operationHistory
+    });
+  }
+  
+  // 状态变化时自动保存
+  $: if (phase || treeData || segments || stats) {
+    saveState();
+  }
 
   // 计算
   $: isRunning = phase === 'scanning' || phase === 'renaming';
@@ -312,6 +355,161 @@
     {/snippet}
     
     {#snippet children()}
+      {#if isFullscreenRender}
+        <!-- 全屏模式：Bento Grid 布局 -->
+        <div class="h-full overflow-y-auto p-4">
+          <div class="grid grid-cols-4 gap-4" style="grid-auto-rows: minmax(80px, auto);">
+            
+            <!-- 路径输入 + 扫描 (2列2行) -->
+            <div class="col-span-2 row-span-2 bg-card rounded-3xl border p-6 shadow-sm flex flex-col">
+              <div class="flex items-center gap-2 mb-4">
+                <FolderOpen class="w-5 h-5 text-primary" />
+                <span class="font-semibold">扫描路径</span>
+              </div>
+              <div class="flex gap-2 mb-4">
+                <Input bind:value={scanPath} placeholder="输入目录路径..." disabled={isRunning} class="flex-1 h-10" />
+                <Button variant="outline" size="icon" class="h-10 w-10 shrink-0" onclick={selectFolder} disabled={isRunning}>
+                  <FolderOpen class="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" class="h-10 w-10 shrink-0" onclick={pastePath} disabled={isRunning}>
+                  <Clipboard class="h-4 w-4" />
+                </Button>
+              </div>
+              <div class="flex gap-2">
+                <Button variant="outline" class="flex-1 h-12" onclick={() => handleScan(false)} disabled={isRunning}>
+                  {#if isRunning && phase === 'scanning'}<LoaderCircle class="h-4 w-4 mr-2 animate-spin" />{:else}<RefreshCw class="h-4 w-4 mr-2" />{/if}替换扫描
+                </Button>
+                <Button variant="outline" class="flex-1 h-12" onclick={() => handleScan(true)} disabled={isRunning}>
+                  <Download class="h-4 w-4 mr-2" />合并扫描
+                </Button>
+              </div>
+            </div>
+            
+            <!-- 操作按钮 (1列2行) -->
+            <div class="col-span-1 row-span-2 bg-card rounded-3xl border p-5 shadow-sm flex flex-col">
+              <div class="flex items-center gap-2 mb-4">
+                <Play class="w-5 h-5 text-green-500" />
+                <span class="font-semibold">操作</span>
+              </div>
+              <div class="flex flex-col gap-3 flex-1 justify-center">
+                <Button variant="outline" class="h-12" onclick={validate} disabled={isRunning || !segments.length}>
+                  <Search class="h-4 w-4 mr-2" />检测冲突
+                </Button>
+                <Button variant={canRename ? 'default' : 'outline'} class="h-12" onclick={handleRename} disabled={isRunning || !canRename}>
+                  {#if phase === 'renaming'}<LoaderCircle class="h-4 w-4 mr-2 animate-spin" />{:else}<Play class="h-4 w-4 mr-2" />{/if}执行重命名
+                </Button>
+                <Button variant="ghost" class="h-10" onclick={clear}>
+                  <Trash2 class="h-4 w-4 mr-2" />清空
+                </Button>
+              </div>
+            </div>
+            
+            <!-- 统计信息 (1列2行) -->
+            <div class="col-span-1 row-span-2 bg-card rounded-3xl border p-5 shadow-sm">
+              <div class="flex items-center gap-2 mb-3">
+                <FilePenLine class="w-5 h-5 text-blue-500" />
+                <span class="font-semibold">统计</span>
+              </div>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                  <span class="text-sm">总计</span>
+                  <span class="text-2xl font-bold">{stats.total}</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-yellow-500/10 rounded-xl">
+                  <span class="text-sm">待翻译</span>
+                  <span class="text-2xl font-bold text-yellow-600">{stats.pending}</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-green-500/10 rounded-xl">
+                  <span class="text-sm">就绪</span>
+                  <span class="text-2xl font-bold text-green-600">{stats.ready}</span>
+                </div>
+                {#if stats.conflicts > 0}
+                  <div class="flex items-center justify-between p-3 bg-red-500/10 rounded-xl">
+                    <span class="text-sm">冲突</span>
+                    <span class="text-2xl font-bold text-red-600">{stats.conflicts}</span>
+                  </div>
+                {/if}
+              </div>
+            </div>
+            
+            <!-- 导入/导出 (2列1行) -->
+            <div class="col-span-2 row-span-1 bg-card rounded-3xl border p-4 shadow-sm">
+              <div class="flex items-center gap-4">
+                <Button variant="outline" class="flex-1 h-10" onclick={() => importJson(false)} disabled={isRunning}>
+                  <Upload class="h-4 w-4 mr-2" />从剪贴板导入
+                </Button>
+                <Button variant="outline" class="flex-1 h-10" onclick={() => copySegment(currentSegment)} disabled={!segments.length}>
+                  {#if copied}<Check class="h-4 w-4 mr-2 text-green-500" />{:else}<Clipboard class="h-4 w-4 mr-2" />{/if}复制当前段
+                </Button>
+                <Button variant="outline" class="h-10 w-10 shrink-0" onclick={() => downloadSegment(currentSegment)} disabled={!segments.length}>
+                  <Download class="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            
+            <!-- 文件树 (3列4行) -->
+            <div class="col-span-3 row-span-4 bg-card rounded-3xl border shadow-sm overflow-hidden">
+              <div class="flex items-center justify-between p-4 border-b bg-muted/30">
+                <span class="font-semibold flex items-center gap-2">
+                  <Folder class="w-5 h-5 text-yellow-500" />文件树
+                </span>
+                <span class="text-sm text-muted-foreground">{stats.total} 项</span>
+              </div>
+              <div class="p-3 overflow-y-auto" style="max-height: 400px;">
+                {#if treeData.length > 0}
+                  <TreeView.Root class="text-sm">
+                    {#each treeData as node}{@render renderTreeNode(node)}{/each}
+                  </TreeView.Root>
+                {:else}
+                  <div class="text-center text-muted-foreground py-8">扫描后显示文件树</div>
+                {/if}
+              </div>
+            </div>
+            
+            <!-- 日志 + 历史 (1列4行) -->
+            <div class="col-span-1 row-span-4 bg-card rounded-3xl border p-4 shadow-sm flex flex-col">
+              <div class="flex items-center justify-between mb-2 shrink-0">
+                <span class="font-semibold text-sm">日志</span>
+                <Button variant="ghost" size="icon" class="h-6 w-6" onclick={copyLogs}>
+                  <Clipboard class="h-3 w-3" />
+                </Button>
+              </div>
+              <div class="flex-1 overflow-y-auto bg-muted/30 rounded-xl p-2 font-mono text-xs space-y-1 mb-4" style="max-height: 150px;">
+                {#if logs.length > 0}
+                  {#each logs.slice(-15) as logItem}
+                    <div class="text-muted-foreground break-all">{logItem}</div>
+                  {/each}
+                {:else}
+                  <div class="text-muted-foreground text-center py-4">暂无日志</div>
+                {/if}
+              </div>
+              
+              <div class="flex items-center gap-2 mb-2 shrink-0">
+                <Undo2 class="w-4 h-4" />
+                <span class="font-semibold text-sm">操作历史</span>
+              </div>
+              <div class="flex-1 overflow-y-auto">
+                {#if operationHistory.length > 0}
+                  {#each operationHistory as op}
+                    <div class="flex items-center justify-between p-2 bg-muted/30 rounded-lg mb-1 text-xs">
+                      <span>{op.time} - {op.count}项</span>
+                      {#if op.canUndo}
+                        <Button variant="ghost" size="sm" class="h-6 px-2 text-xs" onclick={() => handleUndo(op.id)}>撤销</Button>
+                      {:else}
+                        <span class="text-muted-foreground">已撤销</span>
+                      {/if}
+                    </div>
+                  {/each}
+                {:else}
+                  <div class="text-xs text-muted-foreground text-center py-2">暂无记录</div>
+                {/if}
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      {:else}
+        <!-- 普通模式 -->
       <div class="flex flex-1 min-h-0 overflow-hidden">
         <!-- 左侧：操作区 -->
         <div class="flex flex-col p-2 space-y-2 {showTree ? 'w-1/2 border-r' : 'flex-1'} overflow-y-auto">
@@ -505,6 +703,7 @@
           </div>
         {/if}
       </div>
+      {/if}
     {/snippet}
   </NodeWrapper>
   
