@@ -448,15 +448,17 @@
             </div>
           {/if}
           
-          <!-- 撤销历史区块 -->
-          {#if operationHistory.length > 0}
-            <div class="border rounded bg-muted/20 overflow-hidden">
-              <div class="flex items-center justify-between px-2 py-1 border-b bg-muted/30">
-                <span class="text-xs text-muted-foreground flex items-center gap-1">
-                  <Undo2 class="h-3 w-3" />操作历史
-                </span>
+          <!-- 撤销历史区块 - 始终显示 -->
+          <div class="border rounded bg-muted/20 overflow-hidden">
+            <div class="flex items-center justify-between px-2 py-1 border-b bg-muted/30">
+              <span class="text-xs text-muted-foreground flex items-center gap-1">
+                <Undo2 class="h-3 w-3" />操作历史
+              </span>
+              {#if operationHistory.length > 0}
                 <span class="text-xs text-muted-foreground">{operationHistory.filter(o => o.canUndo).length} 可撤销</span>
-              </div>
+              {/if}
+            </div>
+            {#if operationHistory.length > 0}
               <div class="max-h-24 overflow-y-auto">
                 <Table.Root class="text-xs">
                   <Table.Body>
@@ -478,8 +480,10 @@
                   </Table.Body>
                 </Table.Root>
               </div>
-            </div>
-          {/if}
+            {:else}
+              <div class="p-2 text-xs text-muted-foreground text-center">暂无操作记录</div>
+            {/if}
+          </div>
         </div>
         
         <!-- 右侧：文件树面板 -->
