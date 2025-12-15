@@ -50,7 +50,7 @@
   let stats = { total: 0, pending: 0, ready: 0, conflicts: 0 };
   let conflicts: string[] = [];
   let lastOperationId = '';
-  let expandedPaths: Set<string> = new Set();
+  let collapsedPaths: Set<string> = new Set(); // 记录收起的路径，默认全部展开
 
   // 计算
   $: isRunning = phase === 'scanning' || phase === 'renaming';
@@ -71,33 +71,15 @@
     if (tgt === src) return 'same';
     return 'ready';
   }
-  function toggleExpand(path: string) {
-    expandedPaths.has(path) ? expandedPaths.delete(path) : expandedPaths.add(path);
-    expandedPaths = expandedPaths;
+  function toggleCollapse(path: string) {
+    const newSet = new Set(collapsedPaths);
+    newSet.has(path) ? newSet.delete(path) : newSet.add(path);
+    collapsedPaths = newSet;
   }
   function parseTree(json: string): TreeNode[] {
     try { return JSON.parse(json).root || []; } catch { return []; }
   }
   
-  // 递归收集所有目录路径用于默认展开
-  function collectAllPaths(nodes: TreeNode[], prefix: string): string[] {
-    const paths: string[] = [];
-    nodes.forEach((node, i) => {
-      const path = `${prefix}_${i}`;
-      if (isDir(node)) {
-        paths.push(path);
-        if (node.children) paths.push(...collectAllPaths(node.children, path));
-      }
-    });
-    return paths;
-  }
-  
-  // 展开所有目录
-  function expandAll() {
-    const allPaths = collectAllPaths(treeData, 'root');
-    expandedPaths = new Set(allPaths);
-  }
-
   async function selectFolder() {
     try {
       if (window.pywebview?.api?.open_folder_dialog) {
@@ -132,7 +114,7 @@
         }
         if (segs.length > 0) {
           treeData = parseTree(segs[0]);
-          expandAll(); // 默认展开所有目录
+          collapsedPaths = new Set(); // 重置收起状态，默认全部展开
         }
         currentSegment = 0; conflicts = []; phase = 'ready';
         log(`✅ ${r.data.total_items} 项, ${segs.length} 段`);
@@ -157,7 +139,7 @@
           stats.ready += r.data.ready_count || 0;
         }
         treeData = parseTree(text);
-        expandAll(); // 默认展开所有目录
+        collapsedPaths = new Set(); // 重置收起状态，默认全部展开
         currentSegment = segments.length - 1; phase = 'ready';
         log(`✅ 导入 ${r.data.total_items} 项`);
       } else log(`❌ ${r.message}`);
@@ -200,24 +182,24 @@
   function clear() {
     treeData = []; segments = []; currentSegment = 0;
     stats = { total: 0, pending: 0, ready: 0, conflicts: 0 };
-    conflicts = []; lastOperationId = ''; phase = 'idle'; expandedPaths.clear();
+    conflicts = []; lastOperationId = ''; phase = 'idle'; collapsedPaths = new Set();
     log('🗑️ 已清空');
   }
   async function copyLogs() { try { await navigator.clipboard.writeText(logs.join('\n')); } catch {} }
 </script>
 
-<!-- 递归渲染文件树 -->
+<!-- 递归渲染文件树 - 默认全部展开 -->
 {#snippet treeNode(node: TreeNode, path: string, depth: number)}
   {@const dir = isDir(node)}
   {@const status = getStatus(node)}
-  {@const exp = expandedPaths.has(path)}
+  {@const collapsed = collapsedPaths.has(path)}
   {@const name = dir ? node.src_dir : node.src}
   {@const tgt = dir ? node.tgt_dir : node.tgt}
   
   <div class="flex items-center gap-1 py-0.5 hover:bg-muted/50 rounded text-xs" style="padding-left: {depth * 12}px">
     {#if dir}
-      <button class="p-0.5 hover:bg-muted rounded" onclick={() => toggleExpand(path)}>
-        {#if exp}<ChevronDown class="w-3 h-3" />{:else}<ChevronRight class="w-3 h-3" />{/if}
+      <button class="p-0.5 hover:bg-muted rounded" onclick={() => toggleCollapse(path)}>
+        {#if collapsed}<ChevronRight class="w-3 h-3" />{:else}<ChevronDown class="w-3 h-3" />{/if}
       </button>
       <Folder class="w-3 h-3 text-yellow-500 shrink-0" />
     {:else}
@@ -231,7 +213,7 @@
     {/if}
     <span class="w-2 h-2 rounded-full shrink-0 {status === 'ready' ? 'bg-green-500' : status === 'pending' ? 'bg-yellow-500' : 'bg-gray-300'}"></span>
   </div>
-  {#if dir && exp && node.children}
+  {#if dir && !collapsed && node.children}
     {#each node.children as child, i}{@render treeNode(child, `${path}/${i}`, depth + 1)}{/each}
   {/if}
 {/snippet}
@@ -303,7 +285,7 @@
                   variant={currentSegment === i ? 'default' : 'ghost'} 
                   size="sm" 
                   class="h-5 w-5 p-0 text-xs"
-                  onclick={() => { currentSegment = i; treeData = parseTree(segments[i]); expandAll(); }}
+                  onclick={() => { currentSegment = i; treeData = parseTree(segments[i]); collapsedPaths = new Set(); }}
                 >{i + 1}</Button>
               {/each}
             </div>
@@ -405,7 +387,7 @@
             <div class="flex-1 overflow-y-auto p-1">
               {#if treeData.length > 0}
                 {#each treeData as node, i}
-                  {@render treeNode(node, `root_${i}`, 0)}
+                  {@render treeNode(node, `root/${i}`, 0)}
                 {/each}
               {:else}
                 <div class="text-xs text-muted-foreground text-center py-4">暂无数据</div>
