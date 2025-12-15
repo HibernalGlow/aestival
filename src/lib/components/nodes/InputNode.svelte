@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import { Clipboard, Folder, FileInput } from '@lucide/svelte';
+  import NodeWrapper from './NodeWrapper.svelte';
 
   interface Props {
     id: string;
@@ -22,34 +23,20 @@
   };
 
   const Icon = $derived(icons[type] || FileInput);
-
-  const statusColors = {
-    idle: 'border-green-300 bg-green-50',
-    running: 'border-green-500 bg-green-100 animate-pulse',
-    completed: 'border-green-600 bg-green-100',
-    error: 'border-red-500 bg-red-50'
-  };
-
-  const status = $derived(data.status || 'idle');
 </script>
 
-<div
-  class="px-4 py-3 rounded-lg border-2 shadow-sm min-w-[140px] transition-all {statusColors[status]}"
-  class:ring-2={selected}
-  class:ring-green-400={selected}
->
-  <div class="flex items-center gap-2">
-    <div class="p-1.5 rounded bg-green-200">
-      <Icon class="w-4 h-4 text-green-700" />
+<NodeWrapper nodeId={id} title={data.label} icon={Icon}>
+  {#snippet children()}
+    <div class="p-3">
+      {#if data.config?.path}
+        <div class="text-xs text-muted-foreground truncate max-w-[160px]" title={String(data.config.path)}>
+          {data.config.path}
+        </div>
+      {:else}
+        <div class="text-xs text-muted-foreground">点击配置输入源</div>
+      {/if}
     </div>
-    <span class="font-medium text-sm text-gray-800">{data.label}</span>
-  </div>
+  {/snippet}
+</NodeWrapper>
 
-  {#if data.config?.path}
-    <div class="mt-2 text-xs text-gray-500 truncate max-w-[160px]" title={String(data.config.path)}>
-      {data.config.path}
-    </div>
-  {/if}
-
-  <Handle type="source" position={Position.Right} class="!bg-green-500 !w-3 !h-3" />
-</div>
+<Handle type="source" position={Position.Right} class="!bg-green-500 !w-3 !h-3" />

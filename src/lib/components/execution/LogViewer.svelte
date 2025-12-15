@@ -26,10 +26,15 @@
 <div class="h-full flex flex-col bg-gray-900">
   <div class="flex items-center justify-between px-4 py-2 border-b border-gray-700">
     <div class="flex items-center gap-2">
-      <svelte:component
-        this={statusInfo.icon}
-        class="w-4 h-4 {statusInfo.color} {$taskStore.status === 'running' ? 'animate-spin' : ''}"
-      />
+      {#if $taskStore.status === 'running'}
+        <Loader2 class="w-4 h-4 {statusInfo.color} animate-spin" />
+      {:else if $taskStore.status === 'completed'}
+        <CheckCircle2 class="w-4 h-4 {statusInfo.color}" />
+      {:else if $taskStore.status === 'failed' || $taskStore.status === 'cancelled'}
+        <XCircle class="w-4 h-4 {statusInfo.color}" />
+      {:else}
+        <Terminal class="w-4 h-4 {statusInfo.color}" />
+      {/if}
       <span class="text-white font-medium text-sm">执行日志</span>
       <span class="text-xs {statusInfo.color}">{statusInfo.label}</span>
     </div>

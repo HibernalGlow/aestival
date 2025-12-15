@@ -12,10 +12,12 @@
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { Input } from '$lib/components/ui/input';
   import { api } from '$lib/services/api';
+  import { flowStore } from '$lib/stores';
   import { 
     LoaderCircle, FolderOpen, Clipboard, FileEdit, Search, Undo2, Copy, Check,
     Download, Upload, AlertTriangle, Play, RefreshCw, ChevronDown, ChevronRight,
-    File, Folder, Trash2, PanelRightOpen, PanelRightClose, Settings2
+    File, Folder, Trash2, PanelRightOpen, PanelRightClose, Settings2,
+    X, Pin, PinOff
   } from '@lucide/svelte';
   
   export let id: string;
@@ -51,6 +53,14 @@
   let conflicts: string[] = [];
   let lastOperationId = '';
   let expandedPaths: Set<string> = new Set();
+  
+  // 节点控制
+  let collapsed = false;
+  let pinned = false;
+  
+  function handleClose() { flowStore.removeNode(id); }
+  function toggleCollapse() { collapsed = !collapsed; }
+  function togglePin() { pinned = !pinned; }
 
   // 计算
   $: isRunning = phase === 'scanning' || phase === 'renaming';
@@ -217,26 +227,38 @@
   <Handle type="target" position={Position.Left} class="bg-primary!" />
   
   <!-- 标题栏 -->
-  <div class="flex items-center justify-between p-2 border-b shrink-0">
-    <div class="flex items-center gap-2">
+  <div class="flex items-center justify-between px-2 py-1.5 border-b shrink-0 bg-muted/30">
+    <!-- 左侧：折叠 + 图标 + 标题 -->
+    <div class="flex items-center gap-1.5">
+      <button class="p-0.5 rounded hover:bg-muted" onclick={toggleCollapse} title={collapsed ? '展开' : '折叠'}>
+        {#if collapsed}<ChevronRight class="w-4 h-4" />{:else}<ChevronDown class="w-4 h-4" />{/if}
+      </button>
       <FileEdit class="w-4 h-4 text-purple-500" />
       <span class="font-semibold text-sm">批量重命名</span>
+      <Badge variant={phase === 'error' ? 'destructive' : phase === 'completed' ? 'default' : 'secondary'} class="text-xs ml-1">
+        {phase === 'idle' ? '就绪' : phase === 'scanning' ? '扫描' : phase === 'ready' ? '待操作' : phase === 'renaming' ? '执行' : phase === 'completed' ? '完成' : '错误'}
+      </Badge>
     </div>
-    <div class="flex items-center gap-1">
+    <!-- 右侧：操作按钮 -->
+    <div class="flex items-center gap-0.5">
       <Button variant="ghost" size="icon" class="h-6 w-6" onclick={() => showOptions = !showOptions} title="选项">
         <Settings2 class="h-3 w-3" />
       </Button>
       <Button variant="ghost" size="icon" class="h-6 w-6" onclick={() => showTree = !showTree} title="文件树">
         {#if showTree}<PanelRightClose class="h-3 w-3" />{:else}<PanelRightOpen class="h-3 w-3" />{/if}
       </Button>
-      <Badge variant={phase === 'error' ? 'destructive' : phase === 'completed' ? 'default' : 'secondary'} class="text-xs">
-        {phase === 'idle' ? '就绪' : phase === 'scanning' ? '扫描' : phase === 'ready' ? '待操作' : phase === 'renaming' ? '执行' : phase === 'completed' ? '完成' : '错误'}
-      </Badge>
+      <button class="p-1 rounded hover:bg-muted {pinned ? 'text-primary' : 'text-muted-foreground'}" onclick={togglePin} title={pinned ? '取消固定' : '固定'}>
+        {#if pinned}<Pin class="w-3.5 h-3.5" />{:else}<PinOff class="w-3.5 h-3.5" />{/if}
+      </button>
+      <button class="p-1 rounded hover:bg-destructive hover:text-destructive-foreground text-muted-foreground" onclick={handleClose} title="关闭">
+        <X class="w-3.5 h-3.5" />
+      </button>
     </div>
   </div>
 
-  <!-- 主体：左右分栏 -->
-  <div class="flex flex-1 min-h-0 overflow-hidden">
+  <!-- 主体：左右分栏（折叠时隐藏） -->
+  {#if !collapsed}
+  <div class="flex flex-1 min-h-0 overflow-hidden nodrag">
     <!-- 左侧：操作区 -->
     <div class="flex flex-col p-2 space-y-2 {showTree ? 'w-1/2 border-r' : 'flex-1'} overflow-y-auto">
       <!-- 路径输入 -->
@@ -389,6 +411,7 @@
       </div>
     {/if}
   </div>
+  {/if}
   
   <Handle type="source" position={Position.Right} class="bg-primary!" />
 </div>
