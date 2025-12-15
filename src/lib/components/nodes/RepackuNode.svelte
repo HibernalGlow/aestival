@@ -2,6 +2,7 @@
   /**
    * RepackuNode - 文件重打包节点组件
    * 支持文件树预览和 Bento Grid 全屏布局
+   * 状态存储在 data 对象中，以便全屏和普通模式共享
    */
   import { Handle, Position } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
@@ -13,6 +14,7 @@
   import * as TreeView from '$lib/components/ui/tree-view';
   import * as BentoGrid from '$lib/components/ui/bento-grid';
   import { api } from '$lib/services/api';
+  import { flowStore } from '$lib/stores';
   import NodeWrapper from './NodeWrapper.svelte';
   import type { FolderNode, CompressionStats, FolderCard } from '$lib/types/repacku';
   import { 
@@ -37,45 +39,61 @@
     logs?: string[];
     label?: string;
     showTree?: boolean;
+    // 持久化状态 - 在全屏和普通模式间共享
+    _state?: {
+      phase: Phase;
+      progress: number;
+      progressText: string;
+      folderTree: FolderNode | null;
+      analysisResult: AnalysisResult | null;
+      compressionResult: CompressionResult | null;
+      selectedTypes: string[];
+      expandedFolders: string[];
+      expandedCards: string[];
+    };
   } = {};
   export let isFullscreenRender = false;
 
   type Phase = 'idle' | 'analyzing' | 'analyzed' | 'compressing' | 'completed' | 'error';
   
-  let path = data?.config?.path ?? '';
-  let deleteAfter = data?.config?.delete_after ?? false;
-  let phase: Phase = 'idle';
-  let logs: string[] = data?.logs ? [...data.logs] : [];
-  let hasInputConnection = data?.hasInputConnection ?? false;
-  let showTree = data?.showTree ?? true;
-  
-  let progress = 0;
-  let progressText = '';
-  
-  // 文件树数据
-  let folderTree: FolderNode | null = null;
-  let stats: CompressionStats = { total: 0, entire: 0, selective: 0, skip: 0 };
-  let expandedFolders: Set<string> = new Set();
-  
-  // Bento Grid 卡片数据
-  let bentoCards: FolderCard[] = [];
-  let expandedCards: Set<string> = new Set();
-  
-  let analysisResult: {
+  interface AnalysisResult {
     configPath: string;
     totalFolders: number;
     entireCount: number;
     selectiveCount: number;
     skipCount: number;
     folderTree?: FolderNode;
-  } | null = null;
+  }
   
-  let compressionResult: {
+  interface CompressionResult {
     success: boolean;
     compressed: number;
     failed: number;
     total: number;
-  } | null = null;
+  }
+  
+  // 从 data._state 恢复状态，或使用默认值
+  let path = data?.config?.path ?? '';
+  let deleteAfter = data?.config?.delete_after ?? false;
+  let phase: Phase = data?._state?.phase ?? 'idle';
+  let logs: string[] = data?.logs ? [...data.logs] : [];
+  let hasInputConnection = data?.hasInputConnection ?? false;
+  let showTree = data?.showTree ?? true;
+  
+  let progress = data?._state?.progress ?? 0;
+  let progressText = data?._state?.progressText ?? '';
+  
+  // 文件树数据 - 从持久化状态恢复
+  let folderTree: FolderNode | null = data?._state?.folderTree ?? null;
+  let stats: CompressionStats = { total: 0, entire: 0, selective: 0, skip: 0 };
+  let expandedFolders: Set<string> = new Set(data?._state?.expandedFolders ?? []);
+  
+  // Bento Grid 卡片数据
+  let bentoCards: FolderCard[] = [];
+  let expandedCards: Set<string> = new Set(data?._state?.expandedCards ?? []);
+  
+  let analysisResult: AnalysisResult | null = data?._state?.analysisResult ?? null;
+  let compressionResult: CompressionResult | null = data?._state?.compressionResult ?? null;
 
   const typeOptions = [
     { value: 'image', label: '图片' },
@@ -84,7 +102,30 @@
     { value: 'audio', label: '音频' }
   ];
   
-  let selectedTypes: string[] = [];
+  let selectedTypes: string[] = data?._state?.selectedTypes ?? [];
+  
+  // 保存状态到 data._state，以便在全屏/普通模式切换时保持
+  function saveState() {
+    flowStore.updateNodeData(id, {
+      ...data,
+      _state: {
+        phase,
+        progress,
+        progressText,
+        folderTree,
+        analysisResult,
+        compressionResult,
+        selectedTypes,
+        expandedFolders: Array.from(expandedFolders),
+        expandedCards: Array.from(expandedCards)
+      }
+    });
+  }
+  
+  // 状态变化时自动保存
+  $: if (phase || folderTree || analysisResult || compressionResult) {
+    saveState();
+  }
 
   $: canAnalyze = phase === 'idle' && (path.trim() !== '' || hasInputConnection);
   $: canCompress = phase === 'analyzed' && analysisResult !== null;
