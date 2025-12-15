@@ -1,8 +1,9 @@
 <script lang="ts">
   import { flowStore, taskStore, isRunning } from '$lib/stores';
   import { api } from '$lib/services/api';
-  import { Save, Play, Square, RotateCcw, FileDown, FileUp } from '@lucide/svelte';
+  import { Save, Play, Square, RotateCcw, FileDown, FileUp, Sun, Moon, Monitor, Palette } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
+  import { themeStore, toggleThemeMode, openThemeImport } from '$lib/stores/theme.svelte';
 
   async function saveFlow() {
     const flow = flowStore.toFlow();
@@ -75,21 +76,36 @@
   }
 </script>
 
-<div class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4">
+<div class="h-14 bg-card border-b flex items-center justify-between px-4">
   <div class="flex items-center gap-2">
     <input
       type="text"
-      class="text-lg font-semibold bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-2 py-1"
+      class="text-lg font-semibold bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 py-1"
       value={$flowStore.name}
       onchange={(e) => flowStore.setName(e.currentTarget.value)}
       placeholder="未命名流程"
     />
     {#if $flowStore.isDirty}
-      <span class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded">未保存</span>
+      <span class="text-xs text-amber-600 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">未保存</span>
     {/if}
   </div>
 
   <div class="flex items-center gap-2">
+    <!-- 主题切换 -->
+    <Button variant="ghost" size="icon" class="h-8 w-8" onclick={toggleThemeMode} title="切换主题模式">
+      {#if $themeStore.mode === 'dark'}
+        <Moon class="w-4 h-4" />
+      {:else if $themeStore.mode === 'light'}
+        <Sun class="w-4 h-4" />
+      {:else}
+        <Monitor class="w-4 h-4" />
+      {/if}
+    </Button>
+    <Button variant="ghost" size="icon" class="h-8 w-8" onclick={openThemeImport} title="导入主题">
+      <Palette class="w-4 h-4" />
+    </Button>
+    <div class="w-px h-6 bg-border mx-1"></div>
+    
     <Button variant="outline" size="sm" onclick={importFlow}>
       <FileUp class="w-4 h-4 mr-1" />
       导入
@@ -102,7 +118,7 @@
       <RotateCcw class="w-4 h-4 mr-1" />
       重置
     </Button>
-    <div class="w-px h-6 bg-gray-200 mx-1"></div>
+    <div class="w-px h-6 bg-border mx-1"></div>
     <Button variant="outline" size="sm" onclick={saveFlow} disabled={!$flowStore.isDirty}>
       <Save class="w-4 h-4 mr-1" />
       保存

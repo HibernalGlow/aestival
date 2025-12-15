@@ -27,7 +27,7 @@
       status = 'error';
       return;
     }
-    const success = themeStore.importFromJSON(jsonInput);
+    const success = themeStore.importThemeJSON(jsonInput);
     if (success) {
       status = 'success';
       setTimeout(() => { closeThemeImport(); jsonInput = ''; status = 'idle'; }, 500);
@@ -38,7 +38,7 @@
   }
 
   function handleReset() {
-    themeStore.resetToDefault();
+    themeStore.setTheme('Default');
     status = 'success';
     setTimeout(() => { closeThemeImport(); status = 'idle'; }, 500);
   }
