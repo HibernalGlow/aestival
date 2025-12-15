@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import { onMount } from 'svelte';
   import { flowStore, taskStore } from '$lib/stores';
   import { api } from '$lib/services/api';
@@ -8,7 +8,7 @@
   import NodePalette from '$lib/components/flow/NodePalette.svelte';
   import LogViewer from '$lib/components/execution/LogViewer.svelte';
 
-  const flowId = $derived($page.params.id);
+  const flowId = $derived(page.params.id);
 
   onMount(() => {
     if (flowId && flowId !== 'new') {
@@ -26,7 +26,7 @@
   });
 </script>
 
-<div class="h-screen flex flex-col bg-gray-100">
+<div class="h-full flex flex-col bg-background">
   <FlowToolbar />
 
   <div class="flex-1 flex overflow-hidden">
@@ -38,7 +38,7 @@
       </div>
 
       {#if $taskStore.status !== 'idle' || $taskStore.logs.length > 0}
-        <div class="h-64 border-t border-gray-200">
+        <div class="h-64 border-t">
           <LogViewer />
         </div>
       {/if}

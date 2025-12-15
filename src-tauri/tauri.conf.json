@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Data Analyzer Pro",
+  "productName": "AestivalFlow",
   "version": "2.1.0",
-  "identifier": "com.datacorp.dataanalyzerpro",
+  "identifier": "com.aestival.flow",
   "build": {
     "beforeDevCommand": "pnpm dev:tauri",
     "devUrl": "http://localhost:1420",
@@ -12,13 +12,14 @@
   "app": {
     "windows": [
       {
-        "title": "Data Analyzer Pro",
+        "title": "AestivalFlow",
         "width": 1400,
         "height": 900,
         "minWidth": 1000,
         "minHeight": 700,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "decorations": false
       }
     ],
     "security": {
