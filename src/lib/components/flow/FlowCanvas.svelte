@@ -16,6 +16,7 @@
   import RepackuNode from '$lib/components/nodes/RepackuNode.svelte';
   import RawfilterNode from '$lib/components/nodes/RawfilterNode.svelte';
   import CrashuNode from '$lib/components/nodes/CrashuNode.svelte';
+  import TerminalNode from '$lib/components/nodes/TerminalNode.svelte';
 
   let nodeIdCounter = 1;
   let containerRef: HTMLDivElement;
@@ -51,7 +52,9 @@
     tool_nameu: ToolNode,
     tool_formatv: ToolNode,
     // 输出节点
-    log_output: OutputNode
+    log_output: OutputNode,
+    // 终端节点
+    terminal: TerminalNode
   };
 
   function handleKeyDown(e: KeyboardEvent) {

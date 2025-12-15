@@ -76,3 +76,4 @@ app.config.json
 !.gitignore
 !.gitkeep
 !.env.example
+src-python/config/flows/*.json

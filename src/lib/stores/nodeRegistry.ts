@@ -154,6 +154,15 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     icon: 'Terminal',
     inputs: ['any'],
     outputs: []
+  },
+  {
+    type: 'terminal',
+    category: 'output',
+    label: '终端输出',
+    description: '实时显示后端终端输出',
+    icon: 'Terminal',
+    inputs: ['any'],
+    outputs: []
   }
 ];
 

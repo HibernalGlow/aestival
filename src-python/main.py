@@ -25,6 +25,7 @@ from api.tools import router as tools_router
 from api.nodes import router as nodes_router
 from api.execution import router as execution_router
 from api.websocket import router as websocket_router
+from api.terminal_ws import router as terminal_router
 
 PORT_API = 8009
 server_instance = None
@@ -113,6 +114,7 @@ app.include_router(tools_router, prefix="/v1")
 app.include_router(nodes_router, prefix="/v1")
 app.include_router(execution_router, prefix="/v1")
 app.include_router(websocket_router, prefix="/v1")
+app.include_router(terminal_router)  # 终端 WebSocket，无前缀
 
 @app.get("/")
 async def root():
