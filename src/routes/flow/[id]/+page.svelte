@@ -4,8 +4,8 @@
   import { flowStore, taskStore } from '$lib/stores';
   import { api } from '$lib/services/api';
   import FlowCanvas from '$lib/components/flow/FlowCanvas.svelte';
-  import FlowToolbar from '$lib/components/flow/FlowToolbar.svelte';
-  import NodePalette from '$lib/components/flow/NodePalette.svelte';
+  import FloatingToolbar from '$lib/components/flow/FloatingToolbar.svelte';
+  import FloatingPalette from '$lib/components/flow/FloatingPalette.svelte';
   import LogViewer from '$lib/components/execution/LogViewer.svelte';
 
   const flowId = $derived(page.params.id);
@@ -26,22 +26,20 @@
   });
 </script>
 
-<div class="h-full flex flex-col bg-background">
-  <FlowToolbar />
-
-  <div class="flex-1 flex overflow-hidden">
-    <NodePalette />
-
-    <div class="flex-1 flex flex-col">
-      <div class="flex-1">
-        <FlowCanvas />
-      </div>
-
-      {#if $taskStore.status !== 'idle' || $taskStore.logs.length > 0}
-        <div class="h-64 border-t">
-          <LogViewer />
-        </div>
-      {/if}
-    </div>
+<div class="h-full flex flex-col bg-background relative">
+  <!-- 全屏画布 -->
+  <div class="flex-1">
+    <FlowCanvas />
   </div>
+
+  <!-- 浮动面板 -->
+  <FloatingToolbar />
+  <FloatingPalette />
+
+  <!-- 日志面板 -->
+  {#if $taskStore.status !== 'idle' || $taskStore.logs.length > 0}
+    <div class="absolute bottom-0 left-0 right-0 h-64 bg-card/95 backdrop-blur border-t">
+      <LogViewer />
+    </div>
+  {/if}
 </div>
