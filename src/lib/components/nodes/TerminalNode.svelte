@@ -81,10 +81,19 @@
     }
   }
 
+  // 移除 ANSI 转义码
+  function stripAnsi(text: string): string {
+    // 匹配 ANSI 转义序列
+    return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')
+               .replace(/\[[\d;]*m/g, '');
+  }
+
   // 添加一行输出
   function addLine(text: string) {
-    // 处理多行文本
-    const newLines = text.split('\n').filter(l => l.length > 0);
+    // 处理多行文本，移除 ANSI 转义码
+    const newLines = text.split('\n')
+      .map(l => stripAnsi(l))
+      .filter(l => l.length > 0);
     lines = [...lines, ...newLines].slice(-maxLines);
     
     // 自动滚动到底部
