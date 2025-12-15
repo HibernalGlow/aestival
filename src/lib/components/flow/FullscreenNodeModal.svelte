@@ -1,30 +1,12 @@
 <script lang="ts">
   /**
    * 全屏节点模态框
-   * 用于以全屏方式显示节点内容
+   * 自动从 nodeRegistry 获取组件，无需手动导入
    */
   import { fullscreenNodeStore } from '$lib/stores/fullscreenNode.svelte';
+  import { getNodeComponent, getNodeDefinition } from '$lib/stores/nodeRegistry';
   import { X, Minimize2 } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
-  
-  // 导入全屏内容组件 - 直接使用节点组件的全屏模式
-  import TrenameNode from '$lib/components/nodes/TrenameNode.svelte';
-  import RepackuFullscreen from '$lib/components/fullscreen/RepackuFullscreen.svelte';
-
-  // 全屏内容组件映射
-  const fullscreenComponents: Record<string, any> = {
-    trename: TrenameNode,
-    repacku: RepackuFullscreen
-  };
-
-  // 节点类型标题映射
-  const nodeTypeTitles: Record<string, string> = {
-    trename: '批量重命名',
-    repacku: '文件重打包',
-    terminal: '终端输出',
-    crashu: '崩溃检测',
-    rawfilter: '原始过滤'
-  };
 
   function handleClose() {
     fullscreenNodeStore.close();
@@ -40,8 +22,9 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if $fullscreenNodeStore.isOpen && $fullscreenNodeStore.nodeType}
-  {@const FullscreenComponent = fullscreenComponents[$fullscreenNodeStore.nodeType]}
-  {@const title = nodeTypeTitles[$fullscreenNodeStore.nodeType] || $fullscreenNodeStore.nodeType}
+  {@const FullscreenComponent = getNodeComponent($fullscreenNodeStore.nodeType)}
+  {@const nodeDef = getNodeDefinition($fullscreenNodeStore.nodeType)}
+  {@const title = nodeDef?.label || $fullscreenNodeStore.nodeType}
   
   <!-- 背景遮罩 -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->

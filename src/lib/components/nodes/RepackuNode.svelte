@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
    * RepackuNode - 文件重打包节点组件
+   * 支持节点模式和全屏模式
    * 
    * 完整流程：
    * 1. 分析阶段：扫描目录结构，生成配置文件
@@ -16,13 +17,16 @@
   import NodeWrapper from './NodeWrapper.svelte';
   import { 
     Play, LoaderCircle, FolderOpen, Clipboard, Package,
-    CheckCircle, XCircle, FileArchive, Search, FolderTree,
+    CircleCheck, CircleX, FileArchive, Search, FolderTree,
     Trash2, Copy, Check
   } from '@lucide/svelte';
   
   let copied = false;
   
-  export let id: string;
+  // 支持节点模式和全屏模式
+  export let id: string = '';
+  export let nodeId: string = ''; // 全屏模式使用
+  export let fullscreen: boolean = false;
   export let data: {
     config?: { path?: string; types?: string[]; delete_after?: boolean };
     status?: 'idle' | 'running' | 'completed' | 'error';
@@ -30,6 +34,9 @@
     logs?: string[];
     label?: string;
   } = {};
+  
+  // 兼容两种调用方式
+  $: actualId = id || nodeId;
 
   type Phase = 'idle' | 'analyzing' | 'analyzed' | 'compressing' | 'completed' | 'error';
   
@@ -232,21 +239,9 @@
   }
 </script>
 
-<div class="min-w-[260px] max-w-[320px]">
-  <Handle type="target" position={Position.Left} class="bg-primary!" />
-  
-  <NodeWrapper
-    nodeId={id}
-    title="repacku"
-    icon={Package}
-    status={phase}
-    hasFullscreen={true}
-    fullscreenType="repacku"
-    fullscreenData={data}
-    {borderClass}
-  >
-    {#snippet children()}
-      <div class="p-4">
+<!-- 主体内容 snippet -->
+{#snippet mainContent(isFullscreen: boolean)}
+  <div class={isFullscreen ? 'p-6 max-w-2xl mx-auto' : 'p-4'}>
         <!-- 路径输入区域 -->
         {#if !hasInputConnection}
           <div class="mb-3 space-y-2">
@@ -356,10 +351,10 @@
           <div class="mb-3 p-2 rounded bg-muted space-y-1">
             <div class="flex items-center gap-2 text-sm">
               {#if compressionResult.success}
-                <CheckCircle class="w-4 h-4 text-green-500" />
+                <CircleCheck class="w-4 h-4 text-green-500" />
                 <span class="text-green-600">压缩完成</span>
               {:else}
-                <XCircle class="w-4 h-4 text-red-500" />
+                <CircleX class="w-4 h-4 text-red-500" />
                 <span class="text-red-600">压缩失败</span>
               {/if}
             </div>
@@ -433,8 +428,33 @@
           </div>
         {/if}
       </div>
-    {/snippet}
-  </NodeWrapper>
-  
-  <Handle type="source" position={Position.Right} class="bg-primary!" />
-</div>
+{/snippet}
+
+<!-- 节点模式 -->
+{#if !fullscreen}
+  <div class="min-w-[260px] max-w-[320px]">
+    <Handle type="target" position={Position.Left} class="bg-primary!" />
+    
+    <NodeWrapper
+      nodeId={actualId}
+      title="repacku"
+      icon={Package}
+      status={phase}
+      hasFullscreen={true}
+      fullscreenType="repacku"
+      fullscreenData={data}
+      {borderClass}
+    >
+      {#snippet children()}
+        {@render mainContent(false)}
+      {/snippet}
+    </NodeWrapper>
+    
+    <Handle type="source" position={Position.Right} class="bg-primary!" />
+  </div>
+{:else}
+  <!-- 全屏模式 -->
+  <div class="h-full overflow-auto">
+    {@render mainContent(true)}
+  </div>
+{/if}
