@@ -62,6 +62,9 @@
   
   // GridStack 布局（默认值）
   let gridLayout: GridItem[] = savedState?.gridLayout ?? [...DEFAULT_GRID_LAYOUT];
+  
+  // DashboardGrid 组件引用
+  let dashboardGrid: { compact: () => void } | undefined;
 
   // 处理布局变化
   function handleLayoutChange(newLayout: GridItem[]) {
@@ -305,7 +308,16 @@
     <Handle type="target" position={Position.Left} class="bg-primary!" />
   {/if}
   
-  <NodeWrapper nodeId={id} title="trename" icon={FilePenLine} status={phase} {borderClass} {isFullscreenRender}>
+  <NodeWrapper 
+    nodeId={id} 
+    title="trename" 
+    icon={FilePenLine} 
+    status={phase} 
+    {borderClass} 
+    {isFullscreenRender}
+    onCompact={() => dashboardGrid?.compact()}
+    onResetLayout={() => { gridLayout = [...DEFAULT_GRID_LAYOUT]; saveState(); }}
+  >
     {#snippet headerExtra()}
       <Button variant="ghost" size="icon" class="h-6 w-6" onclick={() => showOptions = !showOptions} title="选项">
         <Settings2 class="h-3 w-3" />
@@ -320,11 +332,12 @@
         <!-- 全屏模式：GridStack 可拖拽布局 -->
         <div class="h-full overflow-hidden">
           <DashboardGrid 
+            bind:this={dashboardGrid}
             columns={4} 
             cellHeight={80} 
             margin={12}
+            showToolbar={false}
             onLayoutChange={handleLayoutChange}
-            onReset={() => { gridLayout = [...DEFAULT_GRID_LAYOUT]; saveState(); }}
           >
             <!-- 路径输入 + 扫描 -->
             {@const pathItem = getLayoutItem('path')}
