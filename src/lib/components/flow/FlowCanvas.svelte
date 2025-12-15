@@ -10,13 +10,7 @@
   import '@xyflow/svelte/dist/style.css';
 
   import { flowStore } from '$lib/stores';
-  import InputNode from '$lib/components/nodes/InputNode.svelte';
-  import OutputNode from '$lib/components/nodes/OutputNode.svelte';
-  import RepackuNode from '$lib/components/nodes/RepackuNode.svelte';
-  import RawfilterNode from '$lib/components/nodes/RawfilterNode.svelte';
-  import CrashuNode from '$lib/components/nodes/CrashuNode.svelte';
-  import TerminalNode from '$lib/components/nodes/TerminalNode.svelte';
-  import TrenameNode from '$lib/components/nodes/TrenameNode.svelte';
+  import { getNodeTypes } from '$lib/stores/nodeRegistry';
 
   let nodeIdCounter = 1;
   let containerRef: HTMLDivElement;
@@ -34,20 +28,8 @@
     edges = $flowStore.edges as any[];
   });
 
-  const nodeTypes: NodeTypes = {
-    // 输入节点
-    clipboard_input: InputNode,
-    folder_input: InputNode,
-    path_input: InputNode,
-    // 工具节点
-    repacku: RepackuNode,
-    rawfilter: RawfilterNode,
-    crashu: CrashuNode,
-    trename: TrenameNode,
-    // 输出节点
-    log_output: OutputNode,
-    terminal: TerminalNode
-  };
+  // 从注册表获取节点类型映射
+  const nodeTypes: NodeTypes = getNodeTypes();
 
   function handleKeyDown(e: KeyboardEvent) {
     if ((e.key === 'Delete' || e.key === 'Backspace') && $flowStore.selectedNodeId) {

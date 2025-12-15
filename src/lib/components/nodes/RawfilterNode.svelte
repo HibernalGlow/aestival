@@ -58,7 +58,7 @@
 <BaseNode
   {id}
   icon="🔍"
-  displayName="相似文件过滤"
+  displayName="rawfilter"
   bind:status={localStatus}
   bind:hasInputConnection={localHasInputConnection}
   bind:path={localPath}

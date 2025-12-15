@@ -327,7 +327,7 @@
         {#if collapsed}<ChevronRight class="w-4 h-4" />{:else}<ChevronDown class="w-4 h-4" />{/if}
       </button>
       <Package class="w-5 h-5 text-blue-500" />
-      <span class="font-semibold">文件重打包</span>
+      <span class="font-semibold">repacku</span>
       <Badge variant={phase === 'error' ? 'destructive' : phase === 'completed' ? 'default' : 'secondary'} class="text-xs">
         {phase === 'idle' ? '就绪' : 
          phase === 'analyzing' ? '分析中' : 

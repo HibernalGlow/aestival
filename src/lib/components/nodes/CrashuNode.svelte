@@ -58,7 +58,7 @@
 <BaseNode
   {id}
   icon="💥"
-  displayName="相似文件夹检测"
+  displayName="crashu"
   bind:status={localStatus}
   bind:hasInputConnection={localHasInputConnection}
   bind:path={localPath}

@@ -237,7 +237,7 @@
         {#if collapsed}<ChevronRight class="w-4 h-4" />{:else}<ChevronDown class="w-4 h-4" />{/if}
       </button>
       <FileEdit class="w-4 h-4 text-purple-500" />
-      <span class="font-semibold text-sm">批量重命名</span>
+      <span class="font-semibold text-sm">trename</span>
       <Badge variant={phase === 'error' ? 'destructive' : phase === 'completed' ? 'default' : 'secondary'} class="text-xs ml-1">
         {phase === 'idle' ? '就绪' : phase === 'scanning' ? '扫描' : phase === 'ready' ? '待操作' : phase === 'renaming' ? '执行' : phase === 'completed' ? '完成' : '错误'}
       </Badge>
