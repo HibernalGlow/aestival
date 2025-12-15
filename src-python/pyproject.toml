@@ -1,0 +1,89 @@
+[project]
+name = "aestival-backend"
+version = "0.1.0"
+description = "AestivalFlow Python 后端服务"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "HibernalGlow"}
+]
+dependencies = [
+    # Web 框架
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "pydantic>=2.5.0",
+    
+    # HTTP 客户端
+    "httpx>=0.25.2",
+    "requests>=2.31.0",
+    
+    # 剪贴板支持
+    "pyperclip>=1.8.0",
+    
+    # 日志
+    "loguru>=0.7.0",
+    
+    # 工具适配器依赖 (从 GitHub 安装)
+    # repacku - 文件重打包工具
+    "autorepack @ git+https://github.com/HibernalGlow/AutoRepack.git",
+    # rawfilter - 图片过滤工具
+    "imagefilter @ git+https://github.com/HibernalGlow/ImageFilter.git",
+    # crashu - 损坏文件检测工具
+    "previewa @ git+https://github.com/HibernalGlow/ArtistPreview.git",
+    # trename - 文件重命名工具
+    "nameu @ git+https://github.com/HibernalGlow/NameU.git",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pyinstaller>=6.10.0",
+    "hypothesis>=6.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["adapters", "api", "core", "models", "storage", "config"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.yaml", "*.toml"]
+
+# PyInstaller 配置
+[tool.pyinstaller]
+name = "main"
+onefile = true
+console = true
+clean = true
+strip = false
+upx = true
+
+# 隐藏导入 - 只需配置 PyInstaller 无法自动检测的模块
+# 适配器依赖会由 build.py 自动扫描 adapters/*_adapter.py 中的 import 语句
+hiddenimports = [
+    # FastAPI/uvicorn 内部模块（动态加载，必须手动指定）
+    "uvicorn.logging",
+    "uvicorn.loops",
+    "uvicorn.loops.auto",
+    "uvicorn.protocols",
+    "uvicorn.protocols.http",
+    "uvicorn.protocols.http.auto",
+    "uvicorn.protocols.websockets",
+    "uvicorn.protocols.websockets.auto",
+    "uvicorn.lifespan",
+    "uvicorn.lifespan.on",
+]
+
+# 排除不需要的大型包
+excludes = [
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "scipy",
+    "tkinter",
+    "PyQt5",
+    "PyQt6",
+]

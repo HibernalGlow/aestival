@@ -14,7 +14,7 @@
     "dialog:allow-open",
     "dialog:allow-save",
     "clipboard-manager:default",
-    "clipboard-manager:allow-read",
-    "clipboard-manager:allow-write"
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text"
   ]
 }
