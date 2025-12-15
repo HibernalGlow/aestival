@@ -11,7 +11,6 @@
 
   import { flowStore } from '$lib/stores';
   import InputNode from '$lib/components/nodes/InputNode.svelte';
-  import ToolNode from '$lib/components/nodes/ToolNode.svelte';
   import OutputNode from '$lib/components/nodes/OutputNode.svelte';
   import RepackuNode from '$lib/components/nodes/RepackuNode.svelte';
   import RawfilterNode from '$lib/components/nodes/RawfilterNode.svelte';
@@ -40,24 +39,14 @@
     clipboard_input: InputNode,
     folder_input: InputNode,
     path_input: InputNode,
-    // 工具节点 - 新版（直接 import）
+    // 工具节点
     repacku: RepackuNode,
     rawfilter: RawfilterNode,
     crashu: CrashuNode,
-    // 工具节点 - 旧版（兼容）
-    tool_repacku: RepackuNode,
-    tool_rawfilter: RawfilterNode,
-    tool_crashu: CrashuNode,
-    tool_samea: ToolNode,
-    tool_migratef: ToolNode,
-    tool_nameu: ToolNode,
-    tool_formatv: ToolNode,
+    trename: TrenameNode,
     // 输出节点
     log_output: OutputNode,
-    // 终端节点
-    terminal: TerminalNode,
-    // 批量重命名
-    trename: TrenameNode
+    terminal: TerminalNode
   };
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -148,9 +137,9 @@
       <Controls />
       <MiniMap
         nodeColor={(node) => {
-          if (node.type?.startsWith('tool_')) return '#3b82f6';
+          if (node.type === 'repacku' || node.type === 'rawfilter' || node.type === 'crashu' || node.type === 'trename') return '#3b82f6';
           if (node.type?.includes('input')) return '#22c55e';
-          if (node.type?.includes('output')) return '#f59e0b';
+          if (node.type?.includes('output') || node.type === 'terminal') return '#f59e0b';
           return '#64748b';
         }}
       />

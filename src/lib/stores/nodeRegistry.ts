@@ -36,7 +36,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     }
   },
 
-  // 工具节点 - 新版（直接 import 模式）
+  // 工具节点
   {
     type: 'repacku',
     category: 'tool',
@@ -94,70 +94,6 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       include_hidden: { type: 'boolean', label: '包含隐藏文件', default: false },
       dry_run: { type: 'boolean', label: '模拟执行', default: false }
     }
-  },
-  // 工具节点 - 旧版（兼容）
-  {
-    type: 'tool_repacku',
-    category: 'tool',
-    label: 'Repacku (旧)',
-    description: '文件重打包工具',
-    icon: 'Package',
-    inputs: ['path'],
-    outputs: ['path']
-  },
-  {
-    type: 'tool_samea',
-    category: 'tool',
-    label: 'Samea',
-    description: '相似文件分析',
-    icon: 'Search',
-    inputs: ['path'],
-    outputs: ['path', 'report'],
-    configSchema: {
-      threshold: { type: 'number', label: '相似度阈值', default: 0.9 },
-      method: { type: 'select', label: '比较方法', options: ['hash', 'pixel'], default: 'hash' }
-    }
-  },
-  {
-    type: 'tool_crashu',
-    category: 'tool',
-    label: 'Crashu (旧)',
-    description: '崩溃文件处理',
-    icon: 'AlertTriangle',
-    inputs: ['path'],
-    outputs: ['path']
-  },
-  {
-    type: 'tool_migratef',
-    category: 'tool',
-    label: 'Migratef',
-    description: '文件迁移工具',
-    icon: 'FolderSync',
-    inputs: ['path'],
-    outputs: ['path'],
-    configSchema: {
-      target: { type: 'path', label: '目标路径', required: true },
-      mode: { type: 'select', label: '模式', options: ['copy', 'move'], default: 'move' },
-      existing_dir: { type: 'select', label: '已存在处理', options: ['skip', 'merge', 'replace'], default: 'merge' }
-    }
-  },
-  {
-    type: 'tool_nameu',
-    category: 'tool',
-    label: 'Nameu',
-    description: '文件命名工具',
-    icon: 'FileText',
-    inputs: ['path'],
-    outputs: ['path']
-  },
-  {
-    type: 'tool_formatv',
-    category: 'tool',
-    label: 'Formatv',
-    description: '视频格式化',
-    icon: 'Video',
-    inputs: ['path'],
-    outputs: ['path']
   },
 
   // 输出节点

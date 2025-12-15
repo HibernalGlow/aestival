@@ -1,7 +1,6 @@
 export { default as BaseNode } from './BaseNode.svelte';
 export { default as InputNode } from './InputNode.svelte';
 export { default as OutputNode } from './OutputNode.svelte';
-export { default as ToolNode } from './ToolNode.svelte';
 export { default as RepackuNode } from './RepackuNode.svelte';
 export { default as RawfilterNode } from './RawfilterNode.svelte';
 export { default as CrashuNode } from './CrashuNode.svelte';
