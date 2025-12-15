@@ -2,7 +2,7 @@
   /**
    * RepackuNode - 文件重打包节点组件
    * 支持文件树预览和 Bento Grid 全屏布局
-   * 状态存储在 data 对象中，以便全屏和普通模式共享
+   * 使用 nodeStateStore 在全屏和普通模式间共享状态
    */
   import { Handle, Position } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
@@ -14,7 +14,7 @@
   import * as TreeView from '$lib/components/ui/tree-view';
   import * as BentoGrid from '$lib/components/ui/bento-grid';
   import { api } from '$lib/services/api';
-  import { flowStore } from '$lib/stores';
+  import { nodeStateStore } from '$lib/stores/nodeStateStore';
   import NodeWrapper from './NodeWrapper.svelte';
   import type { FolderNode, CompressionStats, FolderCard } from '$lib/types/repacku';
   import { 
@@ -39,18 +39,6 @@
     logs?: string[];
     label?: string;
     showTree?: boolean;
-    // 持久化状态 - 在全屏和普通模式间共享
-    _state?: {
-      phase: Phase;
-      progress: number;
-      progressText: string;
-      folderTree: FolderNode | null;
-      analysisResult: AnalysisResult | null;
-      compressionResult: CompressionResult | null;
-      selectedTypes: string[];
-      expandedFolders: string[];
-      expandedCards: string[];
-    };
   } = {};
   export let isFullscreenRender = false;
 
@@ -65,35 +53,51 @@
     folderTree?: FolderNode;
   }
   
-  interface CompressionResult {
+  interface CompressionResultData {
     success: boolean;
     compressed: number;
     failed: number;
     total: number;
   }
   
-  // 从 data._state 恢复状态，或使用默认值
+  // 节点内部状态类型
+  interface RepackuState {
+    phase: Phase;
+    progress: number;
+    progressText: string;
+    folderTree: FolderNode | null;
+    analysisResult: AnalysisResult | null;
+    compressionResult: CompressionResultData | null;
+    selectedTypes: string[];
+    expandedFolders: string[];
+    expandedCards: string[];
+  }
+  
+  // 从 nodeStateStore 获取或初始化状态
+  const savedState = nodeStateStore.get<RepackuState>(id);
+  
+  // 初始化状态
   let path = data?.config?.path ?? '';
   let deleteAfter = data?.config?.delete_after ?? false;
-  let phase: Phase = data?._state?.phase ?? 'idle';
+  let phase: Phase = savedState?.phase ?? 'idle';
   let logs: string[] = data?.logs ? [...data.logs] : [];
   let hasInputConnection = data?.hasInputConnection ?? false;
   let showTree = data?.showTree ?? true;
   
-  let progress = data?._state?.progress ?? 0;
-  let progressText = data?._state?.progressText ?? '';
+  let progress = savedState?.progress ?? 0;
+  let progressText = savedState?.progressText ?? '';
   
-  // 文件树数据 - 从持久化状态恢复
-  let folderTree: FolderNode | null = data?._state?.folderTree ?? null;
+  // 文件树数据
+  let folderTree: FolderNode | null = savedState?.folderTree ?? null;
   let stats: CompressionStats = { total: 0, entire: 0, selective: 0, skip: 0 };
-  let expandedFolders: Set<string> = new Set(data?._state?.expandedFolders ?? []);
+  let expandedFolders: Set<string> = new Set(savedState?.expandedFolders ?? []);
   
   // Bento Grid 卡片数据
   let bentoCards: FolderCard[] = [];
-  let expandedCards: Set<string> = new Set(data?._state?.expandedCards ?? []);
+  let expandedCards: Set<string> = new Set(savedState?.expandedCards ?? []);
   
-  let analysisResult: AnalysisResult | null = data?._state?.analysisResult ?? null;
-  let compressionResult: CompressionResult | null = data?._state?.compressionResult ?? null;
+  let analysisResult: AnalysisResult | null = savedState?.analysisResult ?? null;
+  let compressionResult: CompressionResultData | null = savedState?.compressionResult ?? null;
 
   const typeOptions = [
     { value: 'image', label: '图片' },
@@ -102,23 +106,20 @@
     { value: 'audio', label: '音频' }
   ];
   
-  let selectedTypes: string[] = data?._state?.selectedTypes ?? [];
+  let selectedTypes: string[] = savedState?.selectedTypes ?? [];
   
-  // 保存状态到 data._state，以便在全屏/普通模式切换时保持
+  // 保存状态到 nodeStateStore
   function saveState() {
-    flowStore.updateNodeData(id, {
-      ...data,
-      _state: {
-        phase,
-        progress,
-        progressText,
-        folderTree,
-        analysisResult,
-        compressionResult,
-        selectedTypes,
-        expandedFolders: Array.from(expandedFolders),
-        expandedCards: Array.from(expandedCards)
-      }
+    nodeStateStore.set<RepackuState>(id, {
+      phase,
+      progress,
+      progressText,
+      folderTree,
+      analysisResult,
+      compressionResult,
+      selectedTypes,
+      expandedFolders: Array.from(expandedFolders),
+      expandedCards: Array.from(expandedCards)
     });
   }
   
