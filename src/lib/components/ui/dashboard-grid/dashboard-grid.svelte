@@ -25,6 +25,7 @@
    */
   import { onMount, onDestroy, tick } from 'svelte';
   import { GridStack } from 'gridstack';
+  import 'gridstack/dist/gridstack.min.css';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -75,17 +76,23 @@
     }
   }
 
-  // 从 DOM 元素获取当前布局
+  // 从 DOM 元素获取当前布局（优先从 DOM 属性读取，确保 resize 后数据正确）
   function getCurrentLayout(): GridItem[] {
     if (!grid) return [];
     return grid.getGridItems().map((el) => {
       const node = el.gridstackNode;
+      // 优先从 DOM 属性获取，因为 resize 后 node 对象可能未及时更新
+      const id = el.getAttribute('gs-id') || node?.id || '';
+      const x = parseInt(el.getAttribute('gs-x') || '') || (node?.x ?? 0);
+      const y = parseInt(el.getAttribute('gs-y') || '') || (node?.y ?? 0);
+      const w = parseInt(el.getAttribute('gs-w') || '') || (node?.w ?? 1);
+      const h = parseInt(el.getAttribute('gs-h') || '') || (node?.h ?? 1);
       return {
-        id: node?.id || el.getAttribute('gs-id') || '',
-        x: node?.x ?? 0,
-        y: node?.y ?? 0,
-        w: node?.w ?? 1,
-        h: node?.h ?? 1,
+        id,
+        x,
+        y,
+        w,
+        h,
         minW: node?.minW,
         minH: node?.minH,
         maxW: node?.maxW,
@@ -136,10 +143,7 @@
   });
 </script>
 
-<svelte:head>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@12/dist/gridstack.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridstack@12/dist/gridstack-extra.min.css" />
-</svelte:head>
+
 
 <div class="dashboard-container">
   {#if showToolbar}
