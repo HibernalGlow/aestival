@@ -3,6 +3,7 @@
    * TerminalNode - 终端输出节点
    * 
    * 通过 WebSocket 连接后端，实时显示所有终端输出
+   * 支持 ANSI 颜色转换
    */
   import { Handle, Position } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
@@ -18,6 +19,7 @@
     Pause,
     Play
   } from '@lucide/svelte';
+  import AnsiToHtml from 'ansi-to-html';
   
   // Props from SvelteFlow
   export let id: string;
@@ -26,11 +28,23 @@
     maxLines?: number;
   } = {};
 
+  // ANSI 转 HTML 转换器
+  const ansiConverter = new AnsiToHtml({
+    fg: '#d4d4d4',
+    bg: '#18181b',
+    colors: {
+      0: '#18181b', 1: '#ef4444', 2: '#22c55e', 3: '#eab308',
+      4: '#3b82f6', 5: '#a855f7', 6: '#06b6d4', 7: '#d4d4d4',
+      8: '#71717a', 9: '#f87171', 10: '#4ade80', 11: '#facc15',
+      12: '#60a5fa', 13: '#c084fc', 14: '#22d3ee', 15: '#fafafa'
+    }
+  });
+
   // 状态
   let connected = false;
   let paused = false;
   let copied = false;
-  let lines: string[] = [];
+  let lines: { text: string; html: string }[] = [];
   let ws: WebSocket | null = null;
   let terminalEl: HTMLDivElement;
   
@@ -81,19 +95,15 @@
     }
   }
 
-  // 移除 ANSI 转义码
-  function stripAnsi(text: string): string {
-    // 匹配 ANSI 转义序列
-    return text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '')
-               .replace(/\[[\d;]*m/g, '');
-  }
-
-  // 添加一行输出
+  // 添加一行输出（保留 ANSI 颜色）
   function addLine(text: string) {
-    // 处理多行文本，移除 ANSI 转义码
+    // 处理多行文本，转换 ANSI 为 HTML
     const newLines = text.split('\n')
-      .map(l => stripAnsi(l))
-      .filter(l => l.length > 0);
+      .filter(l => l.length > 0)
+      .map(l => ({
+        text: l.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '').replace(/\[[\d;]*m/g, ''),
+        html: ansiConverter.toHtml(l)
+      }));
     lines = [...lines, ...newLines].slice(-maxLines);
     
     // 自动滚动到底部
@@ -109,9 +119,9 @@
     lines = [];
   }
 
-  // 复制内容
+  // 复制内容（纯文本）
   async function copyContent() {
-    const text = lines.join('\n');
+    const text = lines.map(l => l.text).join('\n');
     try {
       await navigator.clipboard.writeText(text);
       copied = true;
@@ -175,8 +185,8 @@
     bind:this={terminalEl}
     class="bg-zinc-900 text-zinc-100 p-3 font-mono text-xs h-[300px] overflow-y-auto select-text cursor-text"
   >
-    {#each lines as line, i}
-      <div class="whitespace-pre-wrap break-all leading-relaxed {line.startsWith('❌') ? 'text-red-400' : line.startsWith('✅') ? 'text-green-400' : line.startsWith('⚠️') ? 'text-yellow-400' : ''}">{line}</div>
+    {#each lines as line}
+      <div class="whitespace-pre-wrap break-all leading-relaxed">{@html line.html}</div>
     {/each}
     {#if lines.length === 0}
       <div class="text-zinc-500 italic">等待输出...</div>
