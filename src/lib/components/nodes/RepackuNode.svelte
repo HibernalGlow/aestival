@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * RepackuNode - 文件重打包节点组件
-   * 支持文件树预览和 Bento Grid 全屏布局
-   * 使用 nodeStateStore 在全屏和普通模式间共享状态
+   * RepackuNode - 文件重打包节点组�?
+   * 支持文件树预览和 GridStack 全屏布局
+   * 使用 nodeStateStore 在全屏和普通模式间共享状�?
    */
   import { Handle, Position } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
@@ -12,7 +12,8 @@
   import { Progress } from '$lib/components/ui/progress';
   import { Badge } from '$lib/components/ui/badge';
   import * as TreeView from '$lib/components/ui/tree-view';
-  import * as BentoGrid from '$lib/components/ui/bento-grid';
+  import { DashboardGrid, DashboardItem } from '$lib/components/ui/dashboard-grid';
+  import type { GridItem } from '$lib/components/ui/dashboard-grid';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
   import NodeWrapper from './NodeWrapper.svelte';
@@ -60,10 +61,7 @@
     total: number;
   }
   
-  // 卡片尺寸类型
-  interface CardSize { cols: number; rows: number; }
-  
-  // 节点内部状态类型
+  // 节点内部状态类�?
   interface RepackuState {
     phase: Phase;
     progress: number;
@@ -74,14 +72,14 @@
     selectedTypes: string[];
     expandedFolders: string[];
     expandedCards: string[];
-    // 卡片尺寸记忆
-    cardSizes?: Record<string, CardSize>;
+    // GridStack 布局记忆
+    gridLayout?: GridItem[];
   }
   
-  // 从 nodeStateStore 获取或初始化状态
+  // �?nodeStateStore 获取或初始化状�?
   const savedState = getNodeState<RepackuState>(id);
   
-  // 初始化状态
+  // 初始化状�?
   let path = data?.config?.path ?? '';
   let deleteAfter = data?.config?.delete_after ?? false;
   let phase: Phase = savedState?.phase ?? 'idle';
@@ -92,7 +90,7 @@
   let progress = savedState?.progress ?? 0;
   let progressText = savedState?.progressText ?? '';
   
-  // 文件树数据
+  // 文件树数�?
   let folderTree: FolderNode | null = savedState?.folderTree ?? null;
   let stats: CompressionStats = { total: 0, entire: 0, selective: 0, skip: 0 };
   let expandedFolders: Set<string> = new Set(savedState?.expandedFolders ?? []);
@@ -104,20 +102,25 @@
   let analysisResult: AnalysisResult | null = savedState?.analysisResult ?? null;
   let compressionResult: CompressionResultData | null = savedState?.compressionResult ?? null;
   
-  // 卡片尺寸记忆（默认值）
-  let cardSizes: Record<string, CardSize> = savedState?.cardSizes ?? {
-    path: { cols: 2, rows: 3 },
-    operation: { cols: 1, rows: 2 },
-    stats: { cols: 1, rows: 2 },
-    progress: { cols: 2, rows: 1 },
-    tree: { cols: 3, rows: 4 },
-    log: { cols: 1, rows: 4 }
-  };
+  // GridStack 布局（默认值）
+  let gridLayout: GridItem[] = savedState?.gridLayout ?? [
+    { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 },
+    { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
+    { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
+    { id: 'progress', x: 2, y: 2, w: 2, h: 1, minW: 2, minH: 1 },
+    { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 2, minH: 2 },
+    { id: 'log', x: 3, y: 3, w: 1, h: 4, minW: 1, minH: 2 }
+  ];
   
-  // 更新卡片尺寸
-  function updateCardSize(cardId: string, cols: number, rows: number) {
-    cardSizes = { ...cardSizes, [cardId]: { cols, rows } };
+  // 处理布局变化
+  function handleLayoutChange(newLayout: GridItem[]) {
+    gridLayout = newLayout;
     saveState();
+  }
+  
+  // 根据 id 获取布局�?
+  function getLayoutItem(itemId: string): GridItem {
+    return gridLayout.find(item => item.id === itemId) ?? { id: itemId, x: 0, y: 0, w: 1, h: 1 };
   }
 
   const typeOptions = [
@@ -141,7 +144,7 @@
       selectedTypes,
       expandedFolders: Array.from(expandedFolders),
       expandedCards: Array.from(expandedCards),
-      cardSizes
+      gridLayout
     });
   }
   
@@ -253,16 +256,16 @@
           skipCount: response.data.skip_count ?? 0,
           folderTree: response.data.folder_tree
         };
-        logs = [...logs, `✅ 分析完成`, `📊 整体压缩: ${analysisResult.entireCount}, 选择性: ${analysisResult.selectiveCount}, 跳过: ${analysisResult.skipCount}`];
+        logs = [...logs, `�?分析完成`, `📊 整体压缩: ${analysisResult.entireCount}, 选择�? ${analysisResult.selectiveCount}, 跳过: ${analysisResult.skipCount}`];
       } else {
         phase = 'error';
         progress = 0;
-        logs = [...logs, `❌ 分析失败: ${response.message}`];
+        logs = [...logs, `�?分析失败: ${response.message}`];
       }
     } catch (error) {
       phase = 'error';
       progress = 0;
-      logs = [...logs, `❌ 分析失败: ${error}`];
+      logs = [...logs, `�?分析失败: ${error}`];
     }
   }
 
@@ -271,7 +274,7 @@
     phase = 'compressing';
     progress = 0;
     progressText = '正在压缩文件...';
-    logs = [...logs, `📦 开始压缩...`];
+    logs = [...logs, `📦 开始压�?..`];
     
     try {
       progress = 20;
@@ -395,75 +398,6 @@
   </div>
 {/snippet}
 
-<!-- Bento Grid 卡片渲染 -->
-{#snippet renderBentoCard(card: FolderCard)}
-  {@const node = card.node}
-  {@const isExpanded = expandedCards.has(node.path)}
-  {@const modeColor = getModeColorClass(node.compress_mode)}
-  {@const modeTextColor = getModeTextColorClass(node.compress_mode)}
-  {@const modeText = getModeName(node.compress_mode)}
-  
-  <BentoGrid.Card 
-    colSpan={card.colSpan} 
-    rowSpan={card.rowSpan}
-    clickable={card.hasChildren}
-    onclick={() => card.hasChildren && toggleCard(node.path)}
-    class="relative overflow-hidden"
-  >
-    <!-- 压缩模式指示条 -->
-    <div class="absolute top-0 left-0 right-0 h-1 {modeColor}"></div>
-    
-    <!-- 卡片内容 -->
-    <div class="pt-2">
-      <!-- 头部：文件夹名和展开图标 -->
-      <div class="flex items-center gap-2 mb-2">
-        <Folder class="w-5 h-5 text-yellow-500 shrink-0" />
-        <span class="font-medium truncate flex-1" title={node.name}>{node.name}</span>
-        {#if card.hasChildren}
-          {#if isExpanded}
-            <ChevronDown class="w-4 h-4 text-muted-foreground" />
-          {:else}
-            <ChevronRight class="w-4 h-4 text-muted-foreground" />
-          {/if}
-        {/if}
-      </div>
-      
-      <!-- 统计信息 -->
-      <div class="flex items-center gap-3 text-sm text-muted-foreground mb-2">
-        <span>{node.total_files} 文件</span>
-        <span class={modeTextColor}>{modeText}</span>
-      </div>
-      
-      <!-- 文件类型分布 -->
-      {#if node.dominant_types && node.dominant_types.length > 0}
-        <div class="flex flex-wrap gap-1">
-          {#each node.dominant_types as type}
-            {@const IconComponent = getFileTypeIcon(type)}
-            <Badge variant="secondary" class="text-xs gap-1">
-              <IconComponent class="w-3 h-3" />
-              {type}
-            </Badge>
-          {/each}
-        </div>
-      {/if}
-      
-      <!-- 展开的子文件夹 -->
-      {#if isExpanded && node.children && node.children.length > 0}
-        <div class="mt-3 pt-3 border-t space-y-2">
-          {#each node.children as child}
-            <div class="flex items-center gap-2 text-sm p-2 rounded bg-muted/30">
-              <span class="w-2 h-2 rounded-full shrink-0 {getModeColorClass(child.compress_mode)}"></span>
-              <Folder class="w-4 h-4 text-yellow-500 shrink-0" />
-              <span class="truncate flex-1">{child.name}</span>
-              <span class="text-muted-foreground">{child.total_files}</span>
-            </div>
-          {/each}
-        </div>
-      {/if}
-    </div>
-  </BentoGrid.Card>
-{/snippet}
-
 <div class="{isFullscreenRender ? 'h-full w-full flex flex-col' : 'min-w-[260px] max-w-[400px]'}">
   {#if !isFullscreenRender}
     <Handle type="target" position={Position.Left} class="bg-primary!" />
@@ -478,24 +412,25 @@
     
     {#snippet children()}
       {#if isFullscreenRender}
-        <!-- 全屏模式：Bento Grid 便当盒布局 - 错位组合 -->
-        <div class="h-full overflow-y-auto p-4">
-          <div class="grid grid-cols-4 gap-4" style="grid-auto-rows: minmax(80px, auto);">
-            
-            <!-- 左侧大卡片: 路径输入 + 类型过滤 -->
-            <div 
-              class="bg-card rounded-3xl border p-6 shadow-sm flex flex-col resize overflow-auto"
-              style="grid-column: span {cardSizes.path?.cols ?? 2}; grid-row: span {cardSizes.path?.rows ?? 3}; min-width: 200px; min-height: 160px;"
-            >
-              <!-- 路径输入 -->
-              <div class="mb-6">
+        <!-- 全屏模式：GridStack 可拖拽布局 -->
+        <div class="h-full overflow-hidden">
+          <DashboardGrid 
+            columns={4} 
+            cellHeight={80} 
+            margin={12}
+            onLayoutChange={handleLayoutChange}
+          >
+            <!-- 路径输入 + 类型过滤 -->
+            {@const pathItem = getLayoutItem('path')}
+            <DashboardItem id="path" x={pathItem.x} y={pathItem.y} w={pathItem.w} h={pathItem.h} minW={2} minH={2}>
+              <div class="h-full flex flex-col p-2">
                 <div class="flex items-center gap-2 mb-3">
                   <FolderOpen class="w-5 h-5 text-primary" />
                   <span class="font-semibold">目标路径</span>
                 </div>
                 {#if !hasInputConnection}
-                  <div class="flex gap-2">
-                    <Input bind:value={path} placeholder="输入或选择文件夹路径..." disabled={isRunning} class="flex-1 h-10" />
+                  <div class="flex gap-2 mb-4">
+                    <Input bind:value={path} placeholder="输入或选择文件夹路�?.." disabled={isRunning} class="flex-1 h-10" />
                     <Button variant="outline" size="icon" class="h-10 w-10 shrink-0" onclick={selectFolder} disabled={isRunning}>
                       <FolderOpen class="h-4 w-4" />
                     </Button>
@@ -504,105 +439,94 @@
                     </Button>
                   </div>
                 {:else}
-                  <div class="text-muted-foreground p-3 bg-muted rounded-xl flex items-center gap-2">
+                  <div class="text-muted-foreground p-3 bg-muted rounded-xl flex items-center gap-2 mb-4">
                     <span>←</span><span>输入来自上游节点</span>
                   </div>
                 {/if}
-              </div>
-              
-              <!-- 文件类型过滤 -->
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-3">
-                  <FileText class="w-5 h-5 text-blue-500" />
-                  <span class="font-semibold">文件类型</span>
-                  <span class="text-xs text-muted-foreground">(留空全部)</span>
+                <div class="flex items-center gap-2 mb-2">
+                  <FileText class="w-4 h-4 text-blue-500" />
+                  <span class="text-sm font-medium">文件类型</span>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2 mb-4">
                   {#each typeOptions as option}
                     <button
-                      class="px-4 py-2.5 text-sm rounded-xl border transition-all {selectedTypes.includes(option.value) ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-background border-border hover:border-primary'}"
+                      class="px-3 py-1.5 text-sm rounded-lg border transition-all {selectedTypes.includes(option.value) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:border-primary'}"
                       onclick={() => toggleType(option.value)}
                       disabled={isRunning}
                     >{option.label}</button>
                   {/each}
                 </div>
-              </div>
-              
-              <!-- 选项 -->
-              <div class="pt-4 border-t mt-4">
-                <label class="flex items-center gap-3 cursor-pointer">
+                <label class="flex items-center gap-2 mt-auto pt-3 border-t cursor-pointer">
                   <Checkbox id="delete-after-fs-{id}" bind:checked={deleteAfter} disabled={isRunning} />
                   <span class="text-sm flex items-center gap-1"><Trash2 class="w-4 h-4 text-orange-500" />压缩后删除源文件</span>
                 </label>
               </div>
-            </div>
+            </DashboardItem>
             
-            <!-- 右上: 操作按钮 -->
-            <div 
-              class="bg-card rounded-3xl border p-5 shadow-sm flex flex-col resize overflow-auto"
-              style="grid-column: span {cardSizes.operation?.cols ?? 1}; grid-row: span {cardSizes.operation?.rows ?? 2}; min-width: 150px; min-height: 120px;"
-            >
-              <div class="flex items-center gap-2 mb-4">
-                <Play class="w-5 h-5 text-green-500" />
-                <span class="font-semibold">操作</span>
-              </div>
-              <div class="flex flex-col gap-3 flex-1 justify-center">
-                {#if phase === 'idle' || phase === 'error'}
-                  <Button class="h-14 text-base" onclick={handleAnalyze} disabled={!canAnalyze}>
-                    <Search class="h-5 w-5 mr-2" />扫描分析
-                  </Button>
-                {:else if phase === 'analyzing'}
-                  <Button class="h-14 text-base" disabled>
-                    <LoaderCircle class="h-5 w-5 mr-2 animate-spin" />分析中...
-                  </Button>
-                {:else if phase === 'analyzed'}
-                  <Button class="h-14 text-base" onclick={handleCompress} disabled={!canCompress}>
-                    <FileArchive class="h-5 w-5 mr-2" />开始压缩
-                  </Button>
-                  <Button variant="outline" class="h-10" onclick={handleReset}>重置</Button>
-                {:else if phase === 'compressing'}
-                  <Button class="h-14 text-base" disabled>
-                    <LoaderCircle class="h-5 w-5 mr-2 animate-spin" />压缩中...
-                  </Button>
-                {:else if phase === 'completed'}
-                  <Button class="h-14 text-base" variant="outline" onclick={handleReset}>
-                    <Play class="h-5 w-5 mr-2" />重新开始
-                  </Button>
-                {/if}
-              </div>
-            </div>
-            
-            <!-- 右上角: 统计数字 -->
-            <div 
-              class="bg-card rounded-3xl border p-5 shadow-sm resize overflow-auto"
-              style="grid-column: span {cardSizes.stats?.cols ?? 1}; grid-row: span {cardSizes.stats?.rows ?? 2}; min-width: 150px; min-height: 120px;"
-            >
-              <div class="flex items-center gap-2 mb-3">
-                <FolderTree class="w-5 h-5 text-yellow-500" />
-                <span class="font-semibold">统计</span>
-              </div>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between p-3 bg-green-500/10 rounded-xl">
-                  <span class="text-sm">整体压缩</span>
-                  <span class="text-2xl font-bold text-green-600">{analysisResult?.entireCount ?? '-'}</span>
+            <!-- 操作按钮 -->
+            {@const opItem = getLayoutItem('operation')}
+            <DashboardItem id="operation" x={opItem.x} y={opItem.y} w={opItem.w} h={opItem.h} minW={1} minH={2}>
+              <div class="h-full flex flex-col p-2">
+                <div class="flex items-center gap-2 mb-3">
+                  <Play class="w-5 h-5 text-green-500" />
+                  <span class="font-semibold">操作</span>
                 </div>
-                <div class="flex items-center justify-between p-3 bg-yellow-500/10 rounded-xl">
-                  <span class="text-sm">选择性</span>
-                  <span class="text-2xl font-bold text-yellow-600">{analysisResult?.selectiveCount ?? '-'}</span>
-                </div>
-                <div class="flex items-center justify-between p-3 bg-gray-500/10 rounded-xl">
-                  <span class="text-sm">跳过</span>
-                  <span class="text-2xl font-bold text-gray-500">{analysisResult?.skipCount ?? '-'}</span>
+                <div class="flex flex-col gap-2 flex-1 justify-center">
+                  {#if phase === 'idle' || phase === 'error'}
+                    <Button class="h-12" onclick={handleAnalyze} disabled={!canAnalyze}>
+                      <Search class="h-4 w-4 mr-2" />扫描分析
+                    </Button>
+                  {:else if phase === 'analyzing'}
+                    <Button class="h-12" disabled>
+                      <LoaderCircle class="h-4 w-4 mr-2 animate-spin" />分析�?..
+                    </Button>
+                  {:else if phase === 'analyzed'}
+                    <Button class="h-12" onclick={handleCompress} disabled={!canCompress}>
+                      <FileArchive class="h-4 w-4 mr-2" />开始压�?
+                    </Button>
+                    <Button variant="outline" class="h-9" onclick={handleReset}>重置</Button>
+                  {:else if phase === 'compressing'}
+                    <Button class="h-12" disabled>
+                      <LoaderCircle class="h-4 w-4 mr-2 animate-spin" />压缩�?..
+                    </Button>
+                  {:else if phase === 'completed'}
+                    <Button class="h-12" variant="outline" onclick={handleReset}>
+                      <Play class="h-4 w-4 mr-2" />重新开�?
+                    </Button>
+                  {/if}
                 </div>
               </div>
-            </div>
+            </DashboardItem>
             
-            <!-- 进度/结果卡片 -->
-            <div 
-              class="bg-card rounded-3xl border p-4 shadow-sm resize overflow-auto"
-              style="grid-column: span {cardSizes.progress?.cols ?? 2}; grid-row: span {cardSizes.progress?.rows ?? 1}; min-width: 200px; min-height: 80px;"
-            >
-              <div class="flex items-center gap-3">
+            <!-- 统计数字 -->
+            {@const statsItem = getLayoutItem('stats')}
+            <DashboardItem id="stats" x={statsItem.x} y={statsItem.y} w={statsItem.w} h={statsItem.h} minW={1} minH={2}>
+              <div class="h-full flex flex-col p-2">
+                <div class="flex items-center gap-2 mb-3">
+                  <FolderTree class="w-5 h-5 text-yellow-500" />
+                  <span class="font-semibold">统计</span>
+                </div>
+                <div class="space-y-2 flex-1">
+                  <div class="flex items-center justify-between p-2 bg-green-500/10 rounded-lg">
+                    <span class="text-sm">整体</span>
+                    <span class="text-xl font-bold text-green-600">{analysisResult?.entireCount ?? '-'}</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-yellow-500/10 rounded-lg">
+                    <span class="text-sm">选择性</span>
+                    <span class="text-xl font-bold text-yellow-600">{analysisResult?.selectiveCount ?? '-'}</span>
+                  </div>
+                  <div class="flex items-center justify-between p-2 bg-gray-500/10 rounded-lg">
+                    <span class="text-sm">跳过</span>
+                    <span class="text-xl font-bold text-gray-500">{analysisResult?.skipCount ?? '-'}</span>
+                  </div>
+                </div>
+              </div>
+            </DashboardItem>
+            
+            <!-- 进度/结果 -->
+            {@const progressItem = getLayoutItem('progress')}
+            <DashboardItem id="progress" x={progressItem.x} y={progressItem.y} w={progressItem.w} h={progressItem.h} minW={2} minH={1}>
+              <div class="h-full flex items-center gap-3 p-2">
                 {#if compressionResult}
                   {#if compressionResult.success}
                     <CircleCheck class="w-8 h-8 text-green-500 shrink-0" />
@@ -634,66 +558,65 @@
                   </div>
                 {/if}
               </div>
-            </div>
+            </DashboardItem>
             
             <!-- 文件树预览 -->
-            <div 
-              class="bg-card rounded-3xl border shadow-sm overflow-hidden resize"
-              style="grid-column: span {cardSizes.tree?.cols ?? 3}; grid-row: span {cardSizes.tree?.rows ?? 4}; min-width: 250px; min-height: 200px;"
-            >
-              <div class="flex items-center justify-between p-4 border-b bg-muted/30">
-                <div class="flex items-center gap-2">
-                  <FolderTree class="w-5 h-5 text-yellow-500" />
-                  <span class="font-semibold">文件夹结构</span>
-                  {#if stats.total > 0}
-                    <Badge variant="secondary">{stats.total} 个</Badge>
+            {@const treeItem = getLayoutItem('tree')}
+            <DashboardItem id="tree" x={treeItem.x} y={treeItem.y} w={treeItem.w} h={treeItem.h} minW={2} minH={2}>
+              <div class="h-full flex flex-col overflow-hidden">
+                <div class="flex items-center justify-between p-3 border-b bg-muted/30 shrink-0">
+                  <div class="flex items-center gap-2">
+                    <FolderTree class="w-5 h-5 text-yellow-500" />
+                    <span class="font-semibold">文件夹结构</span>
+                    {#if stats.total > 0}
+                      <Badge variant="secondary">{stats.total} 个</Badge>
+                    {/if}
+                  </div>
+                  <div class="flex gap-2 text-xs">
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span>{stats.entire}</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span>{stats.selective}</span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span>{stats.skip}</span>
+                  </div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-2">
+                  {#if folderTree}
+                    {@render renderFolderNode(folderTree)}
+                  {:else}
+                    <div class="text-center text-muted-foreground py-8">扫描后显示文件夹结构</div>
                   {/if}
                 </div>
-                <div class="flex gap-3 text-xs">
-                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span>{stats.entire}</span>
-                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span>{stats.selective}</span>
-                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span>{stats.skip}</span>
+              </div>
+            </DashboardItem>
+            
+            <!-- 日志 -->
+            {@const logItem = getLayoutItem('log')}
+            <DashboardItem id="log" x={logItem.x} y={logItem.y} w={logItem.w} h={logItem.h} minW={1} minH={2}>
+              <div class="h-full flex flex-col p-2">
+                <div class="flex items-center justify-between mb-2 shrink-0">
+                  <span class="font-semibold text-sm">日志</span>
+                  <Button variant="ghost" size="icon" class="h-6 w-6" onclick={copyLogs}>
+                    {#if copied}<Check class="h-3 w-3 text-green-500" />{:else}<Copy class="h-3 w-3" />{/if}
+                  </Button>
+                </div>
+                <div class="flex-1 overflow-y-auto bg-muted/30 rounded-xl p-2 font-mono text-xs space-y-1">
+                  {#if logs.length > 0}
+                    {#each logs.slice(-12) as log}
+                      <div class="text-muted-foreground break-all">{log}</div>
+                    {/each}
+                  {:else}
+                    <div class="text-muted-foreground text-center py-4">暂无日志</div>
+                  {/if}
                 </div>
               </div>
-              <div class="p-3 overflow-y-auto" style="max-height: 350px;">
-                {#if folderTree}
-                  {@render renderFolderNode(folderTree)}
-                {:else}
-                  <div class="text-center text-muted-foreground py-8">扫描后显示文件夹结构</div>
-                {/if}
-              </div>
-            </div>
-            
-            <!-- 日志卡片 -->
-            <div 
-              class="bg-card rounded-3xl border p-4 shadow-sm flex flex-col resize overflow-auto"
-              style="grid-column: span {cardSizes.log?.cols ?? 1}; grid-row: span {cardSizes.log?.rows ?? 4}; min-width: 150px; min-height: 200px;"
-            >
-              <div class="flex items-center justify-between mb-2 shrink-0">
-                <span class="font-semibold text-sm">日志</span>
-                <Button variant="ghost" size="icon" class="h-6 w-6" onclick={copyLogs}>
-                  {#if copied}<Check class="h-3 w-3 text-green-500" />{:else}<Copy class="h-3 w-3" />{/if}
-                </Button>
-              </div>
-              <div class="flex-1 overflow-y-auto bg-muted/30 rounded-xl p-2 font-mono text-xs space-y-1">
-                {#if logs.length > 0}
-                  {#each logs.slice(-12) as log}
-                    <div class="text-muted-foreground break-all">{log}</div>
-                  {/each}
-                {:else}
-                  <div class="text-muted-foreground text-center py-4">暂无日志</div>
-                {/if}
-              </div>
-            </div>
-            
-          </div>
+            </DashboardItem>
+          </DashboardGrid>
         </div>
       {:else}
-        <!-- 普通模式：便当块纵向排列 -->
+        <!-- 普通模式：便当块纵向排�?-->
         <div class="flex-1 overflow-y-auto p-2">
           <div class="grid grid-cols-2 gap-2" style="grid-auto-rows: minmax(auto, max-content);">
             
-            <!-- 路径输入块 -->
+            <!-- 路径输入�?-->
             <div class="col-span-2 bg-card rounded-2xl border p-3 shadow-sm">
               <div class="flex items-center gap-1.5 mb-2">
                 <FolderOpen class="w-4 h-4 text-primary" />
@@ -733,7 +656,7 @@
               </div>
             </div>
             
-            <!-- 操作块 -->
+            <!-- 操作�?-->
             <div class="col-span-1 bg-card rounded-2xl border p-3 shadow-sm flex flex-col">
               <div class="flex items-center gap-1.5 mb-2">
                 <Play class="w-4 h-4 text-green-500" />
@@ -745,8 +668,8 @@
                     <Search class="h-3 w-3 mr-1" />扫描
                   </Button>
                 {:else if phase === 'analyzing'}
-                  <Button class="flex-1 h-8 text-xs" disabled>
-                    <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />分析中
+             yarn add gridstack     <Button class="flex-1 h-8 text-xs" disabled>
+                    <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />分析�?
                   </Button>
                 {:else if phase === 'analyzed'}
                   <Button class="flex-1 h-8 text-xs" onclick={handleCompress} disabled={!canCompress}>
@@ -755,17 +678,17 @@
                   <Button variant="outline" class="h-6 text-xs" onclick={handleReset}>重置</Button>
                 {:else if phase === 'compressing'}
                   <Button class="flex-1 h-8 text-xs" disabled>
-                    <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />压缩中
+                    <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />压缩�?
                   </Button>
                 {:else if phase === 'completed'}
                   <Button class="flex-1 h-8 text-xs" variant="outline" onclick={handleReset}>
-                    <Play class="h-3 w-3 mr-1" />重新开始
+                    <Play class="h-3 w-3 mr-1" />重新开�?
                   </Button>
                 {/if}
               </div>
             </div>
             
-            <!-- 统计块 -->
+            <!-- 统计�?-->
             <div class="col-span-1 bg-card rounded-2xl border p-3 shadow-sm">
               <div class="flex items-center gap-1.5 mb-2">
                 <FolderTree class="w-4 h-4 text-yellow-500" />
@@ -821,7 +744,7 @@
               <div class="col-span-2 bg-card rounded-2xl border shadow-sm overflow-hidden">
                 <div class="flex items-center justify-between p-2 border-b bg-muted/30">
                   <span class="text-xs font-semibold flex items-center gap-1">
-                    <FolderTree class="w-3 h-3 text-yellow-500" />文件树
+                    <FolderTree class="w-3 h-3 text-yellow-500" />文件�?
                   </span>
                   <div class="flex items-center gap-2 text-[10px]">
                     <span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>{stats.entire}</span>
