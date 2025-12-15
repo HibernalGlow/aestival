@@ -1,8 +1,8 @@
 [package]
-name = "data-analyzer-pro"
-version = "2.1.0"
-description = "Professional data analysis tool with Python backend and modern UI"
-authors = ["DataCorp Solutions"]
+name = "aestival"
+version = "3.1.0"
+description = "Python工具链可视化编排与执行平台"
+authors = ["HibernalGlow"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -22,6 +22,8 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-http = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }

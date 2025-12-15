@@ -5,7 +5,5 @@ pyinstaller>=6.10.0
 pytest>=7.4.3
 httpx>=0.25.2
 requests>=2.31.0
-# pywebview 桌面壳
-pywebview>=5.0.0
-# 剪贴板支持
+# 剪贴板支持（后端 API 使用）
 pyperclip>=1.8.0

@@ -5,6 +5,16 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "shell:default",
+    "shell:allow-spawn",
+    "shell:allow-execute",
+    "http:default",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "clipboard-manager:default",
+    "clipboard-manager:allow-read",
+    "clipboard-manager:allow-write"
   ]
 }

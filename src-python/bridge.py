@@ -1,6 +1,10 @@
 """
-pywebview JS-Python 桥接 API
+系统功能桥接 API
 提供前端调用系统功能的接口（文件对话框、剪贴板等）
+
+注意：
+- Tauri 模式下，这些功能通过 Tauri API 直接调用
+- 此模块主要用于 pywebview 独立模式或后端 API 端点
 """
 
 import os

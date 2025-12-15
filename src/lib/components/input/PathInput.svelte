@@ -2,6 +2,7 @@
   import { Input } from '$lib/components/ui/input';
   import { Button } from '$lib/components/ui/button';
   import { Folder, Clipboard, Check, X } from '@lucide/svelte';
+  import { platform } from '$lib/api/platform';
   
   // Props
   export let value: string = '';
@@ -12,22 +13,10 @@
   let validationStatus: 'idle' | 'valid' | 'invalid' = 'idle';
   let validationMessage: string = '';
   
-  // 检查 pywebview API 是否可用
-  function hasPywebviewApi(): boolean {
-    return typeof window !== 'undefined' && 
-           'pywebview' in window && 
-           window.pywebview?.api;
-  }
-  
   // 打开文件夹选择对话框
   async function handleFolderSelect() {
-    if (!hasPywebviewApi()) {
-      console.warn('pywebview API 不可用');
-      return;
-    }
-    
     try {
-      const path = await window.pywebview.api.open_folder_dialog('选择文件夹');
+      const path = await platform.openFolderDialog('选择文件夹');
       if (path) {
         value = path;
         await validatePath(path);
@@ -39,32 +28,20 @@
   
   // 从剪贴板读取路径
   async function handleClipboard() {
-    if (!hasPywebviewApi()) {
-      // 回退到 Web Clipboard API
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text && text.trim()) {
-          value = text.trim();
-          await validatePath(value);
-        }
-      } catch (error) {
-        console.error('读取剪贴板失败:', error);
-      }
-      return;
-    }
-    
     try {
-      const result = await window.pywebview.api.get_clipboard_path();
-      if (result.valid && result.path) {
-        value = result.path;
-        validationStatus = 'valid';
-        validationMessage = result.message;
+      const text = await platform.readClipboard();
+      if (text && text.trim()) {
+        const cleanedPath = text.trim().replace(/^["']|["']$/g, '');
+        value = cleanedPath;
+        await validatePath(cleanedPath);
       } else {
         validationStatus = 'invalid';
-        validationMessage = result.message || '剪贴板内容不是有效路径';
+        validationMessage = '剪贴板为空';
       }
     } catch (error) {
       console.error('读取剪贴板失败:', error);
+      validationStatus = 'invalid';
+      validationMessage = '读取剪贴板失败';
     }
   }
   
@@ -76,18 +53,13 @@
       return;
     }
     
-    if (!hasPywebviewApi()) {
-      // 无法验证，假设有效
-      validationStatus = 'idle';
-      return;
-    }
-    
     try {
-      const result = await window.pywebview.api.validate_path(path);
+      const result = await platform.validatePath(path);
       validationStatus = result.valid ? 'valid' : 'invalid';
       validationMessage = result.message;
     } catch (error) {
       validationStatus = 'idle';
+      validationMessage = '';
     }
   }
   

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 aestival 构建脚本
-支持 pywebview 桌面应用打包
+支持 Tauri 桌面应用打包（Python Sidecar + Rust 前端）
 """
 import json
 import sys
@@ -38,7 +38,8 @@ def check_dependencies():
     required_tools = {
         "yarn": "yarn --version",
         "python": "python --version",
-        "pip": "pip --version"
+        "pip": "pip --version",
+        "cargo": "cargo --version",
     }
     
     missing_tools = []
@@ -52,6 +53,8 @@ def check_dependencies():
     
     if missing_tools:
         print(f"\n❌ 缺少必要工具: {', '.join(missing_tools)}")
+        if "cargo" in missing_tools:
+            print("   请安装 Rust: https://rustup.rs/")
         sys.exit(1)
     
     print("✅ 所有依赖已就绪")
@@ -85,8 +88,8 @@ def install_python_deps():
     )
 
 
-def build_pywebview_app():
-    """使用 PyInstaller 打包 pywebview 应用"""
+def build_python_sidecar():
+    """使用 PyInstaller 打包 Python Sidecar"""
     platform_name = detect_platform()
     
     # 检查 PyInstaller
@@ -97,55 +100,59 @@ def build_pywebview_app():
         if not run_command("pip install pyinstaller", "安装 PyInstaller"):
             return False
     
-    # 构建目录
-    dist_dir = Path("dist")
-    dist_dir.mkdir(exist_ok=True)
+    # 确保输出目录存在
+    bin_dir = Path("src-tauri/bin")
+    bin_dir.mkdir(parents=True, exist_ok=True)
     
-    # PyInstaller 参数
-    app_name = "aestival"
+    # Sidecar 名称（Tauri 要求特定格式）
+    sidecar_name = "main"
+    
+    # 根据平台添加后缀
     if platform_name == "windows":
-        app_name += ".exe"
+        # Windows 需要 -x86_64-pc-windows-msvc 后缀
+        target_suffix = "-x86_64-pc-windows-msvc"
+    elif platform_name == "macos":
+        # macOS 需要架构后缀
+        import platform as plat
+        arch = plat.machine()
+        if arch == "arm64":
+            target_suffix = "-aarch64-apple-darwin"
+        else:
+            target_suffix = "-x86_64-apple-darwin"
+    else:
+        # Linux
+        target_suffix = "-x86_64-unknown-linux-gnu"
     
-    # 构建命令
+    # PyInstaller 构建命令
     pyinstaller_cmd = [
         "pyinstaller",
-        "--name", "aestival",
+        "--name", sidecar_name,
         "--onefile",
-        "--windowed",  # 无控制台窗口
         "--clean",
-        "--distpath", str(dist_dir),
-        "--add-data", f"../build{';' if platform_name == 'windows' else ':'}build",  # 包含前端构建
-        "launcher.py"
+        "--distpath", str(bin_dir.absolute()),
+        "main.py"
     ]
     
-    # 添加图标（如果存在）
-    icon_path = Path("static/app-icon.ico" if platform_name == "windows" else "static/app-icon.png")
-    if icon_path.exists():
-        pyinstaller_cmd.extend(["--icon", str(icon_path)])
-    
     cmd_str = " ".join(pyinstaller_cmd)
-    return run_command(cmd_str, f"打包 pywebview 应用 ({platform_name})", cwd="src-python")
-
-
-def copy_frontend_to_python():
-    """复制前端构建到 Python 目录"""
-    print("📁 复制前端构建文件...")
-    
-    src = Path("build")
-    dst = Path("src-python/build")
-    
-    if not src.exists():
-        print("❌ 前端构建目录不存在，请先运行 yarn build")
+    if not run_command(cmd_str, f"打包 Python Sidecar ({platform_name})", cwd="src-python"):
         return False
     
-    # 清理旧的构建
-    if dst.exists():
-        shutil.rmtree(dst)
+    # 重命名为 Tauri 期望的格式
+    src_file = bin_dir / (sidecar_name + (".exe" if platform_name == "windows" else ""))
+    dst_file = bin_dir / (sidecar_name + target_suffix + (".exe" if platform_name == "windows" else ""))
     
-    # 复制
-    shutil.copytree(src, dst)
-    print("✅ 前端文件已复制")
+    if src_file.exists():
+        if dst_file.exists():
+            dst_file.unlink()
+        src_file.rename(dst_file)
+        print(f"✅ Sidecar 已重命名为: {dst_file.name}")
+    
     return True
+
+
+def build_tauri():
+    """构建 Tauri 应用"""
+    return run_command("yarn tauri build", "构建 Tauri 应用")
 
 
 def show_build_results():
@@ -153,29 +160,43 @@ def show_build_results():
     print("\n🎉 构建完成!")
     print("\n📦 构建产物:")
     
-    dist_dir = Path("dist")
-    if dist_dir.exists():
-        for item in dist_dir.iterdir():
+    # Tauri 构建产物
+    tauri_dist = Path("src-tauri/target/release/bundle")
+    if tauri_dist.exists():
+        for bundle_type in tauri_dist.iterdir():
+            if bundle_type.is_dir():
+                print(f"   📁 {bundle_type.name}/")
+                for item in bundle_type.iterdir():
+                    if item.is_file():
+                        size = item.stat().st_size / (1024 * 1024)
+                        print(f"      📄 {item.name} ({size:.1f} MB)")
+    
+    # Sidecar
+    sidecar_dir = Path("src-tauri/bin")
+    if sidecar_dir.exists():
+        print("   📁 sidecar/")
+        for item in sidecar_dir.iterdir():
             if item.is_file():
                 size = item.stat().st_size / (1024 * 1024)
-                print(f"   📄 {item.name} ({size:.1f} MB)")
+                print(f"      📄 {item.name} ({size:.1f} MB)")
     
     print("\n🚀 运行方式:")
-    print("   开发模式: yarn dev:standalone")
-    print("   pywebview: yarn dev:pywebview 或 cd src-python && python launcher.py")
-    print("   打包应用: 运行 dist/ 目录下的可执行文件")
+    print("   开发模式: yarn tauri:dev")
+    print("   独立前端: yarn dev:standalone")
+    print("   打包应用: 运行 src-tauri/target/release/bundle/ 目录下的安装包")
 
 
 def main():
     """主函数"""
-    print("🏗️  aestival 构建")
+    print("🏗️  aestival Tauri 构建")
     print("=" * 50)
     
     args = sys.argv[1:]
     
     # 解析参数
     only_frontend = "--frontend" in args
-    only_backend = "--backend" in args
+    only_sidecar = "--sidecar" in args
+    only_tauri = "--tauri" in args
     
     check_dependencies()
     print("")
@@ -186,11 +207,17 @@ def main():
             sys.exit(1)
         return
     
-    if only_backend:
-        print("🚀 仅打包后端...")
+    if only_sidecar:
+        print("🚀 仅打包 Sidecar...")
         if not install_python_deps():
             sys.exit(1)
-        if not build_pywebview_app():
+        if not build_python_sidecar():
+            sys.exit(1)
+        return
+    
+    if only_tauri:
+        print("🚀 仅构建 Tauri...")
+        if not build_tauri():
             sys.exit(1)
         return
     
@@ -198,10 +225,10 @@ def main():
     print("🚀 开始完整构建...\n")
     
     build_steps = [
-        ("前端构建", build_frontend),
-        ("复制前端文件", copy_frontend_to_python),
         ("Python 依赖", install_python_deps),
-        ("pywebview 打包", build_pywebview_app)
+        ("Python Sidecar", build_python_sidecar),
+        ("前端构建", build_frontend),
+        ("Tauri 应用", build_tauri)
     ]
     
     for step_name, step_func in build_steps:

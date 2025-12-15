@@ -2,12 +2,13 @@
   /**
    * aestival - 自定义标题栏组件
    * 无边框窗口的标题栏，支持拖拽移动和窗口控制
-   * 同时支持 pywebview 和 Tauri
+   * 优先使用 Tauri API
    */
   import { Button } from '$lib/components/ui/button';
   import { Minus, Square, X, Sun, Moon, Palette } from '@lucide/svelte';
   import { themeStore, toggleThemeMode, openThemeImport } from '$lib/stores/theme.svelte';
   import { onMount } from 'svelte';
+  import { isTauriEnvironment } from '$lib/api/platform';
 
   // 窗口 API 类型
   type WindowAPI = {
@@ -18,17 +19,33 @@
   };
 
   let windowApi: WindowAPI | null = null;
-  let isPywebview = false;
 
   onMount(() => {
     initWindowApi();
   });
 
   async function initWindowApi() {
-    // 1. 尝试 pywebview API
-    const pywebviewApi = window.pywebview?.api;
+    // 1. 优先尝试 Tauri API
+    if (isTauriEnvironment()) {
+      try {
+        const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const appWindow = getCurrentWebviewWindow();
+        windowApi = {
+          minimize: () => appWindow.minimize(),
+          maximize: () => appWindow.toggleMaximize(),
+          close: () => appWindow.close(),
+          startDrag: () => appWindow.startDragging(),
+        };
+        console.log('✅ 使用 Tauri 窗口 API');
+        return;
+      } catch (e) {
+        console.warn('Tauri API 加载失败:', e);
+      }
+    }
+
+    // 2. 回退到 pywebview API（兼容旧代码）
+    const pywebviewApi = (window as any).pywebview?.api;
     if (pywebviewApi) {
-      isPywebview = true;
       windowApi = {
         minimize: () => pywebviewApi.minimize_window?.(),
         maximize: () => pywebviewApi.toggle_maximize?.(),
@@ -39,20 +56,7 @@
       return;
     }
 
-    // 2. 尝试 Tauri API
-    try {
-      const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow');
-      const appWindow = getCurrentWebviewWindow();
-      windowApi = {
-        minimize: () => appWindow.minimize(),
-        maximize: () => appWindow.toggleMaximize(),
-        close: () => appWindow.close(),
-        startDrag: () => appWindow.startDragging(),
-      };
-      console.log('✅ 使用 Tauri 窗口 API');
-    } catch {
-      console.log('⚠️ 无窗口 API（浏览器模式）');
-    }
+    console.log('⚠️ 无窗口 API（浏览器模式）');
   }
 
   function minimizeWindow() { windowApi?.minimize(); }
@@ -64,7 +68,7 @@
     // 只响应左键，且不在按钮上
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('.pywebview-no-drag')) return;
+    if (target.closest('button') || target.closest('.no-drag')) return;
     
     // 调用原生拖拽
     windowApi?.startDrag?.();
@@ -73,7 +77,7 @@
   // 双击最大化
   function handleDoubleClick(e: MouseEvent) {
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('.pywebview-no-drag')) return;
+    if (target.closest('button') || target.closest('.no-drag')) return;
     maximizeWindow();
   }
 </script>
@@ -92,7 +96,7 @@
   </div>
 
   <!-- 中间：功能按钮（不可拖拽） -->
-  <div class="flex items-center gap-1 pywebview-no-drag">
+  <div class="flex items-center gap-1 no-drag">
     <Button variant="ghost" size="icon" class="h-6 w-6" onclick={toggleThemeMode} title="切换明暗模式">
       {#if $themeStore.mode === 'dark'}
         <Sun class="h-3.5 w-3.5" />
@@ -106,7 +110,7 @@
   </div>
 
   <!-- 右侧：窗口控制按钮（不可拖拽） -->
-  <div class="flex items-center pywebview-no-drag">
+  <div class="flex items-center no-drag">
     <Button variant="ghost" size="icon" class="h-8 w-10 rounded-none hover:bg-muted" onclick={minimizeWindow}>
       <Minus class="h-3.5 w-3.5" />
     </Button>

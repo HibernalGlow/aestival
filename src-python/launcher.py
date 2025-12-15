@@ -1,6 +1,9 @@
 """
-aestival pywebview 启动器
-使用 pywebview 作为桌面壳，在后台线程运行 FastAPI 服务器
+aestival 独立启动器（可选）
+用于开发模式或不使用 Tauri 时的独立运行
+注意：生产环境请使用 Tauri 构建
+
+依赖：pip install pywebview（可选）
 """
 
 import os

@@ -192,12 +192,9 @@
 
   async function selectFolder() {
     try {
-      if (window.pywebview?.api?.open_folder_dialog) {
-        const selected = await window.pywebview.api.open_folder_dialog();
-        if (selected) path = selected;
-      } else {
-        logs = [...logs, '⚠️ 文件夹选择功能需要在桌面应用中使用'];
-      }
+      const { platform } = await import('$lib/api/platform');
+      const selected = await platform.openFolderDialog('选择文件夹');
+      if (selected) path = selected;
     } catch (e) {
       logs = [...logs, `选择文件夹失败: ${e}`];
     }
@@ -205,13 +202,9 @@
 
   async function pasteFromClipboard() {
     try {
-      if (window.pywebview?.api?.read_clipboard) {
-        const text = await window.pywebview.api.read_clipboard();
-        if (text) path = text.trim();
-      } else {
-        const text = await navigator.clipboard.readText();
-        path = text.trim();
-      }
+      const { platform } = await import('$lib/api/platform');
+      const text = await platform.readClipboard();
+      if (text) path = text.trim();
     } catch (e) {
       logs = [...logs, `读取剪贴板失败: ${e}`];
     }

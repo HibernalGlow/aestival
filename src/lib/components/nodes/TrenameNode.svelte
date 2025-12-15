@@ -101,10 +101,9 @@
   
   async function selectFolder() {
     try {
-      if (window.pywebview?.api?.open_folder_dialog) {
-        const s = await window.pywebview.api.open_folder_dialog();
-        if (s) scanPath = s;
-      } else log('⚠️ 需要桌面应用');
+      const { platform } = await import('$lib/api/platform');
+      const s = await platform.openFolderDialog('选择文件夹');
+      if (s) scanPath = s;
     } catch (e) { log(`选择失败: ${e}`); }
   }
 
