@@ -20,50 +20,15 @@
     Download, Upload, TriangleAlert, Play, RefreshCw, FileJson,
     File, Folder, Trash2, PanelRightOpen, PanelRightClose, Settings2, Check
   } from '@lucide/svelte';
+  import {
+    type TreeNode, type TrenameState, type Phase, type OperationRecord,
+    isDir, getNodeStatus, parseTree, getPhaseBorderClass,
+    DEFAULT_GRID_LAYOUT, DEFAULT_STATS, DEFAULT_EXCLUDE_EXTS, generateDownloadFilename
+  } from './trename-utils';
   
   export let id: string;
   export let data: { config?: { path?: string }; logs?: string[]; showTree?: boolean } = {};
   export let isFullscreenRender = false;
-
-  // 文件树类型
-  interface FileNode { src: string; tgt: string; }
-  interface DirNode { src_dir: string; tgt_dir: string; children: (FileNode | DirNode)[]; }
-  type TreeNode = FileNode | DirNode;
-
-  // 操作历史记录
-  interface OperationRecord {
-    id: string;
-    time: string;
-    count: number;
-    canUndo: boolean;
-  }
-  
-  // 节点状态类型
-  type Phase = 'idle' | 'scanning' | 'ready' | 'renaming' | 'completed' | 'error';
-  interface TrenameState {
-    phase: Phase;
-    logs: string[];
-    showTree: boolean;
-    showOptions: boolean;
-    showJsonInput: boolean;
-    jsonInputText: string;
-    scanPath: string;
-    includeHidden: boolean;
-    excludeExts: string;
-    maxLines: number;
-    useCompact: boolean;
-    basePath: string;
-    dryRun: boolean;
-    treeData: TreeNode[];
-    segments: string[];
-    currentSegment: number;
-    stats: { total: number; pending: number; ready: number; conflicts: number };
-    conflicts: string[];
-    lastOperationId: string;
-    operationHistory: OperationRecord[];
-    // GridStack 布局记忆
-    gridLayout?: GridItem[];
-  }
   
   // 从 TanStack Store 恢复状态
   const savedState = getNodeState<TrenameState>(id);
@@ -80,7 +45,7 @@
   // 配置
   let scanPath = savedState?.scanPath ?? data?.config?.path ?? '';
   let includeHidden = savedState?.includeHidden ?? false;
-  let excludeExts = savedState?.excludeExts ?? '.json,.txt,.html,.htm,.md,.log';
+  let excludeExts = savedState?.excludeExts ?? DEFAULT_EXCLUDE_EXTS;
   let maxLines = savedState?.maxLines ?? 1000;
   let useCompact = savedState?.useCompact ?? true;
   let basePath = savedState?.basePath ?? '';
@@ -90,20 +55,13 @@
   let treeData: TreeNode[] = savedState?.treeData ?? [];
   let segments: string[] = savedState?.segments ?? [];
   let currentSegment = savedState?.currentSegment ?? 0;
-  let stats = savedState?.stats ?? { total: 0, pending: 0, ready: 0, conflicts: 0 };
+  let stats = savedState?.stats ?? { ...DEFAULT_STATS };
   let conflicts: string[] = savedState?.conflicts ?? [];
   let lastOperationId = savedState?.lastOperationId ?? '';
   let operationHistory: OperationRecord[] = savedState?.operationHistory ?? [];
   
   // GridStack 布局（默认值）
-  let gridLayout: GridItem[] = savedState?.gridLayout ?? [
-    { id: 'path', x: 0, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
-    { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
-    { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
-    { id: 'importExport', x: 0, y: 2, w: 2, h: 1, minW: 2, minH: 1 },
-    { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 2, minH: 2 },
-    { id: 'log', x: 3, y: 2, w: 1, h: 5, minW: 1, minH: 2 }
-  ];
+  let gridLayout: GridItem[] = savedState?.gridLayout ?? [...DEFAULT_GRID_LAYOUT];
 
   // 处理布局变化
   function handleLayoutChange(newLayout: GridItem[]) {
@@ -131,26 +89,12 @@
     saveState();
   }
 
-  // 计算
+  // 计算属性
   $: isRunning = phase === 'scanning' || phase === 'renaming';
   $: canRename = phase === 'ready' && stats.ready > 0;
-  $: borderClass = phase === 'error' ? 'border-destructive/50' 
-    : phase === 'completed' ? 'border-primary/50' 
-    : phase === 'scanning' || phase === 'renaming' ? 'border-primary shadow-sm' 
-    : 'border-border';
+  $: borderClass = getPhaseBorderClass(phase);
 
   function log(msg: string) { logs = [...logs.slice(-30), msg]; }
-  function isDir(node: TreeNode): node is DirNode { return 'src_dir' in node; }
-  function getStatus(node: TreeNode): 'pending' | 'ready' | 'same' {
-    const tgt = isDir(node) ? node.tgt_dir : node.tgt;
-    const src = isDir(node) ? node.src_dir : node.src;
-    if (!tgt || tgt === '') return 'pending';
-    if (tgt === src) return 'same';
-    return 'ready';
-  }
-  function parseTree(json: string): TreeNode[] {
-    try { return JSON.parse(json).root || []; } catch { return []; }
-  }
   
   async function selectFolder() {
     try {
@@ -242,8 +186,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      a.download = `trename_seg${i + 1}_${timestamp}.json`;
+      a.download = generateDownloadFilename(i);
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -305,7 +248,7 @@
   
   function clear() {
     treeData = []; segments = []; currentSegment = 0;
-    stats = { total: 0, pending: 0, ready: 0, conflicts: 0 };
+    stats = { ...DEFAULT_STATS };
     conflicts = []; lastOperationId = ''; phase = 'idle';
     log('🗑️ 已清空');
   }
@@ -316,7 +259,7 @@
 <!-- 递归渲染文件树 -->
 {#snippet renderTreeNode(node: TreeNode)}
   {@const dir = isDir(node)}
-  {@const status = getStatus(node)}
+  {@const status = getNodeStatus(node)}
   {@const srcName = dir ? node.src_dir : node.src}
   {@const tgt = dir ? node.tgt_dir : node.tgt}
   {@const statusClass = status === 'ready' ? 'bg-green-500' : status === 'pending' ? 'bg-yellow-500' : 'bg-gray-300'}
