@@ -14,6 +14,7 @@ _ADAPTER_REGISTRY: Dict[str, str] = {
     "repacku": "adapters.repacku_adapter.RepackuAdapter",
     "rawfilter": "adapters.rawfilter_adapter.RawfilterAdapter",
     "crashu": "adapters.crashu_adapter.CrashuAdapter",
+    "trename": "adapters.trename_adapter.TrenameAdapter",
 }
 
 # 适配器实例缓存

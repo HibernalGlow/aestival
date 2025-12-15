@@ -80,6 +80,21 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       auto_move: { type: 'boolean', label: '自动移动', default: false }
     }
   },
+  {
+    type: 'trename',
+    category: 'tool',
+    label: '批量重命名',
+    description: '扫描目录生成 JSON，支持批量重命名和撤销',
+    icon: 'FileText',
+    inputs: ['path'],
+    outputs: ['path'],
+    configSchema: {
+      path: { type: 'path', label: '路径', required: true },
+      include_root: { type: 'boolean', label: '包含根目录', default: true },
+      include_hidden: { type: 'boolean', label: '包含隐藏文件', default: false },
+      dry_run: { type: 'boolean', label: '模拟执行', default: false }
+    }
+  },
   // 工具节点 - 旧版（兼容）
   {
     type: 'tool_repacku',

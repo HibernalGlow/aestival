@@ -12,7 +12,8 @@
     FileText,
     Video,
     Terminal,
-    GripVertical
+    GripVertical,
+    RefreshCw
   } from '@lucide/svelte';
 
   const icons: Record<string, typeof Clipboard> = {
@@ -56,7 +57,16 @@
 
 <div class="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
   <div class="p-4 border-b border-gray-200">
-    <h2 class="font-semibold text-gray-800">节点面板</h2>
+    <div class="flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800">节点面板</h2>
+      <button
+        class="p-1 rounded hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+        onclick={() => window.location.reload()}
+        title="刷新页面"
+      >
+        <RefreshCw class="w-4 h-4" />
+      </button>
+    </div>
     <p class="text-xs text-gray-500 mt-1">拖拽或点击添加节点</p>
   </div>
 

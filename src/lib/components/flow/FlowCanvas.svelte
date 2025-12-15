@@ -17,6 +17,7 @@
   import RawfilterNode from '$lib/components/nodes/RawfilterNode.svelte';
   import CrashuNode from '$lib/components/nodes/CrashuNode.svelte';
   import TerminalNode from '$lib/components/nodes/TerminalNode.svelte';
+  import TrenameNode from '$lib/components/nodes/TrenameNode.svelte';
 
   let nodeIdCounter = 1;
   let containerRef: HTMLDivElement;
@@ -54,7 +55,9 @@
     // 输出节点
     log_output: OutputNode,
     // 终端节点
-    terminal: TerminalNode
+    terminal: TerminalNode,
+    // 批量重命名
+    trename: TrenameNode
   };
 
   function handleKeyDown(e: KeyboardEvent) {
