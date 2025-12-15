@@ -1,15 +1,52 @@
 /**
- * 节点状态存储 - 使用 TanStack Store
+ * 节点状态存储 - 使用 TanStack Store + localStorage 持久化
  * 用于在全屏/普通模式切换时保持节点内部状态
+ * 支持页面刷新后恢复状态
  */
 
 import { Store } from '@tanstack/store';
 
+// localStorage key
+const STORAGE_KEY = 'aestival-node-states';
+
 // 节点状态 Map 类型
 type NodeStatesMap = Map<string, unknown>;
 
-// 创建 TanStack Store
-export const nodeStateStore = new Store<NodeStatesMap>(new Map());
+/**
+ * 从 localStorage 加载状态
+ */
+function loadFromStorage(): NodeStatesMap {
+  if (typeof window === 'undefined') return new Map();
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return new Map();
+    const parsed = JSON.parse(stored);
+    return new Map(Object.entries(parsed));
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * 保存状态到 localStorage
+ */
+function saveToStorage(states: NodeStatesMap): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const obj = Object.fromEntries(states);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+  } catch (e) {
+    console.warn('[nodeStateStore] Failed to save to localStorage:', e);
+  }
+}
+
+// 创建 TanStack Store，从 localStorage 初始化
+export const nodeStateStore = new Store<NodeStatesMap>(loadFromStorage());
+
+// 订阅变化，自动保存到 localStorage
+nodeStateStore.subscribe(() => {
+  saveToStorage(nodeStateStore.state);
+});
 
 /**
  * 获取节点状态
