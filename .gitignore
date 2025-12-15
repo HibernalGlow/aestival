@@ -77,3 +77,4 @@ app.config.json
 !.gitkeep
 !.env.example
 src-python/config/flows/*.json
+ref/*
