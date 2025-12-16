@@ -517,49 +517,49 @@
         <div class="h-full overflow-hidden">
           <DashboardGrid bind:this={dashboardGrid} columns={4} cellHeight={80} margin={12} showToolbar={false} onLayoutChange={handleLayoutChange}>
             {@const pathItem = getLayoutItem('path')}
-            <DashboardItem id="path" x={pathItem.x} y={pathItem.y} w={pathItem.w} h={pathItem.h} minW={2} minH={2}>
+            <DashboardItem id="path" x={pathItem.x} y={pathItem.y} w={pathItem.w} h={pathItem.h} minW={1} minH={2}>
               <BlockCard id="path" title="扫描路径" icon={FolderOpen} iconClass="text-primary" isFullscreen={true}>
                 {#snippet children()}{@render pathBlockContent()}{/snippet}
               </BlockCard>
             </DashboardItem>
             
             {@const opItem = getLayoutItem('operation')}
-            <DashboardItem id="operation" x={opItem.x} y={opItem.y} w={opItem.w} h={opItem.h} minW={1} minH={2}>
+            <DashboardItem id="operation" x={opItem.x} y={opItem.y} w={opItem.w} h={opItem.h} minW={1} minH={1}>
               <BlockCard id="operation" title="操作" icon={Play} iconClass="text-green-500" isFullscreen={true}>
                 {#snippet children()}{@render operationBlockContent()}{/snippet}
               </BlockCard>
             </DashboardItem>
             
             {@const statsItem = getLayoutItem('stats')}
-            <DashboardItem id="stats" x={statsItem.x} y={statsItem.y} w={statsItem.w} h={statsItem.h} minW={1} minH={2}>
+            <DashboardItem id="stats" x={statsItem.x} y={statsItem.y} w={statsItem.w} h={statsItem.h} minW={1} minH={1}>
               <BlockCard id="stats" title="统计" icon={FilePenLine} iconClass="text-blue-500" isFullscreen={true}>
                 {#snippet children()}{@render statsBlockContent()}{/snippet}
               </BlockCard>
             </DashboardItem>
             
             {@const importItem = getLayoutItem('importExport')}
-            <DashboardItem id="importExport" x={importItem.x} y={importItem.y} w={importItem.w} h={importItem.h} minW={2} minH={1}>
+            <DashboardItem id="importExport" x={importItem.x} y={importItem.y} w={importItem.w} h={importItem.h} minW={1} minH={1}>
               <BlockCard id="importExport" title="导入/导出" icon={Upload} iconClass="text-muted-foreground" isFullscreen={true} hideHeader={true}>
                 {#snippet children()}{@render importExportBlockContent()}{/snippet}
               </BlockCard>
             </DashboardItem>
             
             {@const treeItem = getLayoutItem('tree')}
-            <DashboardItem id="tree" x={treeItem.x} y={treeItem.y} w={treeItem.w} h={treeItem.h} minW={2} minH={2}>
+            <DashboardItem id="tree" x={treeItem.x} y={treeItem.y} w={treeItem.w} h={treeItem.h} minW={1} minH={1}>
               <BlockCard id="tree" title="文件树" icon={Folder} iconClass="text-yellow-500" isFullscreen={true} fullHeight={true} hideHeader={true}>
                 {#snippet children()}{@render treeBlockContent()}{/snippet}
               </BlockCard>
             </DashboardItem>
             
             {@const logItem = getLayoutItem('log')}
-            <DashboardItem id="log" x={logItem.x} y={logItem.y} w={logItem.w} h={logItem.h} minW={1} minH={2}>
+            <DashboardItem id="log" x={logItem.x} y={logItem.y} w={logItem.w} h={logItem.h} minW={1} minH={1}>
               <BlockCard id="log" title="日志" icon={Copy} iconClass="text-muted-foreground" isFullscreen={true} fullHeight={true} hideHeader={true}>
                 {#snippet children()}{@render logBlockContent()}{/snippet}
               </BlockCard>
             </DashboardItem>
             
             {@const optionsItem = getLayoutItem('options')}
-            <DashboardItem id="options" x={optionsItem.x} y={optionsItem.y} w={optionsItem.w} h={optionsItem.h} minW={2} minH={1}>
+            <DashboardItem id="options" x={optionsItem.x} y={optionsItem.y} w={optionsItem.w} h={optionsItem.h} minW={1} minH={1}>
               <BlockCard id="options" title="高级选项" icon={Settings2} iconClass="text-muted-foreground" isFullscreen={true}>
                 {#snippet children()}{@render optionsBlockContent()}{/snippet}
               </BlockCard>

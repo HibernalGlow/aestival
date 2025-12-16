@@ -126,12 +126,12 @@ export const REPACKU_BLOCKS: BlockDefinition[] = [
 ];
 
 export const REPACKU_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 },
-  { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
-  { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
-  { id: 'progress', x: 2, y: 2, w: 2, h: 1, minW: 2, minH: 1 },
-  { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 2, minH: 2 },
-  { id: 'log', x: 3, y: 3, w: 1, h: 4, minW: 1, minH: 2 }
+  { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 1, minH: 2 },
+  { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'progress', x: 2, y: 2, w: 2, h: 1, minW: 1, minH: 1 },
+  { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 1, minH: 2 },
+  { id: 'log', x: 3, y: 3, w: 1, h: 4, minW: 1, minH: 1 }
 ];
 
 // ============ Trename 节点区块定义 ============
@@ -216,13 +216,13 @@ export const TRENAME_BLOCKS: BlockDefinition[] = [
 ];
 
 export const TRENAME_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 },
-  { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
-  { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
-  { id: 'importExport', x: 2, y: 2, w: 2, h: 1, minW: 2, minH: 1 },
-  { id: 'tree', x: 0, y: 3, w: 2, h: 4, minW: 2, minH: 2 },
-  { id: 'options', x: 2, y: 3, w: 2, h: 2, minW: 2, minH: 1 },
-  { id: 'log', x: 2, y: 5, w: 2, h: 2, minW: 1, minH: 2 }
+  { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 1, minH: 2 },
+  { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'importExport', x: 2, y: 2, w: 2, h: 1, minW: 1, minH: 1 },
+  { id: 'tree', x: 0, y: 3, w: 2, h: 4, minW: 1, minH: 2 },
+  { id: 'options', x: 2, y: 3, w: 2, h: 2, minW: 1, minH: 1 },
+  { id: 'log', x: 2, y: 5, w: 2, h: 2, minW: 1, minH: 1 }
 ];
 
 // ============ 注册表 ============

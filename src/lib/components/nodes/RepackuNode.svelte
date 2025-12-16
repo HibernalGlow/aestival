@@ -535,7 +535,7 @@
           <DashboardGrid bind:this={dashboardGrid} columns={4} cellHeight={80} margin={12} showToolbar={false} onLayoutChange={handleLayoutChange}>
             <!-- 路径输入 + 类型过滤 -->
             {@const pathItem = getLayoutItem('path')}
-            <DashboardItem id="path" x={pathItem.x} y={pathItem.y} w={pathItem.w} h={pathItem.h} minW={2} minH={2}>
+            <DashboardItem id="path" x={pathItem.x} y={pathItem.y} w={pathItem.w} h={pathItem.h} minW={1} minH={2}>
               <BlockCard id="path" title="目标路径" icon={FolderOpen} iconClass="text-primary" isFullscreen={true}>
                 {#snippet children()}
                   {@render pathBlockContent()}
@@ -551,7 +551,7 @@
             
             <!-- 操作按钮 -->
             {@const opItem = getLayoutItem('operation')}
-            <DashboardItem id="operation" x={opItem.x} y={opItem.y} w={opItem.w} h={opItem.h} minW={1} minH={2}>
+            <DashboardItem id="operation" x={opItem.x} y={opItem.y} w={opItem.w} h={opItem.h} minW={1} minH={1}>
               <BlockCard id="operation" title="操作" icon={Play} iconClass="text-green-500" isFullscreen={true}>
                 {#snippet children()}{@render operationBlockContent()}{/snippet}
               </BlockCard>
@@ -559,7 +559,7 @@
             
             <!-- 统计数字 -->
             {@const statsItem = getLayoutItem('stats')}
-            <DashboardItem id="stats" x={statsItem.x} y={statsItem.y} w={statsItem.w} h={statsItem.h} minW={1} minH={2}>
+            <DashboardItem id="stats" x={statsItem.x} y={statsItem.y} w={statsItem.w} h={statsItem.h} minW={1} minH={1}>
               <BlockCard id="stats" title="统计" icon={FolderTree} iconClass="text-yellow-500" isFullscreen={true}>
                 {#snippet children()}{@render statsBlockContent()}{/snippet}
               </BlockCard>
@@ -567,7 +567,7 @@
             
             <!-- 进度/结果 -->
             {@const progressItem = getLayoutItem('progress')}
-            <DashboardItem id="progress" x={progressItem.x} y={progressItem.y} w={progressItem.w} h={progressItem.h} minW={2} minH={1}>
+            <DashboardItem id="progress" x={progressItem.x} y={progressItem.y} w={progressItem.w} h={progressItem.h} minW={1} minH={1}>
               <BlockCard id="progress" title="状态" icon={Package} iconClass="text-muted-foreground" isFullscreen={true} hideHeader={true}>
                 {#snippet children()}{@render progressBlockContent()}{/snippet}
               </BlockCard>
@@ -575,7 +575,7 @@
 
             <!-- 文件树预览 -->
             {@const treeItem = getLayoutItem('tree')}
-            <DashboardItem id="tree" x={treeItem.x} y={treeItem.y} w={treeItem.w} h={treeItem.h} minW={2} minH={2}>
+            <DashboardItem id="tree" x={treeItem.x} y={treeItem.y} w={treeItem.w} h={treeItem.h} minW={1} minH={1}>
               <BlockCard id="tree" title="文件夹结构" icon={FolderTree} iconClass="text-yellow-500" isFullscreen={true} fullHeight={true} hideHeader={true}>
                 {#snippet children()}{@render treeBlockContent()}{/snippet}
               </BlockCard>
@@ -583,7 +583,7 @@
             
             <!-- 日志 -->
             {@const logItem = getLayoutItem('log')}
-            <DashboardItem id="log" x={logItem.x} y={logItem.y} w={logItem.w} h={logItem.h} minW={1} minH={2}>
+            <DashboardItem id="log" x={logItem.x} y={logItem.y} w={logItem.w} h={logItem.h} minW={1} minH={1}>
               <BlockCard id="log" title="日志" icon={Copy} iconClass="text-muted-foreground" isFullscreen={true} fullHeight={true} hideHeader={true}>
                 {#snippet children()}{@render logBlockContent()}{/snippet}
               </BlockCard>
