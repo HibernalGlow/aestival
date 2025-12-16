@@ -135,7 +135,7 @@ export const REPACKU_DEFAULT_GRID_LAYOUT: GridItem[] = [
 ];
 
 // ============ Trename 节点区块定义 ============
-import { FilePenLine, RefreshCw, Upload } from '@lucide/svelte';
+import { FilePenLine, RefreshCw, Upload, Settings2 } from '@lucide/svelte';
 
 export const TRENAME_BLOCKS: BlockDefinition[] = [
   {
@@ -184,6 +184,15 @@ export const TRENAME_BLOCKS: BlockDefinition[] = [
     visibleInFullscreen: true
   },
   {
+    id: 'options',
+    title: '高级选项',
+    icon: Settings2,
+    iconClass: 'text-muted-foreground',
+    colSpan: 2,
+    visibleInNormal: true,
+    visibleInFullscreen: true
+  },
+  {
     id: 'tree',
     title: '文件树',
     icon: FolderTree,
@@ -211,8 +220,9 @@ export const TRENAME_DEFAULT_GRID_LAYOUT: GridItem[] = [
   { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
   { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
   { id: 'importExport', x: 2, y: 2, w: 2, h: 1, minW: 2, minH: 1 },
-  { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 2, minH: 2 },
-  { id: 'log', x: 3, y: 3, w: 1, h: 4, minW: 1, minH: 2 }
+  { id: 'tree', x: 0, y: 3, w: 2, h: 4, minW: 2, minH: 2 },
+  { id: 'options', x: 2, y: 3, w: 2, h: 2, minW: 2, minH: 1 },
+  { id: 'log', x: 2, y: 5, w: 2, h: 2, minW: 1, minH: 2 }
 ];
 
 // ============ 注册表 ============

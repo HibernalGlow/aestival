@@ -528,12 +528,6 @@
     nodeType="repacku" currentLayout={gridLayout}
     onApplyLayout={(layout) => { gridLayout = layout; dashboardGrid?.applyLayout(layout); saveState(); }}
   >
-    {#snippet headerExtra()}
-      <Button variant="ghost" size="icon" class="h-6 w-6" onclick={() => showTree = !showTree} title="文件树">
-        {#if showTree}<PanelRightClose class="h-3 w-3" />{:else}<PanelRightOpen class="h-3 w-3" />{/if}
-      </Button>
-    {/snippet}
-    
     {#snippet children()}
       {#if isFullscreenRender}
         <!-- 全屏模式：GridStack 可拖拽布局 -->
@@ -626,11 +620,9 @@
             </BlockCard>
             
             <!-- 文件树块 -->
-            {#if showTree}
-              <BlockCard id="tree" title="文件树" icon={FolderTree} iconClass="text-yellow-500" class="col-span-2" collapsible={true}>
-                {#snippet children()}{@render treeBlockContent()}{/snippet}
-              </BlockCard>
-            {/if}
+            <BlockCard id="tree" title="文件树" icon={FolderTree} iconClass="text-yellow-500" class="col-span-2" collapsible={true}>
+              {#snippet children()}{@render treeBlockContent()}{/snippet}
+            </BlockCard>
             
             <!-- 日志块 -->
             {#if logs.length > 0}

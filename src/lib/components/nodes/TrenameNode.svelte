@@ -39,8 +39,6 @@
   let phase: Phase = savedState?.phase ?? 'idle';
   let logs: string[] = savedState?.logs ?? (data?.logs ? [...data.logs] : []);
   let copied = false;
-  let showTree = savedState?.showTree ?? data?.showTree ?? true;
-  let showOptions = savedState?.showOptions ?? false;
 
   // 配置
   let scanPath = savedState?.scanPath ?? data?.config?.path ?? '';
@@ -78,7 +76,7 @@
   
   function saveState() {
     setNodeState<TrenameState>(id, {
-      phase, logs, showTree, showOptions, showJsonInput: false, jsonInputText: '',
+      phase, logs, showTree: true, showOptions: true, showJsonInput: false, jsonInputText: '',
       scanPath, includeHidden, excludeExts, maxLines, useCompact, basePath, dryRun,
       treeData, segments, currentSegment, stats, conflicts, lastOperationId, operationHistory, gridLayout
     });
@@ -457,23 +455,43 @@
   {/if}
 {/snippet}
 
-<!-- 高级选项区块（普通模式） -->
+<!-- 高级选项区块 -->
 {#snippet optionsBlockContent()}
-  <div class="flex flex-wrap gap-2 text-xs mb-2">
-    <label class="flex items-center gap-1"><Checkbox bind:checked={includeHidden} class="h-3 w-3" /><span>隐藏文件</span></label>
-    <label class="flex items-center gap-1"><Checkbox bind:checked={dryRun} class="h-3 w-3" /><span>模拟执行</span></label>
-    <label class="flex items-center gap-1"><Checkbox bind:checked={useCompact} class="h-3 w-3" /><span>紧凑格式</span></label>
-  </div>
-  <div class="flex gap-2 text-xs">
-    <label class="flex items-center gap-1 flex-1 min-w-0">
-      <span class="text-muted-foreground whitespace-nowrap">排除:</span>
-      <Input bind:value={excludeExts} class="h-6 text-xs flex-1 min-w-0" placeholder=".json,.txt" />
-    </label>
-    <label class="flex items-center gap-1">
-      <span class="text-muted-foreground whitespace-nowrap">分段:</span>
-      <Input type="number" bind:value={maxLines} class="h-6 text-xs w-16" min={50} max={5000} step={100} />
-    </label>
-  </div>
+  {#if isFullscreenRender}
+    <div class="space-y-3">
+      <div class="flex flex-wrap gap-4">
+        <label class="flex items-center gap-2"><Checkbox bind:checked={includeHidden} /><span class="text-sm">包含隐藏文件</span></label>
+        <label class="flex items-center gap-2"><Checkbox bind:checked={dryRun} /><span class="text-sm">模拟执行</span></label>
+        <label class="flex items-center gap-2"><Checkbox bind:checked={useCompact} /><span class="text-sm">紧凑格式</span></label>
+      </div>
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2 flex-1">
+          <span class="text-sm text-muted-foreground whitespace-nowrap">排除扩展名:</span>
+          <Input bind:value={excludeExts} class="h-9 flex-1" placeholder=".json,.txt" />
+        </label>
+        <label class="flex items-center gap-2">
+          <span class="text-sm text-muted-foreground whitespace-nowrap">分段行数:</span>
+          <Input type="number" bind:value={maxLines} class="h-9 w-24" min={50} max={5000} step={100} />
+        </label>
+      </div>
+    </div>
+  {:else}
+    <div class="flex flex-wrap gap-2 text-xs mb-2">
+      <label class="flex items-center gap-1"><Checkbox bind:checked={includeHidden} class="h-3 w-3" /><span>隐藏文件</span></label>
+      <label class="flex items-center gap-1"><Checkbox bind:checked={dryRun} class="h-3 w-3" /><span>模拟执行</span></label>
+      <label class="flex items-center gap-1"><Checkbox bind:checked={useCompact} class="h-3 w-3" /><span>紧凑格式</span></label>
+    </div>
+    <div class="flex gap-2 text-xs">
+      <label class="flex items-center gap-1 flex-1 min-w-0">
+        <span class="text-muted-foreground whitespace-nowrap">排除:</span>
+        <Input bind:value={excludeExts} class="h-6 text-xs flex-1 min-w-0" placeholder=".json,.txt" />
+      </label>
+      <label class="flex items-center gap-1">
+        <span class="text-muted-foreground whitespace-nowrap">分段:</span>
+        <Input type="number" bind:value={maxLines} class="h-6 text-xs w-16" min={50} max={5000} step={100} />
+      </label>
+    </div>
+  {/if}
 {/snippet}
 
 
@@ -491,14 +509,7 @@
     nodeType="trename" currentLayout={gridLayout}
     onApplyLayout={(layout) => { gridLayout = layout; dashboardGrid?.applyLayout(layout); saveState(); }}
   >
-    {#snippet headerExtra()}
-      <Button variant="ghost" size="icon" class="h-6 w-6" onclick={() => showOptions = !showOptions} title="选项">
-        <Settings2 class="h-3 w-3" />
-      </Button>
-      <Button variant="ghost" size="icon" class="h-6 w-6" onclick={() => showTree = !showTree} title="文件树">
-        {#if showTree}<PanelRightClose class="h-3 w-3" />{:else}<PanelRightOpen class="h-3 w-3" />{/if}
-      </Button>
-    {/snippet}
+
     
     {#snippet children()}
       {#if isFullscreenRender}
@@ -546,6 +557,13 @@
                 {#snippet children()}{@render logBlockContent()}{/snippet}
               </BlockCard>
             </DashboardItem>
+            
+            {@const optionsItem = getLayoutItem('options')}
+            <DashboardItem id="options" x={optionsItem.x} y={optionsItem.y} w={optionsItem.w} h={optionsItem.h} minW={2} minH={1}>
+              <BlockCard id="options" title="高级选项" icon={Settings2} iconClass="text-muted-foreground" isFullscreen={true}>
+                {#snippet children()}{@render optionsBlockContent()}{/snippet}
+              </BlockCard>
+            </DashboardItem>
           </DashboardGrid>
         </div>
 
@@ -573,17 +591,13 @@
               {#snippet children()}{@render importExportBlockContent()}{/snippet}
             </BlockCard>
             
-            {#if showTree}
-              <BlockCard id="tree" title="文件树" icon={Folder} iconClass="text-yellow-500" class="col-span-2" collapsible={true}>
-                {#snippet children()}{@render treeBlockContent()}{/snippet}
-              </BlockCard>
-            {/if}
+            <BlockCard id="tree" title="文件树" icon={Folder} iconClass="text-yellow-500" class="col-span-2" collapsible={true}>
+              {#snippet children()}{@render treeBlockContent()}{/snippet}
+            </BlockCard>
             
-            {#if showOptions}
-              <BlockCard id="options" title="高级选项" icon={Settings2} iconClass="text-muted-foreground" class="col-span-2">
-                {#snippet children()}{@render optionsBlockContent()}{/snippet}
-              </BlockCard>
-            {/if}
+            <BlockCard id="options" title="高级选项" icon={Settings2} iconClass="text-muted-foreground" class="col-span-2">
+              {#snippet children()}{@render optionsBlockContent()}{/snippet}
+            </BlockCard>
             
             {#if conflicts.length > 0}
               <BlockCard id="conflicts" title="冲突" icon={TriangleAlert} iconClass="text-red-500" class="col-span-2">
