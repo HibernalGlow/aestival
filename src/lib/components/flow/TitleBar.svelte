@@ -27,6 +27,13 @@
     }
   });
 
+  // 拖拽窗口
+  async function startDrag(e: MouseEvent) {
+    // 只响应左键
+    if (e.button !== 0) return;
+    await windowApi?.startDragging();
+  }
+
   // 窗口控制
   async function minimizeWindow() {
     await windowApi?.minimize();
@@ -185,7 +192,8 @@
   </div>
 
   <!-- 中间：拖拽区域 -->
-  <div class="flex-1 h-full" data-tauri-drag-region></div>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="flex-1 h-full cursor-default" onmousedown={startDrag}></div>
 
   <!-- 右侧：工具按钮 -->
   <div class="flex items-center gap-0.5 px-2">
