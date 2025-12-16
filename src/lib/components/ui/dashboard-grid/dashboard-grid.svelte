@@ -118,7 +118,8 @@
     grid = GridStack.init({
       column: columns,
       cellHeight: cellHeight,
-      margin: margin,
+      // margin 格式: 'top right bottom left' 或单个值
+      margin: `${margin}px`,
       float: float,
       disableDrag: disableDrag,
       disableResize: disableResize,
@@ -146,25 +147,6 @@
 
 
 <div class="dashboard-container">
-  {#if showToolbar}
-    <div class="dashboard-toolbar">
-      <button class="toolbar-btn" onclick={compact} title="整理布局">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-        </svg>
-        <span>整理</span>
-      </button>
-      {#if onReset}
-        <button class="toolbar-btn" onclick={onReset} title="重置布局">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
-          </svg>
-          <span>重置</span>
-        </button>
-      {/if}
-    </div>
-  {/if}
-  
   <div bind:this={gridElement} class="grid-stack dashboard-grid">
     {#if children}
       {@render children()}
@@ -180,35 +162,6 @@
     width: 100%;
   }
   
-  .dashboard-toolbar {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid hsl(var(--border));
-    background: hsl(var(--muted) / 0.3);
-    flex-shrink: 0;
-  }
-  
-  .toolbar-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.75rem;
-    color: hsl(var(--muted-foreground));
-    background: hsl(var(--background));
-    border: 1px solid hsl(var(--border));
-    border-radius: 0.5rem;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  
-  .toolbar-btn:hover {
-    color: hsl(var(--foreground));
-    border-color: hsl(var(--primary) / 0.5);
-    background: hsl(var(--muted) / 0.5);
-  }
-
   .dashboard-grid {
     width: 100%;
     flex: 1;
