@@ -182,6 +182,16 @@ export function renamePreset(id: string, newName: string): boolean {
   return true;
 }
 
+/** 更新用户预设的布局（覆盖） */
+export function updatePreset(id: string, layout: GridItem[]): boolean {
+  const userPresets = loadUserPresets();
+  const preset = userPresets.find(p => p.id === id);
+  if (!preset) return false;
+  preset.layout = JSON.parse(JSON.stringify(layout)); // 深拷贝
+  saveUserPresets(userPresets);
+  return true;
+}
+
 /** 导出预设为 JSON 字符串 */
 export function exportPreset(id: string): string | null {
   const preset = getPreset(id);

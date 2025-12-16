@@ -8,11 +8,11 @@
   import { Badge } from '$lib/components/ui/badge';
   import { 
     getAllPresets, savePreset, deletePreset, exportPreset, importPreset,
-    renamePreset, setDefaultPreset, getDefaultPresetId, type LayoutPreset 
+    renamePreset, updatePreset, setDefaultPreset, getDefaultPresetId, type LayoutPreset 
   } from '$lib/stores/layoutPresets';
   import type { GridItem } from './dashboard-grid.svelte';
   import { 
-    Save, Trash2, Download, Upload, Check, X, Pencil, Pin
+    Save, Trash2, Download, Upload, Check, X, Pencil, Pin, RefreshCw
   } from '@lucide/svelte';
 
   interface Props {
@@ -110,6 +110,17 @@
     }
   }
 
+  // 更新预设布局（覆盖当前选中的预设）
+  function handleUpdate() {
+    if (!selectedId || !canModify) return;
+    const success = updatePreset(selectedId, currentLayout);
+    if (success) {
+      saveSuccess = true;
+      setTimeout(() => saveSuccess = false, 2000);
+      refreshPresets();
+    }
+  }
+
   // 获取选中的预设
   let selectedPreset = $derived(presets.find(p => p.id === selectedId));
   let canModify = $derived(selectedPreset && !selectedPreset.isBuiltin);
@@ -178,6 +189,15 @@
         </Button>
       {/if}
       {#if canModify}
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          class="h-6 w-6 p-0 hover:text-primary"
+          onclick={handleUpdate}
+          title="更新布局（覆盖当前预设）"
+        >
+          <RefreshCw class="h-3 w-3" />
+        </Button>
         <Button 
           variant="ghost" 
           size="sm" 
