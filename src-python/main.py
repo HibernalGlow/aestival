@@ -84,27 +84,28 @@ mode_label = RUNNING_MODE
 # Create FastAPI app
 app = FastAPI(title="Aestivus API", version="1.0.0")
 
-# CORS 配置
-# 根据运行模式配置允许的来源
+# CORS 配置 - 允许所有本地来源（开发和生产环境）
 cors_origins = [
     "http://localhost:5173",   # SvelteKit dev server
     "http://localhost:5174",   # Vite dev server (备用端口)
     "http://localhost:5175",   # Vite dev server (备用端口)
     "http://localhost:1420",   # Tauri dev server
+    "http://localhost:1096",   # Tauri dev server (自定义端口)
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
     "http://127.0.0.1:5175",
     "http://127.0.0.1:1420",
-    "http://127.0.0.1:8009",   # pywebview 本地服务器
-    "http://localhost:8009",
-    "tauri://localhost",
+    "http://127.0.0.1:1096",
+    "tauri://localhost",       # Tauri 生产环境
+    "https://tauri.localhost", # Tauri 生产环境 (Windows)
+    "http://tauri.localhost",  # Tauri 生产环境
 ]
 
-# pywebview 模式下允许所有本地来源
-if is_pywebview_mode():
-    # pywebview 使用本地 WebView，需要更宽松的 CORS
+# 添加多端口支持（8009-8020）
+for port in range(8009, 8021):
     cors_origins.extend([
-        f"http://127.0.0.1:{PORT_API + i}" for i in range(10)
+        f"http://127.0.0.1:{port}",
+        f"http://localhost:{port}",
     ])
 
 app.add_middleware(
