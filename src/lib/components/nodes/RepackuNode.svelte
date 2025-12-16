@@ -16,6 +16,7 @@
   import type { GridItem } from '$lib/components/ui/dashboard-grid';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
+  import { getDefaultPreset } from '$lib/stores/layoutPresets';
   import NodeWrapper from './NodeWrapper.svelte';
   import type { FolderNode, CompressionStats, FolderCard } from '$lib/types/repacku';
   import { 
@@ -102,8 +103,8 @@
   let analysisResult: AnalysisResult | null = savedState?.analysisResult ?? null;
   let compressionResult: CompressionResultData | null = savedState?.compressionResult ?? null;
   
-  // GridStack 布局（默认值）
-  let gridLayout: GridItem[] = savedState?.gridLayout ?? [
+  // 默认 GridStack 布局
+  const DEFAULT_REPACKU_LAYOUT: GridItem[] = [
     { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 },
     { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
     { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
@@ -111,6 +112,18 @@
     { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 2, minH: 2 },
     { id: 'log', x: 3, y: 3, w: 1, h: 4, minW: 1, minH: 2 }
   ];
+
+  // GridStack 布局（优先使用保存的状态，其次用户设置的默认预设，最后硬编码默认值）
+  function getInitialLayout(): GridItem[] {
+    if (savedState?.gridLayout) return savedState.gridLayout;
+    const defaultPreset = getDefaultPreset('repacku');
+    if (defaultPreset) return [...defaultPreset.layout];
+    return [...DEFAULT_REPACKU_LAYOUT];
+  }
+  let gridLayout: GridItem[] = getInitialLayout();
+  
+  // DashboardGrid 组件引用
+  let dashboardGrid: { compact: () => void; applyLayout: (layout: GridItem[]) => void } | undefined;
   
   // 处理布局变化
   function handleLayoutChange(newLayout: GridItem[]) {
@@ -396,7 +409,27 @@
     <Handle type="target" position={Position.Left} class="bg-primary!" />
   {/if}
   
-  <NodeWrapper nodeId={id} title="repacku" icon={Package} status={phase} {borderClass} {isFullscreenRender}>
+  <NodeWrapper 
+    nodeId={id} 
+    title="repacku" 
+    icon={Package} 
+    status={phase} 
+    {borderClass} 
+    {isFullscreenRender}
+    onCompact={() => dashboardGrid?.compact()}
+    onResetLayout={() => { 
+      gridLayout = [...DEFAULT_REPACKU_LAYOUT]; 
+      dashboardGrid?.applyLayout(gridLayout);
+      saveState(); 
+    }}
+    nodeType="repacku"
+    currentLayout={gridLayout}
+    onApplyLayout={(layout) => { 
+      gridLayout = layout; 
+      dashboardGrid?.applyLayout(layout);
+      saveState(); 
+    }}
+  >
     {#snippet headerExtra()}
       <Button variant="ghost" size="icon" class="h-6 w-6" onclick={() => showTree = !showTree} title="文件树">
         {#if showTree}<PanelRightClose class="h-3 w-3" />{:else}<PanelRightOpen class="h-3 w-3" />{/if}
@@ -408,9 +441,11 @@
         <!-- 全屏模式：GridStack 可拖拽布局 -->
         <div class="h-full overflow-hidden">
           <DashboardGrid 
+            bind:this={dashboardGrid}
             columns={4} 
             cellHeight={80} 
             margin={12}
+            showToolbar={false}
             onLayoutChange={handleLayoutChange}
           >
             <!-- 路径输入 + 类型过滤 -->
@@ -661,7 +696,7 @@
                     <Search class="h-3 w-3 mr-1" />扫描
                   </Button>
                 {:else if phase === 'analyzing'}
-             yarn add gridstack     <Button class="flex-1 h-8 text-xs" disabled>
+                  <Button class="flex-1 h-8 text-xs" disabled>
                     <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />分析�?
                   </Button>
                 {:else if phase === 'analyzed'}

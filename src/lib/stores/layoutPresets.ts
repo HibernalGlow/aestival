@@ -20,6 +20,7 @@ export interface LayoutPreset {
 
 /** 内置预设 */
 const BUILTIN_PRESETS: LayoutPreset[] = [
+  // ========== TrenameNode 预设 ==========
   {
     id: 'trename-default',
     name: '默认布局',
@@ -60,6 +61,52 @@ const BUILTIN_PRESETS: LayoutPreset[] = [
       { id: 'operation', x: 3, y: 2, w: 1, h: 2, minW: 1, minH: 2 },
       { id: 'stats', x: 3, y: 4, w: 1, h: 2, minW: 1, minH: 2 },
       { id: 'importExport', x: 0, y: 6, w: 2, h: 1, minW: 2, minH: 1 },
+      { id: 'log', x: 2, y: 6, w: 2, h: 1, minW: 1, minH: 1 }
+    ],
+    createdAt: 0,
+    isBuiltin: true
+  },
+  // ========== RepackuNode 预设 ==========
+  {
+    id: 'repacku-default',
+    name: '默认布局',
+    nodeType: 'repacku',
+    layout: [
+      { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 },
+      { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
+      { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
+      { id: 'progress', x: 2, y: 2, w: 2, h: 1, minW: 2, minH: 1 },
+      { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 2, minH: 2 },
+      { id: 'log', x: 3, y: 3, w: 1, h: 4, minW: 1, minH: 2 }
+    ],
+    createdAt: 0,
+    isBuiltin: true
+  },
+  {
+    id: 'repacku-compact',
+    name: '紧凑布局',
+    nodeType: 'repacku',
+    layout: [
+      { id: 'path', x: 0, y: 0, w: 2, h: 2, minW: 2, minH: 2 },
+      { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
+      { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
+      { id: 'progress', x: 0, y: 2, w: 4, h: 1, minW: 2, minH: 1 },
+      { id: 'tree', x: 0, y: 3, w: 2, h: 3, minW: 2, minH: 2 },
+      { id: 'log', x: 2, y: 3, w: 2, h: 3, minW: 1, minH: 2 }
+    ],
+    createdAt: 0,
+    isBuiltin: true
+  },
+  {
+    id: 'repacku-tree-focus',
+    name: '文件树优先',
+    nodeType: 'repacku',
+    layout: [
+      { id: 'tree', x: 0, y: 0, w: 3, h: 6, minW: 2, minH: 2 },
+      { id: 'path', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 2 },
+      { id: 'operation', x: 3, y: 2, w: 1, h: 2, minW: 1, minH: 2 },
+      { id: 'stats', x: 3, y: 4, w: 1, h: 2, minW: 1, minH: 2 },
+      { id: 'progress', x: 0, y: 6, w: 2, h: 1, minW: 2, minH: 1 },
       { id: 'log', x: 2, y: 6, w: 2, h: 1, minW: 1, minH: 1 }
     ],
     createdAt: 0,
