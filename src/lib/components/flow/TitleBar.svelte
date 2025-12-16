@@ -95,21 +95,15 @@
     }
   }
 
-  // 背景图菜单
-  let showImageMenu = $state(false);
-  let imageMenuRef = $state<HTMLDivElement | null>(null);
+  // 背景图展开栏
+  let showBgBar = $state(false);
 
-  function toggleImageMenu() {
-    showImageMenu = !showImageMenu;
-  }
-
-  function closeImageMenu() {
-    showImageMenu = false;
+  function toggleBgBar() {
+    showBgBar = !showBgBar;
   }
 
   // 背景图上传
   function uploadBackground() {
-    closeImageMenu();
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -127,23 +121,8 @@
   }
 
   function clearBackground() {
-    closeImageMenu();
     themeStore.clearBackground();
   }
-
-  // 点击外部关闭菜单
-  function handleClickOutside(event: MouseEvent) {
-    if (imageMenuRef && !imageMenuRef.contains(event.target as Node)) {
-      closeImageMenu();
-    }
-  }
-
-  $effect(() => {
-    if (showImageMenu) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  });
 
   // 流程操作
   async function saveFlow() {
@@ -203,9 +182,11 @@
   }
 </script>
 
-<!-- 顶部标题栏 -->
-<div class="h-10 bg-card/95 backdrop-blur border-b flex items-center select-none">
-  <!-- 左侧：Logo 和流程名 -->
+<!-- 标题栏容器 -->
+<div class="flex flex-col">
+  <!-- 顶部标题栏 -->
+  <div class="h-10 bg-card/95 backdrop-blur border-b flex items-center select-none">
+    <!-- 左侧：Logo 和流程名 -->
   <div class="flex items-center gap-2 px-3">
     <span class="text-sm font-bold text-primary">Aestivus</span>
     <div class="w-px h-4 bg-border"></div>
@@ -237,32 +218,10 @@
       {:else if $themeStore.mode === 'light'}<Sun class="w-3.5 h-3.5" />
       {:else}<Monitor class="w-3.5 h-3.5" />{/if}
     </Button>
-    <!-- 背景图菜单 -->
-    <div class="relative" bind:this={imageMenuRef}>
-      <Button variant="ghost" size="icon" class="h-7 w-7" onclick={toggleImageMenu} title="背景图">
-        <Image class="w-3.5 h-3.5" />
-      </Button>
-      {#if showImageMenu}
-        <div class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-popover border rounded-md shadow-lg py-1 min-w-[120px] z-50">
-          <button
-            class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted flex items-center gap-2"
-            onclick={uploadBackground}
-          >
-            <FileUp class="w-3.5 h-3.5" />
-            上传图片
-          </button>
-          {#if $themeStore.backgroundImage}
-            <button
-              class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted flex items-center gap-2 text-destructive"
-              onclick={clearBackground}
-            >
-              <X class="w-3.5 h-3.5" />
-              清除背景
-            </button>
-          {/if}
-        </div>
-      {/if}
-    </div>
+    <!-- 背景图展开按钮 -->
+    <Button variant={showBgBar ? "secondary" : "ghost"} size="icon" class="h-7 w-7" onclick={toggleBgBar} title="背景图设置">
+      <Image class="w-3.5 h-3.5" />
+    </Button>
     <!-- 设置 -->
     <Button variant="ghost" size="icon" class="h-7 w-7" onclick={openSettingsOverlay} title="设置">
       <Settings class="w-3.5 h-3.5" />
@@ -323,6 +282,36 @@
       <CloseIcon class="w-4 h-4" />
     </button>
   </div>
+</div>
+
+<!-- 背景图设置展开栏 -->
+{#if showBgBar}
+  <div class="h-9 bg-card border-b flex items-center gap-3 px-4">
+    <span class="text-xs text-muted-foreground">背景</span>
+    <Button variant="outline" size="sm" class="h-6 text-xs" onclick={uploadBackground}>
+      <FileUp class="w-3 h-3 mr-1" />
+      上传
+    </Button>
+    {#if $themeStore.backgroundImage}
+      <Button variant="ghost" size="sm" class="h-6 text-xs text-destructive" onclick={clearBackground}>
+        <X class="w-3 h-3 mr-1" />
+        清除
+      </Button>
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-muted-foreground">透明度</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={$themeStore.backgroundOpacity}
+          oninput={(e) => themeStore.setBackgroundOpacity(parseInt(e.currentTarget.value))}
+          class="w-24 h-1.5 accent-primary cursor-pointer"
+        />
+        <span class="text-xs w-8">{$themeStore.backgroundOpacity}%</span>
+      </div>
+    {/if}
+  </div>
+{/if}
 </div>
 
 <!-- 流程管理弹窗 -->
