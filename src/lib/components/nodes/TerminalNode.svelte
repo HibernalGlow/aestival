@@ -51,43 +51,8 @@
   $: borderClass = connected ? 'border-primary/50' : 'border-border';
 
   function connect() {
-    if (ws) ws.close();
-    
-    try {
-      ws = new WebSocket(wsUrl);
-      
-      ws.onopen = () => {
-        connected = true;
-        addLine('🟢 已连接到终端');
-      };
-      
-      ws.onmessage = (event) => {
-        if (paused) return;
-        
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'output') {
-            addLine(data.text);
-          } else if (data.type === 'connected') {
-            addLine(`📡 ${data.message || '连接成功'}`);
-          }
-        } catch {
-          addLine(event.data);
-        }
-      };
-      
-      ws.onclose = () => {
-        connected = false;
-        addLine('🔴 连接已断开');
-      };
-      
-      ws.onerror = () => {
-        connected = false;
-        addLine('❌ 连接错误');
-      };
-    } catch (e) {
-      addLine(`❌ 无法连接: ${e}`);
-    }
+    retryCount = 0;
+    connectWithRetry();
   }
 
   function addLine(text: string) {
@@ -127,7 +92,10 @@
     connect();
   }
 
-  // 获取后端端口并连接
+  // 获取后端端口并连接（带重试）
+  let retryCount = 0;
+  const maxRetries = 5;
+  
   async function initConnection() {
     try {
       // 从 Tauri 获取实际端口
@@ -137,11 +105,62 @@
       // 非 Tauri 环境或获取失败，使用默认端口
       addLine(`⚠️ 使用默认端口: ${backendPort}`);
     }
-    connect();
+    // 等待服务启动
+    await new Promise(r => setTimeout(r, 500));
+    connectWithRetry();
+  }
+  
+  function connectWithRetry() {
+    if (ws) ws.close();
+    
+    try {
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        connected = true;
+        retryCount = 0;
+        addLine('🟢 已连接到终端');
+      };
+      
+      ws.onmessage = (event) => {
+        if (paused) return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'output') {
+            addLine(data.text);
+          } else if (data.type === 'connected') {
+            addLine(`📡 ${data.message || '连接成功'}`);
+          }
+        } catch {
+          addLine(event.data);
+        }
+      };
+      
+      ws.onclose = () => {
+        connected = false;
+        if (retryCount < maxRetries) {
+          retryCount++;
+          addLine(`🔄 重试连接 (${retryCount}/${maxRetries})...`);
+          setTimeout(connectWithRetry, 1000 * retryCount);
+        } else {
+          addLine('🔴 连接已断开');
+        }
+      };
+      
+      ws.onerror = () => {
+        connected = false;
+        // onclose 会处理重试
+      };
+    } catch (e) {
+      addLine(`❌ 无法连接: ${e}`);
+    }
   }
 
   onMount(() => { initConnection(); });
-  onDestroy(() => { if (ws) ws.close(); });
+  onDestroy(() => { 
+    retryCount = maxRetries; // 阻止重试
+    if (ws) ws.close(); 
+  });
 </script>
 
 <div class="min-w-[280px] max-w-[400px]">
