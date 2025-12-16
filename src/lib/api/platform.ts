@@ -3,6 +3,8 @@
  * 提供统一的接口，支持 Tauri 和浏览器环境
  */
 
+import { getApiBaseUrl } from '$lib/stores/backend';
+
 // Tauri API 类型声明
 declare global {
   interface Window {
@@ -101,7 +103,7 @@ class TauriPlatformAPI implements PlatformAPI {
   async validatePath(path: string): Promise<PathValidation> {
     // 通过后端 API 验证路径
     try {
-      const response = await fetch(`http://127.0.0.1:8009/api/v1/system/validate-path`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/system/validate-path`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path })
@@ -140,7 +142,7 @@ class BrowserPlatformAPI implements PlatformAPI {
   async openFolderDialog(title?: string): Promise<string | null> {
     // 浏览器环境通过后端 API 实现
     try {
-      const response = await fetch('http://127.0.0.1:8009/api/v1/system/folder-dialog', {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/system/folder-dialog`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title || '选择文件夹' })
@@ -157,7 +159,7 @@ class BrowserPlatformAPI implements PlatformAPI {
 
   async openFileDialog(title?: string, filters?: FileFilter[]): Promise<string | null> {
     try {
-      const response = await fetch('http://127.0.0.1:8009/api/v1/system/file-dialog', {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/system/file-dialog`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title || '选择文件', filters })
@@ -191,7 +193,7 @@ class BrowserPlatformAPI implements PlatformAPI {
 
   async validatePath(path: string): Promise<PathValidation> {
     try {
-      const response = await fetch('http://127.0.0.1:8009/api/v1/system/validate-path', {
+      const response = await fetch(`${getApiBaseUrl()}/api/v1/system/validate-path`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path })

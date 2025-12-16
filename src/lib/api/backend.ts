@@ -3,7 +3,10 @@
  * 提供与 FastAPI 后端通信的统一接口
  */
 
-const API_BASE_URL = 'http://127.0.0.1:8009';
+import { getApiBaseUrl } from '$lib/stores/backend';
+
+// 动态获取 API 基础 URL
+const getBaseUrl = () => getApiBaseUrl();
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -44,7 +47,7 @@ async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${getBaseUrl()}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',

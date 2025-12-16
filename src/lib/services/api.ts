@@ -1,6 +1,8 @@
 import type { Flow } from '$lib/types';
+import { getApiV1Url } from '$lib/stores/backend';
 
-const API_BASE = 'http://localhost:8009/v1';
+// 动态获取 API 基础 URL
+const getApiBase = () => getApiV1Url();
 
 // 重试配置
 const RETRY_CONFIG = {
@@ -20,7 +22,7 @@ async function requestWithRetry<T>(
   retryCount = 0
 ): Promise<T> {
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(`${getApiBase()}${path}`, {
       headers: {
         'Content-Type': 'application/json',
         ...options?.headers
