@@ -12,6 +12,15 @@
   } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
   import { themeStore, toggleThemeMode } from '$lib/stores/theme.svelte';
+  import { settingsManager } from '$lib/settings/settingsManager';
+
+  // 获取面板设置
+  let panelSettings = $state(settingsManager.getSettings().panels);
+  
+  // 计算标题栏样式
+  let toolbarStyle = $derived(
+    `background-color: hsl(var(--card) / ${panelSettings.topToolbarOpacity / 100}); backdrop-filter: blur(${panelSettings.topToolbarBlur}px);`
+  );
 
   // Tauri 窗口 API
   let windowApi: any = null;
@@ -25,6 +34,11 @@
     } catch (e) {
       console.log('Not running in Tauri');
     }
+    
+    // 监听设置变化
+    settingsManager.addListener((s) => {
+      panelSettings = s.panels;
+    });
   });
 
   // 拖拽窗口
@@ -185,7 +199,7 @@
 <!-- 标题栏容器 -->
 <div class="flex flex-col">
   <!-- 顶部标题栏 -->
-  <div class="h-10 bg-card/95 backdrop-blur border-b flex items-center select-none">
+  <div class="h-10 border-b flex items-center select-none" style={toolbarStyle}>
     <!-- 左侧：Logo 和流程名 -->
   <div class="flex items-center gap-2 px-3">
     <span class="text-sm font-bold text-primary">Aestivus</span>
@@ -286,7 +300,7 @@
 
 <!-- 背景图设置展开栏 -->
 {#if showBgBar}
-  <div class="h-9 bg-card border-b flex items-center gap-3 px-4">
+  <div class="h-9 border-b flex items-center gap-3 px-4" style={toolbarStyle}>
     <span class="text-xs text-muted-foreground">背景</span>
     <Button variant="outline" size="sm" class="h-6 text-xs" onclick={uploadBackground}>
       <FileUp class="w-3 h-3 mr-1" />

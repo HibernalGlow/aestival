@@ -10,6 +10,23 @@
     FolderSync, FileText, Video, Terminal, GripHorizontal, ChevronDown, ChevronRight,
     Maximize2
   } from '@lucide/svelte';
+  import { settingsManager } from '$lib/settings/settingsManager';
+  import { onMount } from 'svelte';
+
+  // 获取面板设置
+  let panelSettings = $state(settingsManager.getSettings().panels);
+  
+  // 计算侧边栏样式
+  let sidebarStyle = $derived(
+    `background-color: hsl(var(--card) / ${panelSettings.sidebarOpacity / 100}); backdrop-filter: blur(${panelSettings.sidebarBlur}px);`
+  );
+
+  onMount(() => {
+    // 监听设置变化
+    settingsManager.addListener((s) => {
+      panelSettings = s.panels;
+    });
+  });
 
   const icons: Record<string, typeof Clipboard> = {
     Clipboard, Folder, FileInput, Package, Search, AlertTriangle,
@@ -78,8 +95,8 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="fixed z-50 bg-card/95 backdrop-blur border rounded-lg shadow-lg select-none w-48"
-  style="left: {position.x}px; top: {position.y}px;"
+  class="fixed z-50 border rounded-lg shadow-lg select-none w-48"
+  style="left: {position.x}px; top: {position.y}px; {sidebarStyle}"
   onmousedown={onMouseDown}
 >
   <!-- 标题栏 -->
