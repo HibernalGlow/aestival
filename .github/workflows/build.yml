@@ -43,7 +43,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Setup Rust
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.target }}
