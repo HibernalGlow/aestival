@@ -6,12 +6,12 @@
   import { api } from '$lib/services/api';
   import { 
     Save, Play, Square, RotateCcw, FileDown, FileUp, 
-    Sun, Moon, Monitor, Palette, Image, X,
+    Sun, Moon, Monitor, Image, X,
     Minus, Square as MaxIcon, X as CloseIcon,
     FolderOpen, Settings
   } from '@lucide/svelte';
   import { Button } from '$lib/components/ui/button';
-  import { themeStore, toggleThemeMode, openThemeImport } from '$lib/stores/theme.svelte';
+  import { themeStore, toggleThemeMode } from '$lib/stores/theme.svelte';
 
   // Tauri 窗口 API
   let windowApi: any = null;
@@ -95,8 +95,21 @@
     }
   }
 
+  // 背景图菜单
+  let showImageMenu = $state(false);
+  let imageMenuRef = $state<HTMLDivElement | null>(null);
+
+  function toggleImageMenu() {
+    showImageMenu = !showImageMenu;
+  }
+
+  function closeImageMenu() {
+    showImageMenu = false;
+  }
+
   // 背景图上传
   function uploadBackground() {
+    closeImageMenu();
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -114,8 +127,23 @@
   }
 
   function clearBackground() {
+    closeImageMenu();
     themeStore.clearBackground();
   }
+
+  // 点击外部关闭菜单
+  function handleClickOutside(event: MouseEvent) {
+    if (imageMenuRef && !imageMenuRef.contains(event.target as Node)) {
+      closeImageMenu();
+    }
+  }
+
+  $effect(() => {
+    if (showImageMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  });
 
   // 流程操作
   async function saveFlow() {
@@ -141,7 +169,7 @@
   }
 
   function stopExecution() {
-    const taskId = taskStore.getState?.()?.taskId;
+    const taskId = $taskStore.taskId;
     if (taskId) { api.cancelTask(taskId); taskStore.cancel(); }
   }
 
@@ -197,35 +225,56 @@
     {/if}
   </div>
 
-  <!-- 中间：拖拽区域 -->
+  <!-- 中间：左侧拖拽区域 -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="flex-1 h-full cursor-default" onmousedown={startDrag}></div>
 
-  <!-- 右侧：工具按钮 -->
-  <div class="flex items-center gap-0.5 px-2">
-    <!-- 主题 -->
+  <!-- 居中按钮组 -->
+  <div class="flex items-center gap-0.5">
+    <!-- 主题模式切换 -->
     <Button variant="ghost" size="icon" class="h-7 w-7" onclick={toggleThemeMode} title="主题">
       {#if $themeStore.mode === 'dark'}<Moon class="w-3.5 h-3.5" />
       {:else if $themeStore.mode === 'light'}<Sun class="w-3.5 h-3.5" />
       {:else}<Monitor class="w-3.5 h-3.5" />{/if}
     </Button>
-    <Button variant="ghost" size="icon" class="h-7 w-7" onclick={openThemeImport} title="导入主题">
-      <Palette class="w-3.5 h-3.5" />
-    </Button>
-    <Button variant="ghost" size="icon" class="h-7 w-7" onclick={uploadBackground} title="背景图">
-      <Image class="w-3.5 h-3.5" />
-    </Button>
-    {#if $themeStore.backgroundImage}
-      <Button variant="ghost" size="icon" class="h-7 w-7 text-destructive" onclick={clearBackground} title="清除背景">
-        <X class="w-3.5 h-3.5" />
+    <!-- 背景图菜单 -->
+    <div class="relative" bind:this={imageMenuRef}>
+      <Button variant="ghost" size="icon" class="h-7 w-7" onclick={toggleImageMenu} title="背景图">
+        <Image class="w-3.5 h-3.5" />
       </Button>
-    {/if}
+      {#if showImageMenu}
+        <div class="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-popover border rounded-md shadow-lg py-1 min-w-[120px] z-50">
+          <button
+            class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted flex items-center gap-2"
+            onclick={uploadBackground}
+          >
+            <FileUp class="w-3.5 h-3.5" />
+            上传图片
+          </button>
+          {#if $themeStore.backgroundImage}
+            <button
+              class="w-full px-3 py-1.5 text-sm text-left hover:bg-muted flex items-center gap-2 text-destructive"
+              onclick={clearBackground}
+            >
+              <X class="w-3.5 h-3.5" />
+              清除背景
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </div>
+    <!-- 设置 -->
     <Button variant="ghost" size="icon" class="h-7 w-7" onclick={openSettingsOverlay} title="设置">
       <Settings class="w-3.5 h-3.5" />
     </Button>
-    
-    <div class="w-px h-5 bg-border mx-1"></div>
-    
+  </div>
+
+  <!-- 中间：右侧拖拽区域 -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="flex-1 h-full cursor-default" onmousedown={startDrag}></div>
+
+  <!-- 右侧：工具按钮 -->
+  <div class="flex items-center gap-0.5 px-2">
     <!-- 流程操作 -->
     <Button variant="ghost" size="icon" class="h-7 w-7" onclick={importFlow} title="导入">
       <FileUp class="w-3.5 h-3.5" />

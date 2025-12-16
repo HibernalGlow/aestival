@@ -5,7 +5,6 @@
 		Moon,
 		Monitor,
 		Check,
-		Layers,
 		Copy,
 		Trash2,
 		ChevronDown,
@@ -14,11 +13,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { fetchThemeFromURL } from '$lib/utils/themeManager';
-	import { settingsManager } from '$lib/settings/settingsManager';
 	import { emit } from '@tauri-apps/api/event';
 
 	type ThemeMode = 'light' | 'dark' | 'system';
@@ -26,54 +23,6 @@
 	let currentMode = $state<ThemeMode>('system');
 	let systemPrefersDark = $state(false);
 	let themeUrl = $state('');
-	let sidebarOpacity = $state(settingsManager.getSettings().panels.sidebarOpacity);
-	let topToolbarOpacity = $state(settingsManager.getSettings().panels.topToolbarOpacity);
-	let bottomBarOpacity = $state(settingsManager.getSettings().panels.bottomBarOpacity);
-	let sidebarBlur = $state(settingsManager.getSettings().panels.sidebarBlur ?? 12);
-	let topToolbarBlur = $state(settingsManager.getSettings().panels.topToolbarBlur ?? 12);
-	let bottomBarBlur = $state(settingsManager.getSettings().panels.bottomBarBlur ?? 12);
-	let settingsOpacity = $state(settingsManager.getSettings().panels.settingsOpacity ?? 85);
-	let settingsBlur = $state(settingsManager.getSettings().panels.settingsBlur ?? 12);
-
-	function updateSidebarOpacity(value: number) {
-		sidebarOpacity = value;
-		settingsManager.updateNestedSettings('panels', { sidebarOpacity: value });
-	}
-
-	function updateTopToolbarOpacity(value: number) {
-		topToolbarOpacity = value;
-		settingsManager.updateNestedSettings('panels', { topToolbarOpacity: value });
-	}
-
-	function updateBottomBarOpacity(value: number) {
-		bottomBarOpacity = value;
-		settingsManager.updateNestedSettings('panels', { bottomBarOpacity: value });
-	}
-
-	function updateSidebarBlur(value: number) {
-		sidebarBlur = value;
-		settingsManager.updateNestedSettings('panels', { sidebarBlur: value });
-	}
-
-	function updateTopToolbarBlur(value: number) {
-		topToolbarBlur = value;
-		settingsManager.updateNestedSettings('panels', { topToolbarBlur: value });
-	}
-
-	function updateBottomBarBlur(value: number) {
-		bottomBarBlur = value;
-		settingsManager.updateNestedSettings('panels', { bottomBarBlur: value });
-	}
-
-	function updateSettingsOpacity(value: number) {
-		settingsOpacity = value;
-		settingsManager.updateNestedSettings('panels', { settingsOpacity: value });
-	}
-
-	function updateSettingsBlur(value: number) {
-		settingsBlur = value;
-		settingsManager.updateNestedSettings('panels', { settingsBlur: value });
-	}
 
 	// 字体设置
 	import {
@@ -81,6 +30,7 @@
 		broadcastFontSettings,
 		type FontSettings
 	} from '$lib/utils/fontManager';
+	import { settingsManager } from '$lib/settings/settingsManager';
 	import { Type, Plus, X } from '@lucide/svelte';
 	import Switch from '$lib/components/ui/switch/switch.svelte';
 
@@ -622,149 +572,6 @@
 				当前系统偏好: {systemPrefersDark ? '深色' : '浅色'}
 			</p>
 		{/if}
-	</div>
-
-	<!-- 侧边栏透明度 -->
-	<div class="space-y-3">
-		<Label class="flex items-center gap-2 text-sm font-semibold">
-			<Layers class="h-4 w-4" />
-			侧边栏透明度
-		</Label>
-		<div class="flex items-center gap-4">
-			<Slider
-				type="single"
-				value={sidebarOpacity}
-				min={50}
-				max={100}
-				step={5}
-				class="flex-1"
-				onValueChange={updateSidebarOpacity}
-			/>
-			<span class="text-muted-foreground w-12 text-right text-sm">{sidebarOpacity}%</span>
-		</div>
-		<p class="text-muted-foreground text-xs">调整侧边栏和面板的背景透明度，数值越低越透明</p>
-	</div>
-
-	<!-- 顶部工具栏透明度 -->
-	<div class="space-y-3">
-		<Label class="text-sm font-semibold">顶部工具栏透明度</Label>
-		<div class="flex items-center gap-4">
-			<Slider
-				type="single"
-				value={topToolbarOpacity}
-				min={50}
-				max={100}
-				step={5}
-				class="flex-1"
-				onValueChange={updateTopToolbarOpacity}
-			/>
-			<span class="text-muted-foreground w-12 text-right text-sm">{topToolbarOpacity}%</span>
-		</div>
-	</div>
-
-	<!-- 底部缩略图栏透明度 -->
-	<div class="space-y-3">
-		<Label class="text-sm font-semibold">底部缩略图栏透明度</Label>
-		<div class="flex items-center gap-4">
-			<Slider
-				type="single"
-				value={bottomBarOpacity}
-				min={50}
-				max={100}
-				step={5}
-				class="flex-1"
-				onValueChange={updateBottomBarOpacity}
-			/>
-			<span class="text-muted-foreground w-12 text-right text-sm">{bottomBarOpacity}%</span>
-		</div>
-	</div>
-
-	<!-- 模糊程度设置 -->
-	<div class="space-y-4 border-t pt-2">
-		<h4 class="text-sm font-semibold">模糊程度</h4>
-
-		<div class="space-y-3">
-			<Label class="text-sm">侧边栏模糊</Label>
-			<div class="flex items-center gap-4">
-				<Slider
-					type="single"
-					value={sidebarBlur}
-					min={0}
-					max={20}
-					step={2}
-					class="flex-1"
-					onValueChange={updateSidebarBlur}
-				/>
-				<span class="text-muted-foreground w-12 text-right text-sm">{sidebarBlur}px</span>
-			</div>
-		</div>
-
-		<div class="space-y-3">
-			<Label class="text-sm">顶部工具栏模糊</Label>
-			<div class="flex items-center gap-4">
-				<Slider
-					type="single"
-					value={topToolbarBlur}
-					min={0}
-					max={20}
-					step={2}
-					class="flex-1"
-					onValueChange={updateTopToolbarBlur}
-				/>
-				<span class="text-muted-foreground w-12 text-right text-sm">{topToolbarBlur}px</span>
-			</div>
-		</div>
-
-		<div class="space-y-3">
-			<Label class="text-sm">底部缩略图栏模糊</Label>
-			<div class="flex items-center gap-4">
-				<Slider
-					type="single"
-					value={bottomBarBlur}
-					min={0}
-					max={20}
-					step={2}
-					class="flex-1"
-					onValueChange={updateBottomBarBlur}
-				/>
-				<span class="text-muted-foreground w-12 text-right text-sm">{bottomBarBlur}px</span>
-			</div>
-		</div>
-	</div>
-
-	<!-- 设置界面透明度与模糊 -->
-	<div class="space-y-3">
-		<Label class="text-sm font-semibold">设置界面透明度与模糊</Label>
-		<div class="space-y-2">
-			<Label class="text-muted-foreground text-xs">设置界面透明度</Label>
-			<div class="flex items-center gap-4">
-				<Slider
-					type="single"
-					value={settingsOpacity}
-					min={50}
-					max={100}
-					step={5}
-					class="flex-1"
-					onValueChange={updateSettingsOpacity}
-				/>
-				<span class="text-muted-foreground w-12 text-right text-sm">{settingsOpacity}%</span>
-			</div>
-		</div>
-		<div class="space-y-2">
-			<Label class="text-muted-foreground text-xs">设置界面模糊程度</Label>
-			<div class="flex items-center gap-4">
-				<Slider
-					type="single"
-					value={settingsBlur}
-					min={0}
-					max={20}
-					step={2}
-					class="flex-1"
-					onValueChange={updateSettingsBlur}
-				/>
-				<span class="text-muted-foreground w-12 text-right text-sm">{settingsBlur}px</span>
-			</div>
-		</div>
 	</div>
 
 	<!-- 自定义字体 -->
