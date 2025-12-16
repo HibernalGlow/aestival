@@ -182,7 +182,7 @@ def build_python_sidecar():
     nuitka_cmd.append("main.py")
     
     cmd_str = " ".join(nuitka_cmd)
-    if not run_command(cmd_str, f"打包 Python Sidecar ({platform_name})", cwd="src-python"):
+    if not run_command(cmd_str, f"打包 Python Sidecar ({platform_name})", cwd="src-python", capture=False):
         return False
     
     # 重命名为 Tauri 期望的格式

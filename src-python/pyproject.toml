@@ -13,22 +13,20 @@ dependencies = [
     "fastapi>=0.104.1",
     "uvicorn[standard]>=0.24.0",
     "pydantic>=2.5.0",
-    
     # HTTP 客户端
     "httpx>=0.25.2",
     "requests>=2.31.0",
-    
     # 剪贴板支持
     "pyperclip>=1.8.0",
-    
     # 日志
     "loguru>=0.7.0",
-    
     # 工具适配器依赖 (从 GitHub 安装)
     "autorepack @ git+https://github.com/HibernalGlow/AutoRepack.git",
     "imagefilter @ git+https://github.com/HibernalGlow/ImageFilter.git",
     "previewa @ git+https://github.com/HibernalGlow/ArtistPreview.git",
-    "nameu @ git+https://github.com/HibernalGlow/NameU.git",
+    # 临时使用本地路径，等 NameU 仓库更新后改回 GitHub
+    "nameu @ file:///D:/1VSCODE/Projects/PackU/NameU",
+    "nuitka>=2.8.9",
 ]
 
 [project.optional-dependencies]
@@ -54,72 +52,39 @@ name = "main"
 onefile = true
 standalone = true
 
-# 需要包含的模块（Nuitka 的 --include-module）
+# 需要包含的模块（Nuitka 的 --include-module，用于本地模块）
 include-modules = [
-    # 适配器模块
+    # 本地适配器模块
     "adapters",
     "adapters.base",
     "adapters.repacku_adapter",
     "adapters.rawfilter_adapter",
     "adapters.crashu_adapter",
     "adapters.trename_adapter",
-    
-    # repacku 依赖
-    "repacku",
-    "repacku.cli",
-    "repacku.core",
-    "repacku.core.folder_analyzer",
-    "repacku.core.zip_compressor",
-    "repacku.core.single_packer",
-    "repacku.core.common_utils",
-    "repacku.config",
-    "repacku.config.config",
-    
-    # rawfilter 依赖
-    "rawfilter",
-    "rawfilter.__main__",
-    
-    # crashu 依赖
-    "crashu",
-    "crashu.__main__",
-    "crashu.core",
-    "crashu.core.folder_manager",
-    "crashu.core.output_manager",
-    
-    # trename 依赖
-    "trename",
-    "trename.scanner",
-    "trename.renamer",
-    "trename.undo",
-    "trename.models",
-    "trename.validator",
-    
-    # FastAPI/uvicorn 内部模块
-    "uvicorn.logging",
-    "uvicorn.loops",
-    "uvicorn.loops.auto",
-    "uvicorn.protocols",
-    "uvicorn.protocols.http",
-    "uvicorn.protocols.http.auto",
-    "uvicorn.protocols.websockets",
-    "uvicorn.protocols.websockets.auto",
-    "uvicorn.lifespan",
-    "uvicorn.lifespan.on",
 ]
 
-# 需要包含的包（Nuitka 的 --include-package）
+# 需要包含的包（Nuitka 的 --include-package，用于外部依赖）
 include-packages = [
+    # Web 框架
     "fastapi",
     "starlette",
     "pydantic",
     "pydantic_core",
     "uvicorn",
+    
+    # 工具库
     "loguru",
     "rich",
     "typer",
+    
+    # 适配器依赖的外部包（整包包含）
+    "repacku",
+    "rawfilter",
+    "crashu",
+    "trename",
 ]
 
-# 排除的模块
+# 排除的模块（不跟踪这些依赖）
 nofollow-imports = [
     "matplotlib",
     "numpy",
@@ -128,4 +93,12 @@ nofollow-imports = [
     "tkinter",
     "PyQt5",
     "PyQt6",
+    # streamlit 是 nameu 的可选依赖，AestivalFlow 不需要
+    "streamlit",
+    # 其他不需要的大型依赖
+    "textual",
+    "opencv",
+    "cv2",
+    "PIL",
+    "pillow",
 ]
