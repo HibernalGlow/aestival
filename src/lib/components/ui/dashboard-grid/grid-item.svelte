@@ -55,9 +55,7 @@
     "gs-no-move": noMove || undefined,
   }}
 >
-  <div
-    class="grid-stack-item-content h-full w-full bg-card border border-border border-l-4 border-r-4 border-l-primary border-r-primary rounded-xl overflow-hidden shadow-sm"
-  >
+  <div class="grid-stack-item-content">
     {#if children}
       {@render children()}
     {/if}

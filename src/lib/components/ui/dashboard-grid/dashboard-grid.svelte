@@ -175,7 +175,12 @@
     border: 1px solid hsl(var(--border));
     border-radius: 1.5rem;
     overflow: auto;
-    inset: 6px;
+    /* 使用绝对定位 + inset 实现居中 */
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    bottom: 6px;
+    left: 6px;
   }
 
   :global(.grid-stack-item) {
