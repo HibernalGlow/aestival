@@ -267,13 +267,24 @@ fn spawn_python_backend(app_handle: tauri::AppHandle) -> Result<(), String> {
     
     println!("[tauri] Spawning: {} {:?}", config.python_path, args);
     
-    // 在可见的终端窗口中启动 Python（方便查看日志）
+    // 使用 Windows Terminal + PowerShell 启动 Python（方便查看日志）
     #[cfg(target_os = "windows")]
     let child = {
-        Command::new(&config.python_path)
-            .args(&args)
-            .creation_flags(CREATE_NEW_CONSOLE)  // 创建新的控制台窗口
+        // 构建 PowerShell 命令（使用 & 调用带空格路径的程序）
+        let python_cmd = format!("& '{}' {}", config.python_path, args.join(" "));
+        
+        // 尝试使用 Windows Terminal (wt.exe) + pwsh
+        Command::new("wt.exe")
+            .args(["--title", "Aestivus Python Backend", "pwsh", "-NoExit", "-Command", &python_cmd])
             .spawn()
+            .or_else(|_| {
+                // 回退：直接用 pwsh 打开新窗口
+                println!("[tauri] Windows Terminal not found, using pwsh...");
+                Command::new("pwsh")
+                    .args(["-NoExit", "-Command", &python_cmd])
+                    .creation_flags(CREATE_NEW_CONSOLE)
+                    .spawn()
+            })
             .map_err(|e| {
                 let msg = format!("Failed to spawn Python: {}", e);
                 println!("[tauri] {}", msg);
