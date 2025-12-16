@@ -25,7 +25,7 @@ dependencies = [
     "imagefilter @ git+https://github.com/HibernalGlow/ImageFilter.git",
     "previewa @ git+https://github.com/HibernalGlow/ArtistPreview.git",
     # 临时使用本地路径，等 NameU 仓库更新后改回 GitHub
-    "nameu @ file:///D:/1VSCODE/Projects/PackU/NameU",
+    "nameu @ git+https://github.com/HibernalGlow/NameU.git",
     "nuitka>=2.8.9",
 ]
 
