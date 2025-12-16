@@ -12,7 +12,7 @@
   } from '$lib/stores/layoutPresets';
   import type { GridItem } from './dashboard-grid.svelte';
   import { 
-    Save, Trash2, Download, Upload, Check, X, Pencil, Star
+    Save, Trash2, Download, Upload, Check, X, Pencil, Pin
   } from '@lucide/svelte';
 
   interface Props {
@@ -119,13 +119,12 @@
   <!-- 预设 Badge 列表 -->
   <span class="text-xs text-muted-foreground shrink-0">预设:</span>
   {#each presets as preset}
-    <button onclick={() => selectPreset(preset)} class="flex items-center gap-0.5">
-      {#if defaultId === preset.id}
-        <Star class="h-3 w-3 text-yellow-500 fill-yellow-500" />
-      {/if}
+    {@const isDefault = defaultId === preset.id}
+    {@const isSelected = selectedId === preset.id}
+    <button onclick={() => selectPreset(preset)}>
       <Badge 
-        variant={selectedId === preset.id ? 'default' : 'outline'}
-        class="cursor-pointer hover:bg-primary/80 transition-colors"
+        variant={isSelected ? 'default' : 'outline'}
+        class="cursor-pointer hover:bg-primary/80 transition-colors {isDefault ? 'ring-2 ring-primary ring-offset-1' : ''}"
       >
         {preset.name}
       </Badge>
@@ -171,11 +170,11 @@
         <Button 
           variant="ghost" 
           size="sm" 
-          class="h-6 w-6 p-0 hover:text-yellow-500"
+          class="h-6 w-6 p-0 hover:text-primary"
           onclick={handleSetDefault}
           title="设为默认"
         >
-          <Star class="h-3 w-3" />
+          <Pin class="h-3 w-3" />
         </Button>
       {/if}
       {#if canModify}
