@@ -25,11 +25,27 @@
 
   onMount(() => {
     if (flowId && flowId !== 'new') {
+      // 从 URL 加载指定流程
       api.getFlow(flowId)
-        .then(flow => flowStore.load(flow))
+        .then(flow => {
+          flowStore.load(flow);
+          localStorage.setItem('aestivus_last_flow', flowId);
+        })
         .catch(e => console.error('加载流程失败:', e));
     } else {
-      flowStore.reset();
+      // 尝试加载上次使用的流程
+      const lastFlowId = localStorage.getItem('aestivus_last_flow');
+      if (lastFlowId) {
+        api.getFlow(lastFlowId)
+          .then(flow => flowStore.load(flow))
+          .catch(() => {
+            // 上次的流程不存在了，清除记忆
+            localStorage.removeItem('aestivus_last_flow');
+            flowStore.reset();
+          });
+      } else {
+        flowStore.reset();
+      }
     }
 
     return () => {

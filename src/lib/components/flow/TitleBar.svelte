@@ -71,13 +71,19 @@
 
   function selectFlow(id: string) {
     api.getFlow(id)
-      .then(flow => flowStore.load(flow))
+      .then(flow => {
+        flowStore.load(flow);
+        // 记忆上次使用的流程
+        localStorage.setItem('aestivus_last_flow', id);
+      })
       .catch(e => console.error('加载流程失败:', e));
     showFlowManager = false;
   }
 
   function createNewFlow() {
     flowStore.reset();
+    // 清除上次记忆
+    localStorage.removeItem('aestivus_last_flow');
     showFlowManager = false;
   }
 
