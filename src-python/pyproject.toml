@@ -2,9 +2,8 @@
 name = "aestival-backend"
 version = "0.1.0"
 description = "AestivalFlow Python 后端服务"
-readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "HibernalGlow"}
 ]
