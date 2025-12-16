@@ -216,7 +216,9 @@
   }
 
   :global(.grid-stack > .grid-stack-item > .grid-stack-item-content) {
-    background: hsl(var(--card));
+    background: hsl(var(--card) / 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border: 1px solid hsl(var(--border));
     border-radius: 1.5rem;
     overflow: auto;

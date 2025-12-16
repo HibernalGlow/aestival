@@ -181,8 +181,8 @@
   class="{shouldFade
     ? 'opacity-30 pointer-events-none'
     : ''} {isFullscreenRender
-    ? 'h-full flex flex-col'
-    : 'min-w-[160px]'} bg-card/95 backdrop-blur border rounded-lg shadow-lg overflow-hidden {borderClass}"
+    ? 'h-full flex flex-col bg-card/80 backdrop-blur-xl'
+    : 'min-w-[160px] bg-card/95 backdrop-blur'} border rounded-lg shadow-lg overflow-hidden {borderClass}"
 >
   <!-- 标题栏 -->
   <div
