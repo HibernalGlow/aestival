@@ -210,18 +210,14 @@
   }
 
   :global(.grid-stack > .grid-stack-item > .grid-stack-item-content) {
-    background: hsl(var(--card) / 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--border));
-    border-radius: 0.5rem;
+    background: transparent;
     overflow: auto;
     /* 使用绝对定位 + inset 实现居中 */
     position: absolute;
-    top: 6px;
-    right: 6px;
-    bottom: 6px;
-    left: 6px;
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    left: 4px;
   }
 
   :global(.grid-stack-item) {
@@ -235,7 +231,7 @@
   :global(.grid-stack-placeholder > .placeholder-content) {
     background: hsl(var(--primary) / 0.1);
     border: 2px dashed hsl(var(--primary) / 0.5);
-    border-radius: 0.5rem;
+    border-radius: 0.375rem;
   }
 
   :global(.ui-resizable-handle) {
