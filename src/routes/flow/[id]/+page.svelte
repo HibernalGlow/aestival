@@ -64,24 +64,25 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 
-<div class="h-full flex flex-col bg-background">
-  <!-- 顶部标题栏 -->
-  <TitleBar />
+<div class="h-full flex flex-col relative">
+  <!-- 背景图层 - 覆盖整个页面 -->
+  {#if $themeStore.backgroundImage}
+    <div 
+      class="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
+      style="background-image: url({$themeStore.backgroundImage}); opacity: {$themeStore.backgroundOpacity / 100};"
+    ></div>
+  {:else}
+    <div class="absolute inset-0 bg-background pointer-events-none z-0"></div>
+  {/if}
+
+  <!-- 顶部标题栏 - 在背景图上方，半透明模糊 -->
+  <div class="relative z-10">
+    <TitleBar />
+  </div>
 
   <!-- 画布区域 -->
-  <div class="flex-1 relative">
-    <!-- 背景图层 - 只在画布区域内 -->
-    {#if $themeStore.backgroundImage}
-      <div 
-        class="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none z-0"
-        style="background-image: url({$themeStore.backgroundImage}); opacity: {$themeStore.backgroundOpacity / 100};"
-      ></div>
-    {/if}
-    
-    <!-- 画布 -->
-    <div class="absolute inset-0 z-[1]">
-      <FlowCanvas />
-    </div>
+  <div class="flex-1 relative z-[1]">
+    <FlowCanvas />
   </div>
 
   <!-- 浮动面板 -->
