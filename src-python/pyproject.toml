@@ -23,8 +23,8 @@ dependencies = [
     "autorepack @ git+https://github.com/HibernalGlow/AutoRepack.git",
     "imagefilter @ git+https://github.com/HibernalGlow/ImageFilter.git",
     "previewa @ git+https://github.com/HibernalGlow/ArtistPreview.git",
-    # 临时使用本地路径，等 NameU 仓库更新后改回 GitHub
     "nameu @ git+https://github.com/HibernalGlow/NameU.git",
+    "trename @ git+https://github.com/HibernalGlow/TRename.git",
     "nuitka>=2.8.9",
 ]
 
