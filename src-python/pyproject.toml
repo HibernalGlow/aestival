@@ -36,9 +36,6 @@ dev = [
     "pytest>=7.4.3",
     "hypothesis>=6.0.0",
 ]
-build = [
-    "nuitka>=2.8.9",
-]
 
 [build-system]
 requires = ["setuptools>=61.0.0", "wheel"]
@@ -49,65 +46,3 @@ packages = ["aestiv", "adapters", "api", "core", "models", "storage", "config"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.yaml", "*.toml"]
-
-# Nuitka 打包配置
-[tool.nuitka]
-name = "main"
-onefile = true
-standalone = true
-
-# 需要包含的模块（Nuitka 的 --include-module，用于本地模块）
-include-modules = [
-    # 本地适配器模块
-    "adapters",
-    "adapters.base",
-    "adapters.repacku_adapter",
-    "adapters.rawfilter_adapter",
-    "adapters.crashu_adapter",
-    "adapters.trename_adapter",
-]
-
-# 需要包含的包（Nuitka 的 --include-package，用于外部依赖）
-include-packages = [
-    # Web 框架
-    "fastapi",
-    "starlette",
-    "pydantic",
-    "pydantic_core",
-    "uvicorn",
-    
-    # 工具库
-    "loguru",
-    "rich",
-    "typer",
-    
-    # 适配器依赖的外部包（整包包含）
-    "repacku",
-    "rawfilter",
-    "crashu",
-    "trename",
-]
-
-# 排除的模块（不跟踪这些依赖）
-nofollow-imports = [
-    "matplotlib",
-    "numpy",
-    "pandas",
-    "scipy",
-    "tkinter",
-    "PyQt5",
-    "PyQt6",
-    # streamlit 是 nameu 的可选依赖，AestivalFlow 不需要
-    "streamlit",
-    # 其他不需要的大型依赖
-    "textual",
-    "opencv",
-    "cv2",
-    "PIL",
-    "pillow",
-    # markdown 相关，编译时容易出问题
-    "markdown_it",
-    "markdown",
-    "mdurl",
-    "mdit_py_plugins",
-]
