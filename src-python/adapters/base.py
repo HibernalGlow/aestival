@@ -67,6 +67,7 @@ TOOL_PACKAGE_MAP = {
     "rawfilter": "rawfilter", 
     "crashu": "crashu",
     "trename": "trename",
+    "enginev": "enginev",
     "autorepack": "autorepack",
     "imagefilter": "imagefilter",
     "previewa": "previewa",

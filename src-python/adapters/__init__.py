@@ -15,6 +15,7 @@ _ADAPTER_REGISTRY: Dict[str, str] = {
     "rawfilter": "adapters.rawfilter_adapter.RawfilterAdapter",
     "crashu": "adapters.crashu_adapter.CrashuAdapter",
     "trename": "adapters.trename_adapter.TrenameAdapter",
+    "enginev": "adapters.enginev_adapter.EngineVAdapter",
 }
 
 # 适配器实例缓存

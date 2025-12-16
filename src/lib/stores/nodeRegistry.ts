@@ -14,6 +14,7 @@ import RawfilterNode from '$lib/components/nodes/RawfilterNode.svelte';
 import CrashuNode from '$lib/components/nodes/CrashuNode.svelte';
 import TerminalNode from '$lib/components/nodes/TerminalNode.svelte';
 import TrenameNode from '$lib/components/nodes/TrenameNode.svelte';
+import EngineVNode from '$lib/components/nodes/EngineVNode.svelte';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -121,6 +122,21 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
       include_root: { type: 'boolean', label: '包含根目录', default: true },
       include_hidden: { type: 'boolean', label: '包含隐藏文件', default: false },
       dry_run: { type: 'boolean', label: '模拟执行', default: false }
+    }
+  },
+  {
+    type: 'enginev',
+    category: 'tool',
+    label: 'enginev',
+    description: 'Wallpaper Engine 工坊管理：扫描、过滤、预览、批量重命名',
+    icon: 'Image',
+    inputs: ['path'],
+    outputs: ['path'],
+    component: EngineVNode,
+    configSchema: {
+      path: { type: 'path', label: '工坊路径', required: true },
+      template: { type: 'string', label: '命名模板', default: '[#{id}]{original_name}+{title}' },
+      dry_run: { type: 'boolean', label: '模拟执行', default: true }
     }
   },
 

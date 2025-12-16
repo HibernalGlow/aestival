@@ -31,6 +31,7 @@ tools = [
     "previewa @ git+https://github.com/HibernalGlow/ArtistPreview.git",
     "nameu @ git+https://github.com/HibernalGlow/NameU.git",
     "trename @ git+https://github.com/HibernalGlow/trename.git",
+    "enginev @ git+https://github.com/HibernalGlow/EngineV.git",
 ]
 dev = [
     "pytest>=7.4.3",
