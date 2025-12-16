@@ -44,6 +44,7 @@ class RawfilterAdapter(BaseAdapter):
     description = "分析并处理相似的压缩包文件，自动识别汉化版本"
     category = "file"
     icon = "🔍"
+    required_packages = ["rawfilter"]  # 依赖的工具包
     input_schema = RawfilterInput
     output_schema = RawfilterOutput
     

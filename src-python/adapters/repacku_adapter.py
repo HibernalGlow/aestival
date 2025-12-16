@@ -81,6 +81,7 @@ class RepackuAdapter(BaseAdapter):
     description = "分析目录结构并打包为压缩文件，支持类型过滤"
     category = "file"
     icon = "📦"
+    required_packages = ["repacku"]  # 依赖的工具包
     input_schema = RepackuInput
     output_schema = RepackuOutput
     

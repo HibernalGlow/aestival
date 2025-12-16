@@ -19,20 +19,25 @@ dependencies = [
     "pyperclip>=1.8.0",
     # 日志
     "loguru>=0.7.0",
-    # 工具适配器依赖 (从 GitHub 安装)
+]
+
+[project.optional-dependencies]
+# 工具适配器依赖（可选，避免覆盖本地开发版本）
+# 基础安装: pip install aestival-backend
+# 完整安装: pip install aestival-backend[tools]
+tools = [
     "autorepack @ git+https://github.com/HibernalGlow/AutoRepack.git",
     "imagefilter @ git+https://github.com/HibernalGlow/ImageFilter.git",
     "previewa @ git+https://github.com/HibernalGlow/ArtistPreview.git",
     "nameu @ git+https://github.com/HibernalGlow/NameU.git",
     "trename @ git+https://github.com/HibernalGlow/trename.git",
-    "nuitka>=2.8.9",
 ]
-
-[project.optional-dependencies]
 dev = [
     "pytest>=7.4.3",
-    "nuitka>=2.0",
     "hypothesis>=6.0.0",
+]
+build = [
+    "nuitka>=2.8.9",
 ]
 
 [build-system]
@@ -40,7 +45,7 @@ requires = ["setuptools>=61.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["adapters", "api", "core", "models", "storage", "config"]
+packages = ["aestival_backend", "adapters", "api", "core", "models", "storage", "config"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.yaml", "*.toml"]

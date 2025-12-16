@@ -5,7 +5,73 @@
 
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional
+import importlib
 from pydantic import BaseModel, Field
+
+
+# ============== 工具包可用性检测 ==============
+
+def check_tool_available(tool_name: str) -> bool:
+    """
+    检查工具包是否已安装
+    
+    Args:
+        tool_name: 工具包名称（如 'repacku', 'trename'）
+        
+    Returns:
+        工具包是否可用
+    """
+    try:
+        importlib.import_module(tool_name)
+        return True
+    except ImportError:
+        return False
+
+
+def get_missing_tools(tool_names: List[str]) -> List[str]:
+    """
+    获取缺失的工具包列表
+    
+    Args:
+        tool_names: 要检查的工具包名称列表
+        
+    Returns:
+        缺失的工具包名称列表
+    """
+    return [name for name in tool_names if not check_tool_available(name)]
+
+
+def get_missing_tools_message(missing: List[str]) -> str:
+    """
+    生成缺失工具的安装提示消息
+    
+    Args:
+        missing: 缺失的工具包名称列表
+        
+    Returns:
+        友好的安装提示消息
+    """
+    if not missing:
+        return ""
+    return (
+        f"缺少工具包: {', '.join(missing)}。\n"
+        f"请运行以下命令安装:\n"
+        f"  pip install aestival-backend[tools]\n"
+        f"或单独安装缺失的包。"
+    )
+
+
+# 已知的工具包映射（适配器名称 -> 包名）
+TOOL_PACKAGE_MAP = {
+    "repacku": "repacku",
+    "rawfilter": "rawfilter", 
+    "crashu": "crashu",
+    "trename": "trename",
+    "autorepack": "autorepack",
+    "imagefilter": "imagefilter",
+    "previewa": "previewa",
+    "nameu": "nameu",
+}
 
 
 class AdapterInput(BaseModel):
@@ -45,6 +111,9 @@ class BaseAdapter(ABC):
     category: str = "other"           # 分类: file, video, other
     icon: str = "📦"                  # 图标 emoji
     
+    # 依赖的工具包名称（子类可覆盖）
+    required_packages: List[str] = []
+    
     # 输入输出 Schema（子类可覆盖）
     input_schema: type[AdapterInput] = AdapterInput
     output_schema: type[AdapterOutput] = AdapterOutput
@@ -55,6 +124,31 @@ class BaseAdapter(ABC):
     def __init__(self):
         """初始化适配器"""
         pass
+    
+    def is_available(self) -> bool:
+        """
+        检查适配器依赖的工具包是否可用
+        
+        Returns:
+            所有依赖包是否都已安装
+        """
+        if not self.required_packages:
+            return True
+        return len(get_missing_tools(self.required_packages)) == 0
+    
+    def get_availability_message(self) -> Optional[str]:
+        """
+        获取工具包可用性消息
+        
+        Returns:
+            如果有缺失的包，返回安装提示；否则返回 None
+        """
+        if not self.required_packages:
+            return None
+        missing = get_missing_tools(self.required_packages)
+        if missing:
+            return get_missing_tools_message(missing)
+        return None
     
     @abstractmethod
     def _import_module(self) -> Dict:
@@ -132,7 +226,10 @@ class BaseAdapter(ABC):
             "category": self.category,
             "icon": self.icon,
             "inputSchema": self.get_schema(),
-            "outputSchema": self.get_output_schema()
+            "outputSchema": self.get_output_schema(),
+            "available": self.is_available(),
+            "availabilityMessage": self.get_availability_message(),
+            "requiredPackages": self.required_packages,
         }
     
     def validate_input(self, input_data: Dict) -> bool:
@@ -173,6 +270,13 @@ async def safe_execute(
     try:
         return await adapter.execute(input_data, on_progress, on_log)
     except ImportError as e:
+        # 检查是否是工具包缺失
+        missing_pkg = str(e).split("'")[-2] if "'" in str(e) else str(e)
+        if missing_pkg in TOOL_PACKAGE_MAP.values():
+            return AdapterOutput(
+                success=False,
+                message=get_missing_tools_message([missing_pkg])
+            )
         return AdapterOutput(
             success=False,
             message=f"模块导入失败: {str(e)}"

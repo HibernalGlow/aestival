@@ -65,6 +65,7 @@ class TrenameAdapter(BaseAdapter):
     description = "扫描目录生成 JSON，支持 AI 翻译后批量重命名"
     category = "file"
     icon = "✏️"
+    required_packages = ["trename"]  # 依赖的工具包
     input_schema = TrenameInput
     output_schema = TrenameOutput
     

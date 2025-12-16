@@ -1,333 +1,147 @@
-# Tauri + SvelteKit + Python Desktop App Template
+# AestivalFlow - Tauri + SvelteKit + Python
 
-A modern desktop application template that combines the power of Tauri (Rust), SvelteKit (TypeScript), and Python FastAPI. This template provides a complete cross-platform desktop development environment with a beautiful frontend, robust backend API, and native system integration.
+Python工具链可视化编排与执行平台，基于 Tauri (Rust) + SvelteKit (TypeScript) + Python FastAPI 构建。
 
-## 🌟 Features
+## 🌟 特性
 
-- **Cross-platform desktop app** built with Tauri
-- **Modern web UI** using SvelteKit + TypeScript
-- **Python FastAPI backend** as a sidecar process
-- **Tailwind CSS** for styling with shadcn/ui components
-- **Hot reload** for all components during development
-- **Complete build system** for production deployment
-- **Configurable** through JSON configuration files
+- **跨平台桌面应用** - 基于 Tauri 构建
+- **现代化 Web UI** - SvelteKit + TypeScript + Tailwind CSS
+- **Python 后端** - FastAPI 提供 REST API 服务
+- **轻量级架构** - 不使用 PyInstaller 打包，直接调用系统 Python
+- **热重载** - 开发时前后端都支持热重载
+- **可视化编排** - 支持工具节点拖拽编排
 
-## 🏗️ Architecture
+## 🏗️ 架构
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   SvelteKit     │◄──►│      Tauri       │◄──►│  Python FastAPI │
-│   Frontend      │    │   (Rust Core)    │    │    Sidecar      │
+│   SvelteKit     │◄──►│      Tauri       │◄──►│  Python Package │
+│   Frontend      │    │   (Rust Core)    │    │  (系统安装)      │
 │                 │    │                  │    │                 │
-│ • TypeScript    │    │ • Window Mgmt    │    │ • REST API      │
-│ • Tailwind CSS  │    │ • File System    │    │ • Data Process  │
-│ • Component UI  │    │ • Native APIs    │    │ • ML/AI Ready   │
+│ • TypeScript    │    │ • Window Mgmt    │    │ • aestival-     │
+│ • Tailwind CSS  │    │ • Shell Plugin   │    │   backend       │
+│ • Component UI  │    │ • Process Mgmt   │    │ • FastAPI       │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
 ```
 
-## 📋 Prerequisites
+## 📋 环境要求
 
-Before you begin, ensure you have the following installed:
+- **Node.js** (v18+) - [下载](https://nodejs.org/)
+- **Yarn** - `npm install -g yarn`
+- **Python 3.11+** - [下载](https://python.org/)
+- **Rust** - [安装](https://rustup.rs/)
 
-### Required Tools
-- **Node.js** (v18 or higher) - [Download](https://nodejs.org/)
-- **pnpm** - Install with: `npm install -g pnpm`
-- **Python 3.8+** - [Download](https://python.org/)
-- **pip3** - Usually comes with Python
-- **Rust** - [Install via rustup](https://rustup.rs/)
+## 🚀 快速开始
 
-### Platform-Specific Requirements
-
-#### macOS
-```bash
-xcode-select --install
-```
-
-#### Windows
-- **Microsoft Visual Studio C++ Build Tools**
-- **WebView2** (usually pre-installed on Windows 10+)
-
-#### Linux (Ubuntu/Debian)
-```bash
-sudo apt update
-sudo apt install libwebkit2gtk-4.0-dev build-essential curl wget file libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-```
-
-## 🚀 Quick Start
-
-### 1. Initial Setup
-
-Clone or download this template, then run:
+### 1. 安装依赖
 
 ```bash
-# Install all dependencies (Node.js and Python)
-pnpm run install-reqs
+# 安装前端依赖和 Python 后端包
+yarn install-reqs
 ```
 
-### 2. Configure Your App
+这会执行：
+- `yarn install` - 安装 Node.js 依赖
+- `pip install -e ./src-python` - 以开发模式安装 Python 后端包
 
-Create your app configuration:
+### 2. 安装工具包（可选）
+
+如果需要使用工具适配器功能：
 
 ```bash
-# Copy the example configuration
-cp app.config.example.json app.config.json
+# 完整安装（包含所有工具包）
+pip install aestival-backend[tools]
 
-# Edit the configuration with your app details
-# Configure app name, bundle ID, window settings, etc.
+# 或单独安装需要的工具
+pip install repacku trename rawfilter crashu
 ```
 
-Apply the configuration:
+> **注意**: 如果你已经有本地开发版本的工具包（通过 `pip install -e` 安装），
+> 基础安装不会覆盖它们。只有 `[tools]` 选项会从 GitHub 安装工具包。
+
+### 3. 开发模式
 
 ```bash
-# Configure all project files based on your app.config.json
-python configure.py
+# 完整 Tauri 开发环境（推荐）
+yarn tauri:dev
+
+# 或分开运行
+yarn dev          # 前端开发服务器
+yarn dev:python   # Python 后端（热重载）
 ```
 
-### 3. Development Mode
+### 4. 生产构建
 
-Choose your development workflow:
-
-#### Option A: Full Tauri Development (Recommended)
 ```bash
-# Start the complete development environment
-pnpm tauri dev
-```
-This starts:
-- SvelteKit frontend with hot reload
-- Python FastAPI backend as sidecar
-- Tauri desktop window
-- File system watching for all components
-
-#### Option B: Web Development Only
-```bash
-# Frontend only (for UI development)
-pnpm run dev
-
-# Or with standalone Python backend
-pnpm run dev:standalone
+yarn tauri:build
 ```
 
-#### Option C: Backend Development Only
-```bash
-# Python API development with auto-reload
-pnpm run dev:api
-```
-
-## 📁 Project Structure
+## 📁 项目结构
 
 ```
-tauri-svelte-python/
-├── src/                    # SvelteKit frontend
-│   ├── lib/               # Shared components and utilities
-│   ├── routes/            # Page components and routing
-│   ├── app.html           # HTML template
-│   └── app.css            # Global styles
-├── src-python/            # Python backend
-│   ├── api/               # API endpoints and logic
-│   │   ├── __init__.py
-│   │   └── endpoints.py   # REST API routes
-│   ├── main.py            # FastAPI application entry point
-│   └── requirements.txt   # Python dependencies
-├── src-tauri/             # Tauri application
-│   ├── src/               # Rust source code
-│   ├── tauri.conf.json    # Tauri configuration
-│   ├── Cargo.toml         # Rust dependencies
-│   └── bin/               # Compiled Python sidecar binaries
-├── static/                # Static assets
-├── build.py               # Production build script
-├── configure.py           # Configuration management
-├── app.config.json        # App configuration (create from example)
-└── package.json           # Node.js project configuration
+AestivalFlow/
+├── src/                    # SvelteKit 前端
+│   ├── lib/               # 组件和工具
+│   └── routes/            # 页面路由
+├── src-python/            # Python 后端
+│   ├── aestival_backend/  # 包入口点
+│   ├── adapters/          # 工具适配器
+│   ├── api/               # API 端点
+│   └── pyproject.toml     # Python 包配置
+├── src-tauri/             # Tauri 应用
+│   ├── src/               # Rust 源码
+│   └── tauri.conf.json    # Tauri 配置
+└── package.json           # Node.js 配置
 ```
 
-## ⚙️ Configuration
+## ⚙️ 配置
 
-The app is configured through `app.config.json`. Key sections:
+### Python 后端配置
 
-### App Information
+创建 `config/python.json`：
+
 ```json
 {
-  "app": {
-    "name": "my-app",
-    "productName": "My App",
-    "version": "1.0.0",
-    "description": "My desktop application",
-    "author": "Your Name"
-  }
+  "python_path": "python",
+  "port": 8009,
+  "host": "127.0.0.1",
+  "auto_restart": true,
+  "startup_timeout_ms": 10000,
+  "dev_mode": false
 }
 ```
 
-### Window Settings
-```json
-{
-  "window": {
-    "title": "My App",
-    "width": 1200,
-    "height": 800,
-    "resizable": true
-  }
-}
+### 工具适配器
+
+工具包作为可选依赖，避免覆盖本地开发版本：
+
+```toml
+# pyproject.toml
+[project.optional-dependencies]
+tools = [
+    "autorepack @ git+https://github.com/HibernalGlow/AutoRepack.git",
+    "trename @ git+https://github.com/HibernalGlow/trename.git",
+    # ...
+]
 ```
 
-### Python Backend
-```json
-{
-  "python": {
-    "port": 8008,
-    "host": "127.0.0.1",
-    "title": "My App API"
-  }
-}
-```
+## 🔧 开发命令
 
-After modifying `app.config.json`, run:
-```bash
-pytho configure.py
-```
+| 命令 | 说明 |
+|------|------|
+| `yarn dev` | 启动前端开发服务器 |
+| `yarn dev:python` | 启动 Python 后端（热重载） |
+| `yarn dev:standalone` | 同时启动前后端 |
+| `yarn tauri:dev` | 完整 Tauri 开发环境 |
+| `yarn tauri:build` | 生产构建 |
+| `yarn check` | TypeScript 类型检查 |
 
-## 🔧 Development Workflows
+## 📚 相关资源
 
-### Frontend Development (SvelteKit)
+- [Tauri 文档](https://tauri.app/start/)
+- [SvelteKit 文档](https://kit.svelte.dev/docs)
+- [FastAPI 文档](https://fastapi.tiangolo.com/)
 
-The frontend is located in `src/` and uses:
-- **SvelteKit** for the framework
-- **TypeScript** for type safety
-- **Tailwind CSS** for styling
-- **shadcn/ui** for components
+## 📄 许可证
 
-```bash
-# Start frontend development
-pnpm run dev
-
-# Build frontend
-pnpm run build
-
-# Preview production build
-pnpm run start
-```
-
-### Backend Development (Python)
-
-The backend API is in `src-python/` and provides:
-- **FastAPI** web framework
-- **Uvicorn** ASGI server
-- **Automatic reload** during development
-- **CORS enabled** for frontend communication
-
-```bash
-# Start Python API with auto-reload
-pnpm run dev:api
-
-# Or activate virtual environment manually
-source .venv/bin/activate  # On macOS/Linux
-# .venv\Scripts\activate   # On Windows
-cd src-python
-uvicorn main:app --reload --port 8008
-```
-
-### Adding Python Dependencies
-
-```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Install new packages
-pip install package-name
-
-# Update requirements.txt
-pip freeze > src-python/requirements.txt
-```
-
-### Adding Frontend Dependencies
-
-```bash
-# Add new Node.js packages
-pnpm add package-name
-
-# Add development dependencies
-pnpm add -D package-name
-```
-
-### API Development
-
-Add new endpoints in `src-python/api/endpoints.py`:
-
-```python
-from fastapi import APIRouter
-
-router = APIRouter()
-
-@router.get("/my-endpoint")
-async def my_endpoint():
-    return {"message": "Hello from Python!"}
-```
-
-Access APIs from frontend:
-```typescript
-// In SvelteKit components
-const response = await fetch('http://localhost:8008/v1/my-endpoint');
-const data = await response.json();
-```
-
-## 🏗️ Building for Production
-
-### Complete Build Process
-
-```bash
-# Build everything (icons, sidecar, frontend, desktop app)
-python build.py
-```
-
-This creates platform-specific bundles in `src-tauri/target/release/bundle/`:
-- **macOS**: `.app` and `.dmg` files
-- **Windows**: `.exe` and `.msi` files  
-- **Linux**: `.AppImage`, `.deb`, and `.rpm` files
-
-### Partial Builds
-
-```bash
-# Build only Python sidecar
-python build.py --sidecar
-
-# Complete build
-python build.py
-
-# this is also same as above
-pnpm tauri build
-```
-
-### Icon Generation
-
-```bash
-# Generate app icons from source image
-pnpm run build:icons
-```
-
-Ensure your icon source is specified in `app.config.json`:
-```json
-{
-  "icon": {
-    "source": "static/app-icon.png",
-    "generate": true
-  }
-}
-```
-
-## 📚 Resources
-
-- [Tauri Documentation](https://tauri.app/start/)
-- [SvelteKit Documentation](https://kit.svelte.dev/docs)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the package.json file for details. 
+MIT License

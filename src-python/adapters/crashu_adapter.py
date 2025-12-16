@@ -44,6 +44,7 @@ class CrashuAdapter(BaseAdapter):
     description = "检测文件夹相似度并批量移动，用于整理重复内容"
     category = "file"
     icon = "💥"
+    required_packages = ["crashu"]  # 依赖的工具包
     input_schema = CrashuInput
     output_schema = CrashuOutput
     

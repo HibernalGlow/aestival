@@ -2,20 +2,58 @@ import type { Flow } from '$lib/types';
 
 const API_BASE = 'http://localhost:8009/v1';
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers
-    },
-    ...options
-  });
-  
-  if (!res.ok) {
-    throw new Error(`API Error: ${res.status} ${res.statusText}`);
+// 重试配置
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  initialDelay: 1000,  // 1秒
+  maxDelay: 5000,      // 5秒
+  backoffMultiplier: 2
+};
+
+// 延迟函数
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 带重试的请求函数
+async function requestWithRetry<T>(
+  path: string, 
+  options?: RequestInit,
+  retryCount = 0
+): Promise<T> {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+      },
+      ...options
+    });
+    
+    if (!res.ok) {
+      throw new Error(`API Error: ${res.status} ${res.statusText}`);
+    }
+    
+    return res.json();
+  } catch (error) {
+    // 检查是否是网络错误（后端未就绪）
+    const isNetworkError = error instanceof TypeError && error.message.includes('fetch');
+    
+    if (isNetworkError && retryCount < RETRY_CONFIG.maxRetries) {
+      const delayMs = Math.min(
+        RETRY_CONFIG.initialDelay * Math.pow(RETRY_CONFIG.backoffMultiplier, retryCount),
+        RETRY_CONFIG.maxDelay
+      );
+      console.log(`[API] Backend not ready, retrying in ${delayMs}ms (attempt ${retryCount + 1}/${RETRY_CONFIG.maxRetries})`);
+      await delay(delayMs);
+      return requestWithRetry<T>(path, options, retryCount + 1);
+    }
+    
+    throw error;
   }
-  
-  return res.json();
+}
+
+// 简单请求（不重试）
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  return requestWithRetry<T>(path, options);
 }
 
 export const api = {
