@@ -3,7 +3,7 @@
    * TerminalNode - 终端输出节点
    * 
    * 通过 WebSocket 连接后端，实时显示所有终端输出
-   * 支持 ANSI 颜色转换
+   * 支持 ANSI 颜色转换，自动获取后端端口
    */
   import { Handle, Position } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
@@ -13,6 +13,7 @@
     Terminal, Trash2, Copy, Check, Wifi, WifiOff, Pause, Play
   } from '@lucide/svelte';
   import AnsiToHtml from 'ansi-to-html';
+  import { invoke } from '@tauri-apps/api/core';
   
   export let id: string;
   export let data: {
@@ -39,9 +40,12 @@
   let lines: { text: string; html: string }[] = [];
   let ws: WebSocket | null = null;
   let terminalEl: HTMLDivElement;
+  let backendPort = 8009;  // 默认端口
   
   const maxLines = data?.maxLines ?? 200;
-  const wsUrl = `ws://localhost:8009/ws/terminal`;
+  
+  // 动态获取 WebSocket URL
+  $: wsUrl = `ws://localhost:${backendPort}/ws/terminal`;
 
   // 边框样式
   $: borderClass = connected ? 'border-primary/50' : 'border-border';
@@ -123,7 +127,20 @@
     connect();
   }
 
-  onMount(() => { connect(); });
+  // 获取后端端口并连接
+  async function initConnection() {
+    try {
+      // 从 Tauri 获取实际端口
+      backendPort = await invoke<number>('get_backend_port');
+      addLine(`📍 后端端口: ${backendPort}`);
+    } catch (e) {
+      // 非 Tauri 环境或获取失败，使用默认端口
+      addLine(`⚠️ 使用默认端口: ${backendPort}`);
+    }
+    connect();
+  }
+
+  onMount(() => { initConnection(); });
   onDestroy(() => { if (ws) ws.close(); });
 </script>
 
@@ -201,6 +218,7 @@
           </Button>
         </div>
         <div class="flex items-center gap-2">
+          <span class="text-xs text-muted-foreground" title="后端端口">:{backendPort}</span>
           <span class="text-xs text-muted-foreground">{lines.length} 行</span>
           {#if !connected}
             <Button 
