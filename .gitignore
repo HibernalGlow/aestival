@@ -78,3 +78,6 @@ app.config.json
 src-python/config/flows/*.json
 ref/*
 src-python/.hypothesis/*
+src-python/nuitka-crash-report.xml
+src-tauri/bin/main-aarch64-apple-darwin
+src-tauri/bin/*
