@@ -25,6 +25,7 @@
     isDir, getNodeStatus, parseTree, getPhaseBorderClass,
     DEFAULT_GRID_LAYOUT, DEFAULT_STATS, DEFAULT_EXCLUDE_EXTS, generateDownloadFilename
   } from './trename-utils';
+  import { getDefaultPreset } from '$lib/stores/layoutPresets';
   
   export let id: string;
   export let data: { config?: { path?: string }; logs?: string[]; showTree?: boolean } = {};
@@ -60,8 +61,14 @@
   let lastOperationId = savedState?.lastOperationId ?? '';
   let operationHistory: OperationRecord[] = savedState?.operationHistory ?? [];
   
-  // GridStack 布局（默认值）
-  let gridLayout: GridItem[] = savedState?.gridLayout ?? [...DEFAULT_GRID_LAYOUT];
+  // GridStack 布局（优先使用保存的状态，其次用户设置的默认预设，最后硬编码默认值）
+  function getInitialLayout(): GridItem[] {
+    if (savedState?.gridLayout) return savedState.gridLayout;
+    const defaultPreset = getDefaultPreset('trename');
+    if (defaultPreset) return [...defaultPreset.layout];
+    return [...DEFAULT_GRID_LAYOUT];
+  }
+  let gridLayout: GridItem[] = getInitialLayout();
   
   // DashboardGrid 组件引用
   let dashboardGrid: { compact: () => void; applyLayout: (layout: GridItem[]) => void } | undefined;
