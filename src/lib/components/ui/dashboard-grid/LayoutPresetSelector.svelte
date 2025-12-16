@@ -37,9 +37,13 @@
     defaultId = getDefaultPresetId(nodeType);
   }
 
-  // 初始化
+  // 初始化：加载预设并默认选中当前使用的预设（不触发应用）
   $effect(() => {
     refreshPresets();
+    // 默认选中当前默认预设，这样更新按钮可以直接使用
+    if (defaultId && !selectedId) {
+      selectedId = defaultId;
+    }
   });
 
   // 设为默认
@@ -49,8 +53,9 @@
     defaultId = selectedId;
   }
 
-  // 选中并应用预设
+  // 选中并应用预设（点击已选中的不重复应用）
   function selectPreset(preset: LayoutPreset) {
+    if (selectedId === preset.id) return; // 已选中则不重复应用
     selectedId = preset.id;
     showRenameInput = false;
     onApply(JSON.parse(JSON.stringify(preset.layout)));
