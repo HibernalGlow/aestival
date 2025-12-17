@@ -10,6 +10,7 @@
 	import DataSettingsPanel from '$lib/components/settings/DataSettingsPanel.svelte';
 	import BlockSettingsPanel from '$lib/components/settings/BlockSettingsPanel.svelte';
 	import { Globe } from '$lib/components/ui/globe';
+	import { BorderBeam } from '$lib/components/ui/border-beam';
 
 	const tabs = [
 		{ value: 'theme', label: '外观', icon: Palette },
@@ -26,7 +27,8 @@
 </script>
 
 <!-- 设置内容（无固定定位，填充父容器） -->
-<div class="flex h-full w-full flex-col text-foreground">
+<div class="relative flex h-full w-full flex-col overflow-hidden rounded-lg text-foreground">
+	<BorderBeam size={250} duration={12} borderWidth={2} />
 	<!-- 主内容区 -->
 	<div class="flex flex-1 overflow-hidden">
 		<!-- 左侧标签栏 -->
