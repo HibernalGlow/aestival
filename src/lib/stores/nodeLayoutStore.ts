@@ -1,7 +1,7 @@
 /**
- * 节点布局状态存储 - 管理节点模式和全屏模式的独立布局状态
- * 包括 GridStack 布局、Tab 状态等
- * 复用 nodeStateStore 的存储机制
+ * 节点布局状态存储 - 统一管理节点的所有配置
+ * 包括：节点模式布局、全屏模式布局、Tab 状态、区块尺寸覆盖
+ * 所有配置存储在一个 JSON 中，支持持久化
  */
 
 import { Store } from '@tanstack/store';
@@ -11,51 +11,100 @@ import type { TabBlockState } from '$lib/components/blocks/blockRegistry';
 // localStorage key
 const STORAGE_KEY = 'aestival-node-layouts';
 
-/** 单模式布局状态 */
-export interface ModeLayoutState {
+/** 区块尺寸覆盖配置（覆盖代码默认值） */
+export interface BlockSizeOverride {
+  minW?: number;
+  minH?: number;
+  maxW?: number;
+  maxH?: number;
+  /** 节点模式下的 colSpan */
+  colSpan?: 1 | 2;
+}
+
+/** 节点模式区块配置 */
+export interface NormalBlockConfig {
+  /** 区块 ID */
+  id: string;
+  /** 显示顺序 */
+  order: number;
+  /** 是否可见 */
+  visible: boolean;
+  /** 尺寸覆盖 */
+  sizeOverride?: BlockSizeOverride;
+}
+
+/** 节点模式布局状态 */
+export interface NormalModeState {
+  /** 区块配置列表（按 order 排序） */
+  blocks: NormalBlockConfig[];
   /** Tab 区块状态 */
   tabStates: Record<string, TabBlockState>;
   /** 哪些区块是 Tab 容器 */
   tabBlocks: string[];
 }
 
-/** 完整节点布局状态 */
-export interface NodeLayoutState {
-  /** 全屏模式布局 */
-  fullscreen: ModeLayoutState & {
-    /** GridStack 布局配置 */
-    gridLayout: GridItem[];
-  };
-  /** 节点模式布局 */
-  normal: ModeLayoutState;
+/** 全屏模式布局状态 */
+export interface FullscreenModeState {
+  /** GridStack 布局配置 */
+  gridLayout: GridItem[];
+  /** Tab 区块状态 */
+  tabStates: Record<string, TabBlockState>;
+  /** 哪些区块是 Tab 容器 */
+  tabBlocks: string[];
+  /** 区块尺寸覆盖（按 blockId） */
+  sizeOverrides: Record<string, BlockSizeOverride>;
 }
 
-/** 布局状态 Map 类型 */
-type LayoutStatesMap = Map<string, NodeLayoutState>;
+/** 完整节点配置（一个 JSON 搞定） */
+export interface NodeConfig {
+  /** 节点类型 */
+  nodeType: string;
+  /** 全屏模式配置 */
+  fullscreen: FullscreenModeState;
+  /** 节点模式配置 */
+  normal: NormalModeState;
+  /** 最后更新时间 */
+  updatedAt: number;
+}
 
-/** 创建默认的模式布局状态 */
-export function createDefaultModeState(): ModeLayoutState {
+/** 节点配置 Map 类型 */
+type NodeConfigMap = Map<string, NodeConfig>;
+
+// ============ 默认配置创建 ============
+
+/** 创建默认的节点模式状态 */
+export function createDefaultNormalState(): NormalModeState {
   return {
+    blocks: [],
     tabStates: {},
     tabBlocks: []
   };
 }
 
-/** 创建默认的节点布局状态 */
-export function createDefaultLayoutState(defaultGridLayout: GridItem[] = []): NodeLayoutState {
+/** 创建默认的全屏模式状态 */
+export function createDefaultFullscreenState(defaultGridLayout: GridItem[] = []): FullscreenModeState {
   return {
-    fullscreen: {
-      ...createDefaultModeState(),
-      gridLayout: defaultGridLayout
-    },
-    normal: createDefaultModeState()
+    gridLayout: defaultGridLayout,
+    tabStates: {},
+    tabBlocks: [],
+    sizeOverrides: {}
   };
 }
 
-/**
- * 从 localStorage 加载状态
- */
-function loadFromStorage(): LayoutStatesMap {
+/** 创建默认的节点配置 */
+export function createDefaultNodeConfig(nodeType: string, defaultGridLayout: GridItem[] = []): NodeConfig {
+  return {
+    nodeType,
+    fullscreen: createDefaultFullscreenState(defaultGridLayout),
+    normal: createDefaultNormalState(),
+    updatedAt: Date.now()
+  };
+}
+
+// ============ 存储管理 ============
+
+/** 从 localStorage 加载状态 */
+function loadFromStorage(): NodeConfigMap {
   if (typeof window === 'undefined') return new Map();
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -67,13 +116,11 @@ function loadFromStorage(): LayoutStatesMap {
   }
 }
 
-/**
- * 保存状态到 localStorage
- */
-function saveToStorage(states: LayoutStatesMap): void {
+/** 保存状态到 localStorage */
+function saveToStorage(configs: NodeConfigMap): void {
   if (typeof window === 'undefined') return;
   try {
-    const obj = Object.fromEntries(states);
+    const obj = Object.fromEntries(configs);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
   } catch (e) {
     console.warn('[nodeLayoutStore] Failed to save to localStorage:', e);
@@ -81,14 +128,12 @@ function saveToStorage(states: LayoutStatesMap): void {
 }
 
 // 创建 TanStack Store（初始为空，客户端挂载时加载）
-export const nodeLayoutStore = new Store<LayoutStatesMap>(new Map());
+export const nodeLayoutStore = new Store<NodeConfigMap>(new Map());
 
 // 标记是否已从 localStorage 加载
 let isHydrated = false;
 
-/**
- * 确保从 localStorage 加载状态（客户端）
- */
+/** 确保从 localStorage 加载状态（客户端） */
 export function hydrateFromStorage(): void {
   if (isHydrated || typeof window === 'undefined') return;
   isHydrated = true;
@@ -106,87 +151,164 @@ nodeLayoutStore.subscribe(() => {
   }
 });
 
-/**
- * 获取节点布局状态
- */
-export function getNodeLayoutState(nodeId: string): NodeLayoutState | undefined {
+// ============ 基础 CRUD ============
+
+/** 获取节点配置 */
+export function getNodeConfig(nodeId: string): NodeConfig | undefined {
+  hydrateFromStorage();
   return nodeLayoutStore.state.get(nodeId);
 }
 
-/**
- * 设置节点布局状态（完全覆盖）
- */
-export function setNodeLayoutState(nodeId: string, state: NodeLayoutState): void {
+/** 设置节点配置（完全覆盖） */
+export function setNodeConfig(nodeId: string, config: NodeConfig): void {
   nodeLayoutStore.setState((prev) => {
     const next = new Map(prev);
-    next.set(nodeId, state);
+    next.set(nodeId, { ...config, updatedAt: Date.now() });
     return next;
   });
 }
 
-/**
- * 获取或创建节点布局状态
- * 首次调用时会自动从 localStorage 加载
- */
-export function getOrCreateLayoutState(nodeId: string, defaultGridLayout: GridItem[] = []): NodeLayoutState {
-  // 确保客户端已从 localStorage 加载
+/** 获取或创建节点配置 */
+export function getOrCreateNodeConfig(
+  nodeId: string, 
+  nodeType: string,
+  defaultGridLayout: GridItem[] = []
+): NodeConfig {
   hydrateFromStorage();
   
-  const existing = getNodeLayoutState(nodeId);
+  const existing = nodeLayoutStore.state.get(nodeId);
   if (existing) return existing;
   
-  const newState = createDefaultLayoutState(defaultGridLayout);
-  setNodeLayoutState(nodeId, newState);
-  return newState;
+  const newConfig = createDefaultNodeConfig(nodeType, defaultGridLayout);
+  setNodeConfig(nodeId, newConfig);
+  return newConfig;
 }
 
-/**
- * 更新指定模式的布局状态
- */
-export function updateModeState(
-  nodeId: string,
-  mode: 'fullscreen' | 'normal',
-  update: Partial<ModeLayoutState>
-): void {
+/** 删除节点配置 */
+export function deleteNodeConfig(nodeId: string): void {
   nodeLayoutStore.setState((prev) => {
     const next = new Map(prev);
-    const current = next.get(nodeId) || createDefaultLayoutState();
+    next.delete(nodeId);
+    return next;
+  });
+}
+
+// ============ 兼容旧 API（NodeLayoutState） ============
+
+/** 旧版布局状态类型（兼容） */
+export interface NodeLayoutState {
+  fullscreen: FullscreenModeState;
+  normal: NormalModeState;
+}
+
+/** 获取节点布局状态（兼容旧 API） */
+export function getNodeLayoutState(nodeId: string): NodeLayoutState | undefined {
+  const config = getNodeConfig(nodeId);
+  if (!config) return undefined;
+  return { fullscreen: config.fullscreen, normal: config.normal };
+}
+
+/** 获取或创建节点布局状态（兼容旧 API） */
+export function getOrCreateLayoutState(nodeId: string, defaultGridLayout: GridItem[] = []): NodeLayoutState {
+  // 尝试获取现有配置
+  hydrateFromStorage();
+  const existing = nodeLayoutStore.state.get(nodeId);
+  if (existing) {
+    return { fullscreen: existing.fullscreen, normal: existing.normal };
+  }
+  
+  // 创建新配置（nodeType 暂时用 'unknown'，后续会被正确设置）
+  const newConfig = createDefaultNodeConfig('unknown', defaultGridLayout);
+  setNodeConfig(nodeId, newConfig);
+  return { fullscreen: newConfig.fullscreen, normal: newConfig.normal };
+}
+
+// ============ 全屏模式操作 ============
+
+/** 更新全屏模式的 GridStack 布局 */
+export function updateFullscreenGridLayout(nodeId: string, gridLayout: GridItem[]): void {
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeId) || createDefaultNodeConfig('unknown');
     
     next.set(nodeId, {
       ...current,
-      [mode]: {
-        ...current[mode],
-        ...update
-      }
+      fullscreen: { ...current.fullscreen, gridLayout },
+      updatedAt: Date.now()
     });
     
     return next;
   });
 }
 
-/**
- * 更新全屏模式的 GridStack 布局
- */
-export function updateFullscreenGridLayout(nodeId: string, gridLayout: GridItem[]): void {
+/** 更新全屏模式的区块尺寸覆盖 */
+export function updateFullscreenSizeOverride(
+  nodeId: string, 
+  blockId: string, 
+  override: BlockSizeOverride
+): void {
   nodeLayoutStore.setState((prev) => {
     const next = new Map(prev);
-    const current = next.get(nodeId) || createDefaultLayoutState();
+    const current = next.get(nodeId) || createDefaultNodeConfig('unknown');
     
     next.set(nodeId, {
       ...current,
       fullscreen: {
         ...current.fullscreen,
-        gridLayout
-      }
+        sizeOverrides: { ...current.fullscreen.sizeOverrides, [blockId]: override }
+      },
+      updatedAt: Date.now()
     });
     
     return next;
   });
 }
 
-/**
- * 更新 Tab 状态
- */
+// ============ 节点模式操作 ============
+
+/** 更新节点模式的区块配置 */
+export function updateNormalBlocks(nodeId: string, blocks: NormalBlockConfig[]): void {
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeId) || createDefaultNodeConfig('unknown');
+    
+    next.set(nodeId, {
+      ...current,
+      normal: { ...current.normal, blocks },
+      updatedAt: Date.now()
+    });
+    
+    return next;
+  });
+}
+
+/** 更新节点模式单个区块的可见性 */
+export function updateNormalBlockVisibility(nodeId: string, blockId: string, visible: boolean): void {
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeId) || createDefaultNodeConfig('unknown');
+    
+    const blocks = [...current.normal.blocks];
+    const idx = blocks.findIndex(b => b.id === blockId);
+    if (idx >= 0) {
+      blocks[idx] = { ...blocks[idx], visible };
+    } else {
+      blocks.push({ id: blockId, order: blocks.length, visible });
+    }
+    
+    next.set(nodeId, {
+      ...current,
+      normal: { ...current.normal, blocks },
+      updatedAt: Date.now()
+    });
+    
+    return next;
+  });
+}
+
+// ============ Tab 操作（通用） ============
+
+/** 更新 Tab 状态 */
 export function updateTabState(
   nodeId: string,
   mode: 'fullscreen' | 'normal',
@@ -195,29 +317,22 @@ export function updateTabState(
 ): void {
   nodeLayoutStore.setState((prev) => {
     const next = new Map(prev);
-    const current = next.get(nodeId) || createDefaultLayoutState();
+    const current = next.get(nodeId) || createDefaultNodeConfig('unknown');
     
     next.set(nodeId, {
       ...current,
       [mode]: {
         ...current[mode],
-        tabStates: {
-          ...current[mode].tabStates,
-          [tabId]: state
-        }
-      }
+        tabStates: { ...current[mode].tabStates, [tabId]: state }
+      },
+      updatedAt: Date.now()
     });
     
     return next;
   });
 }
 
-/**
- * 创建 Tab 区块（合并多个区块）
- * @param nodeId 节点 ID
- * @param mode 模式
- * @param blockIds 要合并的区块 ID 列表（第一个作为 Tab 容器）
- */
+/** 创建 Tab 区块（合并多个区块） */
 export function createTabBlock(
   nodeId: string,
   mode: 'fullscreen' | 'normal',
@@ -229,7 +344,7 @@ export function createTabBlock(
   
   nodeLayoutStore.setState((prev) => {
     const next = new Map(prev);
-    const current = next.get(nodeId) || createDefaultLayoutState();
+    const current = next.get(nodeId) || createDefaultNodeConfig('unknown');
     const modeState = current[mode];
     
     next.set(nodeId, {
@@ -237,20 +352,16 @@ export function createTabBlock(
       [mode]: {
         ...modeState,
         tabBlocks: [...modeState.tabBlocks, tabId],
-        tabStates: {
-          ...modeState.tabStates,
-          [tabId]: { activeTab: 0, children: blockIds }
-        }
-      }
+        tabStates: { ...modeState.tabStates, [tabId]: { activeTab: 0, children: blockIds } }
+      },
+      updatedAt: Date.now()
     });
     
     return next;
   });
 }
 
-/**
- * 删除 Tab 区块（恢复为独立区块）
- */
+/** 删除 Tab 区块（恢复为独立区块） */
 export function removeTabBlock(
   nodeId: string,
   mode: 'fullscreen' | 'normal',
@@ -267,7 +378,7 @@ export function removeTabBlock(
     const tabState = modeState.tabStates[tabId];
     
     if (tabState) {
-      childIds = tabState.children.slice(1); // 除第一个外的子区块
+      childIds = tabState.children.slice(1);
     }
     
     const newTabStates = { ...modeState.tabStates };
@@ -279,7 +390,8 @@ export function removeTabBlock(
         ...modeState,
         tabBlocks: modeState.tabBlocks.filter(id => id !== tabId),
         tabStates: newTabStates
-      }
+      },
+      updatedAt: Date.now()
     });
     
     return next;
@@ -288,69 +400,104 @@ export function removeTabBlock(
   return childIds;
 }
 
-/**
- * 检查区块是否是 Tab 容器
- */
+// ============ 查询辅助函数 ============
+
+/** 检查区块是否是 Tab 容器 */
 export function isTabContainer(
   nodeId: string,
   mode: 'fullscreen' | 'normal',
   blockId: string
 ): boolean {
-  const state = getNodeLayoutState(nodeId);
-  if (!state) return false;
-  return state[mode].tabBlocks.includes(blockId);
+  const config = getNodeConfig(nodeId);
+  if (!config) return false;
+  return config[mode].tabBlocks.includes(blockId);
 }
 
-/**
- * 获取 Tab 状态
- */
+/** 获取 Tab 状态 */
 export function getTabState(
   nodeId: string,
   mode: 'fullscreen' | 'normal',
   tabId: string
 ): TabBlockState | undefined {
-  const state = getNodeLayoutState(nodeId);
-  if (!state) return undefined;
-  return state[mode].tabStates[tabId];
+  const config = getNodeConfig(nodeId);
+  if (!config) return undefined;
+  return config[mode].tabStates[tabId];
 }
 
-/**
- * 获取已在 Tab 中使用的区块 ID（作为子区块，不包括 Tab 容器本身）
- */
+/** 获取已在 Tab 中使用的区块 ID（作为子区块） */
 export function getUsedTabBlockIds(
   nodeId: string,
   mode: 'fullscreen' | 'normal'
 ): string[] {
-  const state = getNodeLayoutState(nodeId);
-  if (!state) return [];
+  const config = getNodeConfig(nodeId);
+  if (!config) return [];
   
   const ids: string[] = [];
-  for (const tabState of Object.values(state[mode].tabStates)) {
-    // 跳过第一个（它是 Tab 容器本身）
+  for (const tabState of Object.values(config[mode].tabStates)) {
     ids.push(...tabState.children.slice(1));
   }
   return ids;
 }
 
-/**
- * 删除节点布局状态
- */
-export function deleteNodeLayoutState(nodeId: string): void {
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.delete(nodeId);
-    return next;
+/** 获取区块的尺寸覆盖配置 */
+export function getBlockSizeOverride(
+  nodeId: string,
+  mode: 'fullscreen' | 'normal',
+  blockId: string
+): BlockSizeOverride | undefined {
+  const config = getNodeConfig(nodeId);
+  if (!config) return undefined;
+  
+  if (mode === 'fullscreen') {
+    return config.fullscreen.sizeOverrides[blockId];
+  } else {
+    return config.normal.blocks.find(b => b.id === blockId)?.sizeOverride;
+  }
+}
+
+// ============ 订阅 ============
+
+/** 订阅节点配置变化 */
+export function subscribeNodeConfig(
+  nodeId: string,
+  callback: (config: NodeConfig | undefined) => void
+): () => void {
+  return nodeLayoutStore.subscribe(() => {
+    callback(nodeLayoutStore.state.get(nodeId));
   });
 }
 
-/**
- * 订阅节点布局状态变化
- */
+/** 订阅节点布局状态变化（兼容旧 API） */
 export function subscribeNodeLayoutState(
   nodeId: string,
   callback: (state: NodeLayoutState | undefined) => void
 ): () => void {
   return nodeLayoutStore.subscribe(() => {
-    callback(nodeLayoutStore.state.get(nodeId));
+    const config = nodeLayoutStore.state.get(nodeId);
+    if (config) {
+      callback({ fullscreen: config.fullscreen, normal: config.normal });
+    } else {
+      callback(undefined);
+    }
   });
+}
+
+// ============ 导出/导入 ============
+
+/** 导出节点配置为 JSON 字符串 */
+export function exportNodeConfig(nodeId: string): string | null {
+  const config = getNodeConfig(nodeId);
+  if (!config) return null;
+  return JSON.stringify(config, null, 2);
+}
+
+/** 导入节点配置 */
+export function importNodeConfig(nodeId: string, json: string): boolean {
+  try {
+    const config = JSON.parse(json) as NodeConfig;
+    setNodeConfig(nodeId, config);
+    return true;
+  } catch {
+    return false;
+  }
 }

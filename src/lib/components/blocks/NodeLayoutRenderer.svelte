@@ -10,16 +10,20 @@
   import { BlockCard, TabBlockCard } from '$lib/components/blocks';
   import { 
     getBlockDefinition, 
-    getNodeBlockLayout
+    getNodeBlockLayout,
+    type BlockDefinition
   } from './blockRegistry';
   import {
-    getOrCreateLayoutState,
+    getOrCreateNodeConfig,
     updateFullscreenGridLayout,
+    updateNormalBlocks,
     updateTabState,
     createTabBlock,
     removeTabBlock,
-    subscribeNodeLayoutState,
-    type NodeLayoutState
+    subscribeNodeConfig,
+    type NodeConfig,
+    type NormalBlockConfig,
+    type BlockSizeOverride
   } from '$lib/stores/nodeLayoutStore';
   import { getSizeMode, type SizeMode } from '$lib/utils/sizeUtils';
   import { onMount } from 'svelte';
@@ -35,8 +39,8 @@
     defaultGridLayout?: GridItem[];
     /** 区块内容渲染器 */
     renderBlock: Snippet<[blockId: string, size: SizeMode]>;
-    /** 布局变化回调（可选） */
-    onLayoutChange?: (state: NodeLayoutState) => void;
+    /** 配置变化回调（可选） */
+    onConfigChange?: (config: NodeConfig) => void;
   }
 
   let {
@@ -45,7 +49,7 @@
     isFullscreen,
     defaultGridLayout = [],
     renderBlock,
-    onLayoutChange
+    onConfigChange
   }: Props = $props();
 
   // 当前模式
@@ -54,77 +58,108 @@
   // 尺寸模式
   let sizeMode = $derived(getSizeMode(isFullscreen));
 
-  // 布局状态 - 使用响应式订阅
-  // 注意：初始值使用空状态，onMount 中会正确初始化
-  let layoutState = $state<NodeLayoutState>(getOrCreateLayoutState(nodeId, defaultGridLayout));
+  // 节点配置 - 使用响应式订阅
+  let nodeConfig = $state<NodeConfig>(
+    getOrCreateNodeConfig(nodeId, nodeType, defaultGridLayout)
+  );
   
-  // 订阅 store 变化，保持 layoutState 同步
-  // 使用 $effect 确保响应式追踪 nodeId 和 defaultGridLayout
+  // 初始化时确保配置存在，并初始化节点模式区块配置
   $effect(() => {
-    // 初始化时确保状态存在
-    layoutState = getOrCreateLayoutState(nodeId, defaultGridLayout);
+    const config = getOrCreateNodeConfig(nodeId, nodeType, defaultGridLayout);
+    
+    // 如果节点模式区块配置为空，从 blockRegistry 初始化
+    if (config.normal.blocks.length === 0) {
+      const blockLayout = getNodeBlockLayout(nodeType);
+      if (blockLayout) {
+        const initialBlocks: NormalBlockConfig[] = blockLayout.blocks
+          .filter(b => b.visibleInNormal !== false && !b.isTabContainer)
+          .map((b, idx) => ({
+            id: b.id,
+            order: idx,
+            visible: true
+          }));
+        updateNormalBlocks(nodeId, initialBlocks);
+      }
+    }
+    
+    nodeConfig = config;
   });
   
+  // 订阅配置变化
   onMount(() => {
-    // 订阅变化 - 使用闭包捕获当前 nodeId
     const currentNodeId = nodeId;
-    const unsubscribe = subscribeNodeLayoutState(currentNodeId, (state) => {
-      if (state) {
-        layoutState = state;
-        onLayoutChange?.(state);
+    const unsubscribe = subscribeNodeConfig(currentNodeId, (config) => {
+      if (config) {
+        nodeConfig = config;
+        onConfigChange?.(config);
       }
     });
     
     return unsubscribe;
   });
 
-
-
-  // GridStack 布局（仅全屏模式）
-  let gridLayout = $derived(layoutState.fullscreen.gridLayout);
+  // GridStack 布局（全屏模式）
+  let gridLayout = $derived(nodeConfig.fullscreen.gridLayout);
 
   // DashboardGrid 引用
   let dashboardGrid = $state<{ compact: () => void; applyLayout: (layout: GridItem[]) => void } | undefined>(undefined);
 
-  // 获取区块布局配置
+  // 获取区块布局配置（代码默认）
   let blockLayout = $derived(getNodeBlockLayout(nodeType));
   
-  // 获取已使用的 Tab 区块 ID（从 layoutState 读取）
+  // 获取已使用的 Tab 区块 ID
   let usedTabIds = $derived(() => {
     const ids: string[] = [];
-    for (const tabState of Object.values(layoutState[mode].tabStates)) {
+    for (const tabState of Object.values(nodeConfig[mode].tabStates)) {
       ids.push(...tabState.children.slice(1));
     }
     return ids;
   });
 
-  // 获取可见区块列表（根据模式过滤）
-  let visibleBlocks = $derived(() => {
+  // 获取节点模式可见区块列表（从配置读取，支持持久化）
+  let normalVisibleBlocks = $derived(() => {
     if (!blockLayout) return [];
     const usedIds = usedTabIds();
+    
+    // 如果有保存的配置，使用配置
+    if (nodeConfig.normal.blocks.length > 0) {
+      return nodeConfig.normal.blocks
+        .filter(b => b.visible && !usedIds.includes(b.id))
+        .sort((a, b) => a.order - b.order)
+        .map(b => {
+          const def = blockLayout!.blocks.find(d => d.id === b.id);
+          if (!def) return null;
+          // 合并尺寸覆盖
+          return {
+            ...def,
+            colSpan: b.sizeOverride?.colSpan ?? def.colSpan
+          } as BlockDefinition;
+        })
+        .filter((b): b is BlockDefinition => b !== null);
+    }
+    
+    // 否则使用默认配置
     return blockLayout.blocks.filter(b => {
-      // 过滤掉已被合并到 Tab 中的区块（作为子区块）
       if (usedIds.includes(b.id)) return false;
-      
-      // 根据模式过滤
-      if (isFullscreen) {
-        return b.visibleInFullscreen !== false;
-      } else {
-        return b.visibleInNormal !== false;
-      }
+      if (b.isTabContainer) return false;
+      return b.visibleInNormal !== false;
     });
+  });
+
+  // 获取全屏模式可见区块（从 gridLayout 读取）
+  let fullscreenVisibleBlocks = $derived(() => {
+    const usedIds = usedTabIds();
+    return gridLayout.filter(item => !usedIds.includes(item.id));
   });
 
   // 处理 GridStack 布局变化
   function handleGridLayoutChange(newLayout: GridItem[]) {
     updateFullscreenGridLayout(nodeId, newLayout);
-    // layoutState 会通过订阅自动更新
   }
 
   // 处理 Tab 状态变化
   function handleTabStateChange(tabId: string, state: { activeTab: number; children: string[] }) {
     updateTabState(nodeId, mode, tabId, state);
-    // layoutState 会通过订阅自动更新
   }
 
   // 创建 Tab 区块
@@ -137,7 +172,6 @@
       const newLayout = gridLayout.filter(item => !otherBlockIds.includes(item.id));
       updateFullscreenGridLayout(nodeId, newLayout);
     }
-    // layoutState 会通过订阅自动更新
   }
 
   // 删除 Tab 区块
@@ -162,26 +196,36 @@
       
       updateFullscreenGridLayout(nodeId, [...gridLayout, ...restoredItems]);
     }
-    // layoutState 会通过订阅自动更新
   }
 
-  // 检查区块是否是 Tab 容器（从 layoutState 读取，确保响应式）
+  // 检查区块是否是 Tab 容器
   function checkIsTabContainer(blockId: string): boolean {
-    return layoutState[mode].tabBlocks.includes(blockId);
+    return nodeConfig[mode].tabBlocks.includes(blockId);
   }
 
-  // 获取 Tab 状态（从 layoutState 读取，确保响应式）
+  // 获取 Tab 状态
   function getBlockTabState(blockId: string) {
-    return layoutState[mode].tabStates[blockId];
+    return nodeConfig[mode].tabStates[blockId];
   }
 
-  // 获取已使用的 Tab 区块 ID（从 layoutState 读取，确保响应式）
+  // 获取已使用的 Tab 区块 ID
   export function getUsedBlockIds(): string[] {
     const ids: string[] = [];
-    for (const tabState of Object.values(layoutState[mode].tabStates)) {
+    for (const tabState of Object.values(nodeConfig[mode].tabStates)) {
       ids.push(...tabState.children.slice(1));
     }
     return ids;
+  }
+
+  // 应用尺寸覆盖到 GridItem
+  function applyGridItemOverride(item: GridItem): GridItem {
+    const override = nodeConfig.fullscreen.sizeOverrides[item.id];
+    if (!override) return item;
+    return {
+      ...item,
+      minW: override.minW ?? item.minW,
+      minH: override.minH ?? item.minH
+    };
   }
 
   // 整理布局（全屏模式）
@@ -193,19 +237,22 @@
   export function resetLayout() {
     updateFullscreenGridLayout(nodeId, defaultGridLayout);
     dashboardGrid?.applyLayout(defaultGridLayout);
-    // layoutState 会通过订阅自动更新
   }
 
   // 应用布局预设
   export function applyLayout(layout: GridItem[]) {
     updateFullscreenGridLayout(nodeId, layout);
     dashboardGrid?.applyLayout(layout);
-    // layoutState 会通过订阅自动更新
   }
 
   // 获取当前布局
   export function getCurrentLayout(): GridItem[] {
     return gridLayout;
+  }
+
+  // 获取当前配置
+  export function getConfig(): NodeConfig {
+    return nodeConfig;
   }
 </script>
 
@@ -220,26 +267,27 @@
       showToolbar={false} 
       onLayoutChange={handleGridLayoutChange}
     >
-      {#each gridLayout as item (item.id)}
+      {#each fullscreenVisibleBlocks() as item (item.id)}
+        {@const gridItem = applyGridItemOverride(item)}
         <DashboardItem 
-          id={item.id} 
-          x={item.x} 
-          y={item.y} 
-          w={item.w} 
-          h={item.h} 
-          minW={item.minW ?? 1} 
-          minH={item.minH ?? 1}
+          id={gridItem.id} 
+          x={gridItem.x} 
+          y={gridItem.y} 
+          w={gridItem.w} 
+          h={gridItem.h} 
+          minW={gridItem.minW ?? 1} 
+          minH={gridItem.minH ?? 1}
         >
-          {#if checkIsTabContainer(item.id)}
+          {#if checkIsTabContainer(gridItem.id)}
             <!-- Tab 容器模式 -->
             <TabBlockCard
-              id={item.id}
-              children={getBlockTabState(item.id)?.children ?? []}
+              id={gridItem.id}
+              children={getBlockTabState(gridItem.id)?.children ?? []}
               {nodeType}
               isFullscreen={true}
-              initialState={getBlockTabState(item.id)}
-              onStateChange={(state) => handleTabStateChange(item.id, state)}
-              onRemove={() => handleRemoveTab(item.id)}
+              initialState={getBlockTabState(gridItem.id)}
+              onStateChange={(state) => handleTabStateChange(gridItem.id, state)}
+              onRemove={() => handleRemoveTab(gridItem.id)}
             >
               {#snippet renderContent(blockId: string)}
                 {@render renderBlock(blockId, sizeMode)}
@@ -247,10 +295,10 @@
             </TabBlockCard>
           {:else}
             <!-- 普通区块模式 -->
-            {@const blockDef = getBlockDefinition(nodeType, item.id)}
+            {@const blockDef = getBlockDefinition(nodeType, gridItem.id)}
             {#if blockDef}
               <BlockCard 
-                id={item.id} 
+                id={gridItem.id} 
                 title={blockDef.title} 
                 icon={blockDef.icon as any} 
                 iconClass={blockDef.iconClass} 
@@ -259,7 +307,7 @@
                 hideHeader={blockDef.hideHeader}
               >
                 {#snippet children()}
-                  {@render renderBlock(item.id, sizeMode)}
+                  {@render renderBlock(gridItem.id, sizeMode)}
                 {/snippet}
               </BlockCard>
             {/if}
@@ -272,7 +320,7 @@
   <!-- 节点模式：BentoGrid 布局 -->
   <div class="flex-1 overflow-y-auto p-2">
     <div class="grid grid-cols-2 gap-2" style="grid-auto-rows: minmax(auto, max-content);">
-      {#each visibleBlocks() as block (block.id)}
+      {#each normalVisibleBlocks() as block (block.id)}
         {#if checkIsTabContainer(block.id)}
           <!-- Tab 容器模式 -->
           <div class="col-span-{block.colSpan ?? 1}">
