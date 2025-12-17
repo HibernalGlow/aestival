@@ -2,6 +2,7 @@
   /**
    * 通用节点包装器
    * 提供：关闭、折叠/展开、固定、状态显示、全屏 功能
+   * 使用 settingsManager 的面板透明度和模糊设置
    *
    * 全屏模式：自动检测并应用全屏样式，节点组件无需任何修改
    */
@@ -24,7 +25,24 @@
   import type { GridItem } from "$lib/components/ui/dashboard-grid";
   import { flowStore } from "$lib/stores";
   import { fullscreenNodeStore } from "$lib/stores/fullscreenNode.svelte";
+  import { settingsManager } from "$lib/settings/settingsManager";
+  import { onMount } from "svelte";
   import type { Snippet } from "svelte";
+
+  // 获取面板设置（透明度和模糊）
+  let panelSettings = $state(settingsManager.getSettings().panels);
+  
+  // 计算节点样式 - 使用 color-mix 实现带颜色的透明效果
+  let nodeStyle = $derived(
+    `background: color-mix(in srgb, var(--card) ${panelSettings.topToolbarOpacity}%, transparent); backdrop-filter: blur(${panelSettings.topToolbarBlur}px);`
+  );
+
+  onMount(() => {
+    // 监听设置变化
+    settingsManager.addListener((s) => {
+      panelSettings = s.panels;
+    });
+  });
 
   // 状态类型
   type NodeStatus = "idle" | "running" | "completed" | "error" | string;
@@ -206,12 +224,13 @@
   class="{shouldFade
     ? 'opacity-30 pointer-events-none'
     : ''} {isFullscreenRender
-    ? 'h-full flex flex-col bg-card/80 backdrop-blur-xl'
-    : 'min-w-[160px] bg-card/95 backdrop-blur'} border rounded-lg shadow-lg overflow-hidden {borderClass}"
+    ? 'h-full flex flex-col'
+    : 'min-w-[160px]'} border rounded-lg shadow-lg overflow-hidden {borderClass}"
+  style={nodeStyle}
 >
   <!-- 标题栏 -->
   <div
-    class="flex items-center justify-between px-3 py-2 bg-muted/30 border-b select-none {pinned
+    class="flex items-center justify-between px-3 py-2 border-b select-none {pinned
       ? 'cursor-not-allowed'
       : 'cursor-move'} shrink-0"
   >
