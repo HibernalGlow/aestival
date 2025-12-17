@@ -61,8 +61,9 @@
   let panelSettings = $state(settingsManager.getSettings().panels);
   
   // 计算卡片样式 - 使用 color-mix 实现带颜色的透明效果
+  // 乘以 0.6 让透明度效果更明显
   let cardStyle = $derived(
-    `background: color-mix(in srgb, var(--card) ${panelSettings.topToolbarOpacity}%, transparent); backdrop-filter: blur(${panelSettings.topToolbarBlur}px);`
+    `background: color-mix(in srgb, var(--card) ${panelSettings.topToolbarOpacity * 0.4}%, transparent); backdrop-filter: blur(${panelSettings.topToolbarBlur}px);`
   );
 
   onMount(() => {
