@@ -117,6 +117,27 @@ export function setNodeConfig(nodeId: string, config: NodeConfig): void {
   });
 }
 
+/** 验证并修复配置结构 */
+function validateAndFixConfig(config: NodeConfig): NodeConfig {
+  // 确保 fullscreen 和 normal 都有完整结构
+  const fixModeState = (state: ModeLayoutState | undefined): ModeLayoutState => {
+    if (!state) return createDefaultModeState();
+    return {
+      gridLayout: Array.isArray(state.gridLayout) ? state.gridLayout : [],
+      tabStates: state.tabStates && typeof state.tabStates === 'object' ? state.tabStates : {},
+      tabBlocks: Array.isArray(state.tabBlocks) ? state.tabBlocks : [],
+      sizeOverrides: state.sizeOverrides && typeof state.sizeOverrides === 'object' ? state.sizeOverrides : {}
+    };
+  };
+  
+  return {
+    nodeType: config.nodeType || 'unknown',
+    fullscreen: fixModeState(config.fullscreen),
+    normal: fixModeState(config.normal),
+    updatedAt: config.updatedAt || Date.now()
+  };
+}
+
 export function getOrCreateNodeConfig(
   nodeId: string, 
   nodeType: string,
@@ -125,7 +146,17 @@ export function getOrCreateNodeConfig(
 ): NodeConfig {
   hydrateFromStorage();
   const existing = nodeLayoutStore.state.get(nodeId);
-  if (existing) return existing;
+  
+  if (existing) {
+    // 验证并修复现有配置
+    const fixed = validateAndFixConfig(existing);
+    // 如果配置被修复了，保存修复后的版本
+    if (JSON.stringify(fixed) !== JSON.stringify(existing)) {
+      setNodeConfig(nodeId, fixed);
+      return fixed;
+    }
+    return existing;
+  }
   
   const newConfig = createDefaultNodeConfig(nodeType, defaultFullscreenLayout, defaultNormalLayout);
   setNodeConfig(nodeId, newConfig);

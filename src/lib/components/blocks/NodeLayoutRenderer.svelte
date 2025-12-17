@@ -48,44 +48,51 @@
   // 尺寸模式
   let sizeMode = $derived(getSizeMode(isFullscreen));
 
-  // 节点配置
-  let nodeConfig = $state<NodeConfig>(
-    getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout)
-  );
-  
-  // 初始化配置
-  $effect(() => {
-    let config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
+  // 生成节点模式默认布局
+  function generateNormalLayout(): GridItem[] {
+    const layout = getNodeBlockLayout(nodeType);
+    if (!layout) return [];
+    return layout.blocks
+      .filter(b => b.visibleInNormal !== false && !b.isTabContainer)
+      .map((b, idx) => ({
+        id: b.id,
+        x: idx % 2,
+        y: Math.floor(idx / 2),
+        w: b.colSpan ?? 1,
+        h: 1,
+        minW: 1,
+        minH: 1
+      }));
+  }
+
+  // 初始化节点配置
+  function initNodeConfig(): NodeConfig {
+    const config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
     
-    // 如果节点模式布局为空，从 blockRegistry 初始化
+    // 检查并初始化空布局
+    let needsUpdate = false;
+    
     if (config.normal.gridLayout.length === 0) {
-      const blockLayout = getNodeBlockLayout(nodeType);
-      if (blockLayout) {
-        const initialLayout: GridItem[] = blockLayout.blocks
-          .filter(b => b.visibleInNormal !== false && !b.isTabContainer)
-          .map((b, idx) => ({
-            id: b.id,
-            x: idx % 2,
-            y: Math.floor(idx / 2),
-            w: b.colSpan ?? 1,
-            h: 1,
-            minW: 1,
-            minH: 1
-          }));
-        updateGridLayout(nodeId, 'normal', initialLayout);
-        // 重新获取更新后的配置
-        config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
+      const normalLayout = defaultNormalLayout.length > 0 ? defaultNormalLayout : generateNormalLayout();
+      if (normalLayout.length > 0) {
+        updateGridLayout(nodeId, 'normal', normalLayout);
+        needsUpdate = true;
       }
     }
     
-    // 如果全屏模式布局为空，也初始化
     if (config.fullscreen.gridLayout.length === 0 && defaultFullscreenLayout.length > 0) {
       updateGridLayout(nodeId, 'fullscreen', defaultFullscreenLayout);
-      config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
+      needsUpdate = true;
     }
     
-    nodeConfig = config;
-  });
+    // 如果有更新，重新获取配置
+    return needsUpdate 
+      ? getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout)
+      : config;
+  }
+
+  // 节点配置
+  let nodeConfig = $state<NodeConfig>(initNodeConfig());
   
   // 订阅配置变化
   onMount(() => {
