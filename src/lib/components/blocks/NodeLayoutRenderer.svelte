@@ -55,7 +55,7 @@
   
   // 初始化配置
   $effect(() => {
-    const config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
+    let config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
     
     // 如果节点模式布局为空，从 blockRegistry 初始化
     if (config.normal.gridLayout.length === 0) {
@@ -73,7 +73,15 @@
             minH: 1
           }));
         updateGridLayout(nodeId, 'normal', initialLayout);
+        // 重新获取更新后的配置
+        config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
       }
+    }
+    
+    // 如果全屏模式布局为空，也初始化
+    if (config.fullscreen.gridLayout.length === 0 && defaultFullscreenLayout.length > 0) {
+      updateGridLayout(nodeId, 'fullscreen', defaultFullscreenLayout);
+      config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
     }
     
     nodeConfig = config;

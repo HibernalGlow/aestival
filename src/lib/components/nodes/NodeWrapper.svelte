@@ -271,27 +271,6 @@
         {@render headerExtra()}
       {/if}
 
-      <!-- 全屏模式下的布局工具 -->
-      {#if isFullscreenRender && onCompact}
-        <button
-          class="p-1 rounded hover:bg-muted transition-colors text-muted-foreground"
-          onclick={onCompact}
-          title="整理布局"
-        >
-          <LayoutGrid class="w-3.5 h-3.5" />
-        </button>
-      {/if}
-
-      {#if isFullscreenRender && onResetLayout}
-        <button
-          class="p-1 rounded hover:bg-muted transition-colors text-muted-foreground"
-          onclick={onResetLayout}
-          title="重置布局"
-        >
-          <RotateCcw class="w-3.5 h-3.5" />
-        </button>
-      {/if}
-
       <!-- 创建 Tab 区块按钮（两种模式都支持） -->
       {#if canCreateTab && onCreateTab && nodeType}
         <button
@@ -303,8 +282,8 @@
         </button>
       {/if}
 
-      <!-- 布局预设按钮（全屏模式） -->
-      {#if isFullscreenRender && nodeType && currentLayout && onApplyLayout}
+      <!-- 布局预设按钮（两种模式都支持） -->
+      {#if nodeType && currentLayout && onApplyLayout}
         <button
           class="p-1 rounded hover:bg-muted transition-colors {showLayoutBar ? 'text-primary' : 'text-muted-foreground'}"
           onclick={() => { showLayoutBar = !showLayoutBar; if (showLayoutBar) showTabConfig = false; }}
@@ -356,14 +335,38 @@
     </div>
   </div>
 
-  <!-- 布局预设横向展开栏（全屏模式，标题栏下方） -->
-  {#if isFullscreenRender && showLayoutBar && nodeType && currentLayout && onApplyLayout}
+  <!-- 布局预设横向展开栏（两种模式都支持，标题栏下方） -->
+  {#if showLayoutBar && nodeType && currentLayout && onApplyLayout}
     <div class="px-3 py-2 bg-muted/20 border-b shrink-0">
-      <LayoutPresetSelector 
-        {nodeType}
-        {currentLayout}
-        onApply={onApplyLayout}
-      />
+      <div class="flex items-center gap-2">
+        <LayoutPresetSelector 
+          {nodeType}
+          {currentLayout}
+          onApply={onApplyLayout}
+        />
+        <!-- 重置布局按钮 -->
+        {#if onResetLayout}
+          <button
+            class="px-2 py-1 text-xs rounded border border-border hover:bg-muted transition-colors flex items-center gap-1"
+            onclick={onResetLayout}
+            title="重置布局"
+          >
+            <RotateCcw class="w-3 h-3" />
+            重置
+          </button>
+        {/if}
+        <!-- 整理布局按钮（全屏模式） -->
+        {#if isFullscreenRender && onCompact}
+          <button
+            class="px-2 py-1 text-xs rounded border border-border hover:bg-muted transition-colors flex items-center gap-1"
+            onclick={onCompact}
+            title="整理布局"
+          >
+            <LayoutGrid class="w-3 h-3" />
+            整理
+          </button>
+        {/if}
+      </div>
     </div>
   {/if}
 
