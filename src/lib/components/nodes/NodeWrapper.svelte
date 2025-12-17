@@ -2,7 +2,6 @@
   /**
    * 通用节点包装器
    * 提供：关闭、折叠/展开、固定、状态显示、全屏 功能
-   * 支持 MagicCard 鼠标跟随光效
    *
    * 全屏模式：自动检测并应用全屏样式，节点组件无需任何修改
    */
@@ -17,7 +16,6 @@
     LayoutGrid,
     RotateCcw,
     Layout,
-    Plus,
     Layers,
   } from "@lucide/svelte";
   import { Badge } from "$lib/components/ui/badge";
@@ -27,25 +25,6 @@
   import { flowStore } from "$lib/stores";
   import { fullscreenNodeStore } from "$lib/stores/fullscreenNode.svelte";
   import type { Snippet } from "svelte";
-
-  // MagicCard 光效相关状态
-  let containerRef = $state<HTMLDivElement | null>(null);
-  let mouseX = $state(-200);
-  let mouseY = $state(-200);
-  let glowSize = $state(150);
-
-  function handleMouseMove(e: MouseEvent) {
-    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-    mouseX = e.clientX - rect.left;
-    mouseY = e.clientY - rect.top;
-    // 动态计算光晕大小：取卡片宽高的较小值的 60%
-    glowSize = Math.min(rect.width, rect.height) * 0.6;
-  }
-
-  function handleMouseLeave() {
-    mouseX = -glowSize;
-    mouseY = -glowSize;
-  }
 
   // 状态类型
   type NodeStatus = "idle" | "running" | "completed" | "error" | string;
@@ -223,12 +202,8 @@
 </script>
 
 <!-- 全屏时原节点变淡，页面级别会渲染全屏版本 -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  bind:this={containerRef}
-  onmousemove={handleMouseMove}
-  onmouseleave={handleMouseLeave}
-  class="group relative {shouldFade
+  class="{shouldFade
     ? 'opacity-30 pointer-events-none'
     : ''} {isFullscreenRender
     ? 'h-full flex flex-col bg-card/80 backdrop-blur-xl'
@@ -391,21 +366,4 @@
       {@render children()}
     </div>
   {/if}
-
-  <!-- MagicCard 光效层 -->
-  <div
-    class="magic-glow pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-    style="--glow-size: {glowSize}px; --glow-x: {mouseX}px; --glow-y: {mouseY}px;"
-  ></div>
 </div>
-
-<style>
-  .magic-glow {
-    background: radial-gradient(
-      var(--glow-size, 200px) circle at var(--glow-x, 0px) var(--glow-y, 0px),
-      color-mix(in oklch, var(--color-primary) 40%, transparent),
-      transparent 100%
-    );
-    opacity: 0.5;
-  }
-</style>
