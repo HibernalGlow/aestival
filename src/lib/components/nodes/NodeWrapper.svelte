@@ -16,12 +16,11 @@
     Minimize2,
     LayoutGrid,
     RotateCcw,
-    LayoutTemplate,
+    Layout,
     Layers,
-    PanelTop,
   } from "@lucide/svelte";
   import { Badge } from "$lib/components/ui/badge";
-  import { LayoutPresetSelector, NodeLayoutEditor } from "$lib/components/ui/dashboard-grid";
+  import { LayoutPresetSelector } from "$lib/components/ui/dashboard-grid";
   import { TabConfigPanel } from "$lib/components/blocks";
   import type { GridItem } from "$lib/components/ui/dashboard-grid";
   import { flowStore } from "$lib/stores";
@@ -102,10 +101,6 @@
     canCreateTab?: boolean;
     /** 已在 Tab 中使用的区块 ID（不可再选） */
     usedTabBlockIds?: string[];
-    /** 节点模式布局（用于编辑） */
-    normalLayout?: GridItem[];
-    /** 保存节点模式布局回调 */
-    onSaveNormalLayout?: (layout: GridItem[]) => void;
   }
 
   // 默认状态标签映射
@@ -163,8 +158,6 @@
     onCreateTab,
     canCreateTab = false,
     usedTabBlockIds = [],
-    normalLayout,
-    onSaveNormalLayout,
   }: Props = $props();
 
   // 状态
@@ -172,7 +165,6 @@
   let pinned = $state(false);
   let showLayoutBar = $state(false);  // 布局预设栏展开状态
   let showTabConfig = $state(false);  // Tab 配置面板展开状态
-  let showNodeLayoutEditor = $state(false);  // 节点布局编辑器
 
   // 检测是否在全屏模式（原节点需要变淡）
   let isNodeInFullscreen = $derived(
@@ -297,7 +289,7 @@
           onclick={() => { showLayoutBar = !showLayoutBar; if (showLayoutBar) showTabConfig = false; }}
           title="布局预设"
         >
-          <LayoutTemplate class="w-3.5 h-3.5" />
+          <Layout class="w-3.5 h-3.5" />
         </button>
       {/if}
 
@@ -374,17 +366,6 @@
             整理
           </button>
         {/if}
-        <!-- 编辑节点布局按钮（仅全屏模式） -->
-        {#if isFullscreenRender && normalLayout && onSaveNormalLayout}
-          <button
-            class="px-2 py-1 text-xs rounded border border-primary/50 bg-primary/10 hover:bg-primary/20 text-primary transition-colors flex items-center gap-1"
-            onclick={() => showNodeLayoutEditor = true}
-            title="编辑节点布局"
-          >
-            <PanelTop class="w-3 h-3" />
-            编辑节点布局
-          </button>
-        {/if}
       </div>
     </div>
   {/if}
@@ -408,13 +389,3 @@
     </div>
   {/if}
 </div>
-
-<!-- 节点布局编辑器（仅全屏模式） -->
-{#if showNodeLayoutEditor && nodeType && normalLayout && onSaveNormalLayout}
-  <NodeLayoutEditor
-    {nodeType}
-    currentLayout={normalLayout}
-    onSave={(layout) => { onSaveNormalLayout(layout); showNodeLayoutEditor = false; }}
-    onCancel={() => showNodeLayoutEditor = false}
-  />
-{/if}

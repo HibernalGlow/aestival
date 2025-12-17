@@ -249,16 +249,6 @@
   export function getConfig(): NodeConfig {
     return nodeConfig;
   }
-
-  // 获取节点模式布局（用于编辑器）
-  export function getNormalLayout(): GridItem[] {
-    return nodeConfig.normal.gridLayout;
-  }
-
-  // 保存节点模式布局（从编辑器）
-  export function saveNormalLayout(layout: GridItem[]) {
-    updateGridLayout(nodeType, 'normal', layout);
-  }
 </script>
 
 {#if isFullscreen}

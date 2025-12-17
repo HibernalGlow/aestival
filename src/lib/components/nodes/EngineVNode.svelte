@@ -66,8 +66,6 @@
     resetLayout: () => void;
     applyLayout: (layout: any[]) => void;
     getCurrentLayout: () => any[];
-    getNormalLayout: () => any[];
-    saveNormalLayout: (layout: any[]) => void;
   } | undefined>(undefined);
   
   function saveState() {
@@ -472,8 +470,6 @@
     canCreateTab={true}
     onCreateTab={(blockIds) => layoutRenderer?.createTab(blockIds)}
     usedTabBlockIds={layoutRenderer?.getUsedBlockIds() ?? []}
-    normalLayout={layoutRenderer?.getNormalLayout()}
-    onSaveNormalLayout={(layout) => layoutRenderer?.saveNormalLayout(layout)}
   >
     {#snippet children()}
       <NodeLayoutRenderer
