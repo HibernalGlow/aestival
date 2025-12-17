@@ -152,12 +152,8 @@
 <div 
   class="tab-block-card h-full flex flex-col {isFullscreen ? 'border border-primary/40 rounded-md bg-card/80 backdrop-blur-sm' : 'bg-card rounded-lg border shadow-sm'} {className}"
 >
-  <!-- 标签栏（带拖动手柄） -->
-  <div class="tab-bar flex items-center {isFullscreen ? 'p-1.5 border-b bg-muted/30' : 'p-1'} shrink-0">
-    <!-- 拖动手柄区域（用于 GridStack 拖动） -->
-    <div class="drag-handle cursor-move px-1 py-1 mr-1 hover:bg-muted/50 rounded transition-colors" title="拖动移动">
-      <GripVertical class="w-3.5 h-3.5 text-muted-foreground" />
-    </div>
+  <!-- 标签栏 -->
+  <div class="tab-bar drag-handle flex items-center {isFullscreen ? 'p-1.5 border-b bg-muted/30' : 'p-1'} shrink-0 cursor-move">
     <!-- 标签列表（支持拖拽排序） -->
     {#if editMode && childBlocks.length > 0}
       <div 
@@ -167,20 +163,18 @@
         onfinalize={handleDndFinalize}
       >
         {#each dndItems as item (item.id)}
-          {@const isActive = item.index === activeTab}
           {@const Icon = item.block.icon as Component | undefined}
           <div 
-            class="tab-item-edit flex items-center gap-1 px-2 py-1.5 rounded-md text-sm font-medium bg-muted/50 border border-dashed cursor-move"
+            class="tab-item-edit flex items-center gap-1 px-1.5 py-1 rounded-md text-sm font-medium bg-muted/50 border border-dashed cursor-move"
             animate:flip={{ duration: 200 }}
           >
             <GripVertical class="w-3 h-3 text-muted-foreground" />
             {#if Icon}
               <Icon class="w-3.5 h-3.5 {item.block.iconClass}" />
             {/if}
-            <span class="text-xs">{item.block.title}</span>
             <button
               type="button"
-              class="ml-1 p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
+              class="p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
               onclick={() => removeChild(item.id)}
             >
               <X class="w-3 h-3" />
@@ -195,16 +189,16 @@
           {@const Icon = block.icon as Component | undefined}
           <button
             type="button"
-            class="tab-item flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap
+            class="tab-item flex items-center justify-center p-1.5 rounded-md transition-all
               {isActive 
                 ? 'bg-primary text-primary-foreground shadow-sm' 
                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}"
             onclick={() => switchTab(index)}
+            title={block.title}
           >
             {#if Icon}
-              <Icon class="w-3.5 h-3.5 {isActive ? '' : block.iconClass}" />
+              <Icon class="w-4 h-4 {isActive ? '' : block.iconClass}" />
             {/if}
-            <span class="{isFullscreen ? 'text-sm' : 'text-xs'}">{block.title}</span>
           </button>
         {/each}
       </div>
