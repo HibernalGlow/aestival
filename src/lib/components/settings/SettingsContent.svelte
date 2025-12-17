@@ -9,6 +9,7 @@
 	import ThemeSettingsPanel from '$lib/components/settings/ThemeSettingsPanel.svelte';
 	import DataSettingsPanel from '$lib/components/settings/DataSettingsPanel.svelte';
 	import BlockSettingsPanel from '$lib/components/settings/BlockSettingsPanel.svelte';
+	import { Globe } from '$lib/components/ui/globe';
 
 	const tabs = [
 		{ value: 'theme', label: '外观', icon: Palette },
@@ -55,11 +56,12 @@
 			{:else if activeTab === 'data'}
 				<DataSettingsPanel />
 			{:else if activeTab === 'about'}
-				<div class="space-y-4 p-6">
-					<h3 class="text-lg font-semibold">关于 Aestivus</h3>
-					<div class="space-y-2 text-sm text-muted-foreground">
-						<p>Aestivus 是一个可视化工作流编辑器。</p>
-						<p>版本: 1.0.0</p>
+				<div class="flex h-full flex-col items-center justify-center space-y-6 p-6">
+					<Globe width={300} height={300} />
+					<div class="space-y-2 text-center">
+						<h3 class="text-xl font-semibold">Aestivus</h3>
+						<p class="text-sm text-muted-foreground">可视化工作流编辑器</p>
+						<p class="text-xs text-muted-foreground">版本: 3.1.0</p>
 					</div>
 				</div>
 			{:else}
