@@ -72,7 +72,7 @@
            Object.keys(modeState.tabStates).length > 0;
   }
 
-  // 初始化节点配置
+  // 初始化节点配置（使用 nodeType 作为 key）
   function initNodeConfig(): NodeConfig {
     const config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
     
@@ -83,14 +83,14 @@
     if (!hasSavedState(config.normal)) {
       const normalLayout = defaultNormalLayout.length > 0 ? defaultNormalLayout : generateNormalLayout();
       if (normalLayout.length > 0) {
-        updateGridLayout(nodeId, 'normal', normalLayout);
+        updateGridLayout(nodeType, 'normal', normalLayout);
         needsUpdate = true;
       }
     }
     
     // 全屏模式：没有任何保存状态时才初始化
     if (!hasSavedState(config.fullscreen) && defaultFullscreenLayout.length > 0) {
-      updateGridLayout(nodeId, 'fullscreen', defaultFullscreenLayout);
+      updateGridLayout(nodeType, 'fullscreen', defaultFullscreenLayout);
       needsUpdate = true;
     }
     
@@ -103,10 +103,9 @@
   // 节点配置
   let nodeConfig = $state<NodeConfig>(initNodeConfig());
   
-  // 订阅配置变化
+  // 订阅配置变化（使用 nodeType 作为 key）
   onMount(() => {
-    const currentNodeId = nodeId;
-    const unsubscribe = subscribeNodeConfig(currentNodeId, (config) => {
+    const unsubscribe = subscribeNodeConfig(nodeType, (config) => {
       if (config) {
         nodeConfig = config;
         onConfigChange?.(config);
@@ -120,9 +119,6 @@
 
   // DashboardGrid 引用
   let dashboardGrid = $state<{ compact: () => void; applyLayout: (layout: GridItem[]) => void } | undefined>(undefined);
-
-  // 获取区块布局配置（代码默认）
-  let blockLayout = $derived(getNodeBlockLayout(nodeType));
   
   // 获取已使用的 Tab 区块 ID
   let usedTabIds = $derived(() => {
@@ -139,50 +135,24 @@
     return currentLayout.filter(item => !usedIds.includes(item.id));
   });
 
-  // 处理布局变化
+  // 处理布局变化（使用 nodeType 作为 key）
   function handleLayoutChange(newLayout: GridItem[]) {
-    updateGridLayout(nodeId, mode, newLayout);
+    updateGridLayout(nodeType, mode, newLayout);
   }
 
-  // 处理 Tab 状态变化
+  // 处理 Tab 状态变化（使用 nodeType 作为 key）
   function handleTabStateChange(tabId: string, state: { activeTab: number; children: string[] }) {
-    updateTabState(nodeId, mode, tabId, state);
+    updateTabState(nodeType, mode, tabId, state);
   }
 
-  // 创建 Tab 区块
+  // 创建 Tab 区块（原子操作，使用 nodeType 作为 key）
   export function createTab(blockIds: string[]) {
-    createTabBlock(nodeId, mode, blockIds);
-    
-    // 从布局中移除被合并的区块（保留第一个）
-    if (blockIds.length > 1) {
-      const otherBlockIds = blockIds.slice(1);
-      const newLayout = currentLayout.filter(item => !otherBlockIds.includes(item.id));
-      updateGridLayout(nodeId, mode, newLayout);
-    }
+    createTabBlock(nodeType, mode, blockIds, true);
   }
 
-  // 删除 Tab 区块
+  // 删除 Tab 区块（原子操作，使用 nodeType 作为 key）
   function handleRemoveTab(tabId: string) {
-    const childIds = removeTabBlock(nodeId, mode, tabId);
-    
-    // 恢复被隐藏的区块到布局中
-    if (childIds.length > 0) {
-      const tabItem = currentLayout.find(item => item.id === tabId);
-      const baseY = tabItem?.y ?? 0;
-      const baseX = (tabItem?.x ?? 0) + (tabItem?.w ?? 2);
-      
-      const restoredItems: GridItem[] = childIds.map((childId, index) => ({
-        id: childId,
-        x: isFullscreen ? baseX : index % 2,
-        y: isFullscreen ? baseY + index * 2 : Math.floor(index / 2) + baseY + 1,
-        w: 1,
-        h: isFullscreen ? 2 : 1,
-        minW: 1,
-        minH: 1
-      }));
-      
-      updateGridLayout(nodeId, mode, [...currentLayout, ...restoredItems]);
-    }
+    removeTabBlock(nodeType, mode, tabId, true, isFullscreen);
   }
 
   // 检查区块是否是 Tab 容器
@@ -216,16 +186,16 @@
     dashboardGrid?.compact();
   }
 
-  // 重置布局
+  // 重置布局（使用 nodeType 作为 key）
   export function resetLayout() {
     const defaultLayout = isFullscreen ? defaultFullscreenLayout : defaultNormalLayout;
-    updateGridLayout(nodeId, mode, defaultLayout);
+    updateGridLayout(nodeType, mode, defaultLayout);
     if (isFullscreen) dashboardGrid?.applyLayout(defaultLayout);
   }
 
-  // 应用布局预设
+  // 应用布局预设（使用 nodeType 作为 key）
   export function applyLayout(layout: GridItem[]) {
-    updateGridLayout(nodeId, mode, layout);
+    updateGridLayout(nodeType, mode, layout);
     if (isFullscreen) dashboardGrid?.applyLayout(layout);
   }
 
