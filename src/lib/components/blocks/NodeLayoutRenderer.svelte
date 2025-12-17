@@ -65,14 +65,22 @@
       }));
   }
 
+  // 检查模式是否有任何已保存的状态（布局或 Tab）
+  function hasSavedState(modeState: typeof nodeConfig.normal): boolean {
+    return modeState.gridLayout.length > 0 || 
+           modeState.tabBlocks.length > 0 || 
+           Object.keys(modeState.tabStates).length > 0;
+  }
+
   // 初始化节点配置
   function initNodeConfig(): NodeConfig {
     const config = getOrCreateNodeConfig(nodeId, nodeType, defaultFullscreenLayout, defaultNormalLayout);
     
-    // 检查并初始化空布局
+    // 只有当模式完全没有保存状态时才初始化布局
     let needsUpdate = false;
     
-    if (config.normal.gridLayout.length === 0) {
+    // 节点模式：没有任何保存状态时才初始化
+    if (!hasSavedState(config.normal)) {
       const normalLayout = defaultNormalLayout.length > 0 ? defaultNormalLayout : generateNormalLayout();
       if (normalLayout.length > 0) {
         updateGridLayout(nodeId, 'normal', normalLayout);
@@ -80,7 +88,8 @@
       }
     }
     
-    if (config.fullscreen.gridLayout.length === 0 && defaultFullscreenLayout.length > 0) {
+    // 全屏模式：没有任何保存状态时才初始化
+    if (!hasSavedState(config.fullscreen) && defaultFullscreenLayout.length > 0) {
       updateGridLayout(nodeId, 'fullscreen', defaultFullscreenLayout);
       needsUpdate = true;
     }
