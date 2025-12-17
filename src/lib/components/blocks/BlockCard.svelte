@@ -2,10 +2,12 @@
   /**
    * BlockCard - 通用区块卡片容器
    * 支持普通模式（Bento Grid）和全屏模式（GridStack）
-   * 参考 neoview 的 CollapsibleCard 设计
+   * 使用 settingsManager 的面板透明度和模糊设置
    */
   import { ChevronDown, ChevronRight } from '@lucide/svelte';
   import { slide } from 'svelte/transition';
+  import { settingsManager } from '$lib/settings/settingsManager';
+  import { onMount } from 'svelte';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -55,13 +57,29 @@
 
   let isExpanded = $state(defaultExpanded);
 
+  // 获取面板设置（透明度和模糊）
+  let panelSettings = $state(settingsManager.getSettings().panels);
+  
+  // 计算卡片样式 - 使用 color-mix 实现带颜色的透明效果
+  let cardStyle = $derived(
+    `background: color-mix(in srgb, var(--card) ${panelSettings.topToolbarOpacity}%, transparent); backdrop-filter: blur(${panelSettings.topToolbarBlur}px);`
+  );
+
+  onMount(() => {
+    // 监听设置变化
+    settingsManager.addListener((s) => {
+      panelSettings = s.panels;
+    });
+  });
+
   function toggleExpanded() {
     if (collapsible) isExpanded = !isExpanded;
   }
 </script>
 
 <div 
-  class="block-card {isFullscreen ? 'h-full flex flex-col border border-primary/40 rounded-md bg-card/80 backdrop-blur-sm' : 'bg-card rounded-lg border shadow-sm'} {fullHeight ? 'flex-1 min-h-0' : ''} {className}"
+  class="block-card {isFullscreen ? 'h-full flex flex-col border border-primary/40 rounded-md' : 'rounded-lg border shadow-sm'} {fullHeight ? 'flex-1 min-h-0' : ''} {className}"
+  style={cardStyle}
 >
   <!-- 标题栏 -->
   {#if !hideHeader}
