@@ -104,6 +104,40 @@
     handleLayoutChange();
   }
 
+  /** 刷新网格 - 重新扫描并注册所有元素（用于动态添加/删除元素后） */
+  export async function refresh() {
+    if (!grid || !gridElement) return;
+    
+    // 等待 DOM 更新
+    await tick();
+    
+    // 获取当前 GridStack 管理的元素 ID
+    const managedIds = new Set(grid.getGridItems().map(el => el.getAttribute('gs-id')));
+    
+    // 查找所有 grid-stack-item 元素
+    const allItems = gridElement.querySelectorAll('.grid-stack-item') as NodeListOf<HTMLElement>;
+    
+    grid.batchUpdate();
+    
+    for (const el of allItems) {
+      const id = el.getAttribute('gs-id');
+      if (id && !managedIds.has(id)) {
+        // 新元素，需要注册到 GridStack
+        const x = parseInt(el.getAttribute('gs-x') || '0');
+        const y = parseInt(el.getAttribute('gs-y') || '0');
+        const w = parseInt(el.getAttribute('gs-w') || '1');
+        const h = parseInt(el.getAttribute('gs-h') || '1');
+        const minW = el.getAttribute('gs-min-w') ? parseInt(el.getAttribute('gs-min-w')!) : undefined;
+        const minH = el.getAttribute('gs-min-h') ? parseInt(el.getAttribute('gs-min-h')!) : undefined;
+        
+        grid.makeWidget(el, { id, x, y, w, h, minW, minH });
+      }
+    }
+    
+    grid.batchUpdate(false);
+    handleLayoutChange();
+  }
+
   // 从 DOM 元素获取当前布局（优先从 DOM 属性读取，确保 resize 后数据正确）
   function getCurrentLayout(): GridItem[] {
     if (!grid) return [];

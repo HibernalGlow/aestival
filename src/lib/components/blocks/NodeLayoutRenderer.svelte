@@ -1,7 +1,14 @@
 <script lang="ts">
   /**
    * NodeLayoutRenderer - 统一节点布局渲染器
-   * Tab 状态内嵌在布局配置中，节点模式读取全屏模式的 Tab 配置
+   * 
+   * 模式说明：
+   * - mode: 当前渲染模式，决定使用哪个 gridLayout（fullscreen 或 normal）
+   * - tabMode: Tab 状态存储的模式，始终为 'fullscreen'
+   *   - 这意味着 Tab 配置只在全屏模式下创建和编辑
+   *   - 节点模式会读取全屏模式的 Tab 配置来渲染
+   * 
+   * Tab 容器使用独立 ID（tab-xxx），不再复用子区块 ID
    */
   import type { Snippet } from 'svelte';
   import type { GridItem } from '$lib/components/ui/dashboard-grid';
@@ -17,7 +24,7 @@
     type NodeConfig
   } from '$lib/stores/nodeLayoutStore';
   import { getSizeMode, type SizeMode } from '$lib/utils/sizeUtils';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
 
   interface Props {
     nodeId: string;
@@ -31,8 +38,10 @@
 
   let { nodeId, nodeType, isFullscreen, defaultFullscreenLayout = [], defaultNormalLayout = [], renderBlock, onConfigChange }: Props = $props();
 
+  // mode: 当前渲染模式（决定 gridLayout）
   let mode = $derived(isFullscreen ? 'fullscreen' : 'normal') as 'fullscreen' | 'normal';
-  let tabMode = $derived('fullscreen') as 'fullscreen' | 'normal';
+  // tabMode: Tab 状态存储模式（始终为 fullscreen，节点模式共享全屏的 Tab 配置）
+  const tabMode = 'fullscreen' as const;
   let sizeMode = $derived(getSizeMode(isFullscreen));
 
   function generateNormalLayout(): GridItem[] {
@@ -74,38 +83,83 @@
   });
 
   let currentLayout = $derived(nodeConfig[mode].gridLayout);
-  let dashboardGrid = $state<{ compact: () => void; applyLayout: (layout: GridItem[]) => void } | undefined>(undefined);
+  let dashboardGrid = $state<{ compact: () => void; applyLayout: (layout: GridItem[]) => void; refresh?: () => Promise<void> } | undefined>(undefined);
   let usedTabIds = $derived(() => getLayoutUsedBlockIds(nodeType, tabMode));
+  // visibleBlocks: gridLayout 中不在 Tab 内的区块（Tab 容器本身会在 gridLayout 中，子区块不会）
   let visibleBlocks = $derived(() => currentLayout.filter(item => !usedTabIds().includes(item.id)));
 
-  function handleLayoutChange(newLayout: GridItem[]) { updateGridLayout(nodeType, mode, newLayout); }
-  function handleRemoveTab(tabId: string) { removeLayoutTab(nodeType, tabMode, tabId); }
-  function checkIsTabContainer(blockId: string): boolean { return checkLayoutTabContainer(nodeType, tabMode, blockId); }
+  function handleLayoutChange(newLayout: GridItem[]) { 
+    updateGridLayout(nodeType, mode, newLayout); 
+  }
+  
+  /** 删除 Tab 并刷新 GridStack */
+  async function handleRemoveTab(tabId: string) { 
+    console.log('[NodeLayoutRenderer] handleRemoveTab:', { tabId, mode, tabMode });
+    removeLayoutTab(nodeType, tabMode, tabId); 
+    // 等待 Svelte 更新 DOM 后刷新 GridStack
+    await tick();
+    if (isFullscreen && dashboardGrid?.refresh) {
+      await dashboardGrid.refresh();
+    }
+  }
+  
+  function checkIsTabContainer(blockId: string): boolean { 
+    return checkLayoutTabContainer(nodeType, tabMode, blockId); 
+  }
+  
   function applyGridItemOverride(item: GridItem): GridItem {
     const override = nodeConfig[mode].sizeOverrides[item.id];
     return override ? { ...item, minW: override.minW ?? item.minW, minH: override.minH ?? item.minH } : item;
   }
 
-  export function createTab(blockIds: string[]): string | null { return createLayoutTab(nodeType, tabMode, blockIds); }
+  /** 创建 Tab 并刷新 GridStack */
+  export async function createTab(blockIds: string[]): Promise<string | null> { 
+    console.log('[NodeLayoutRenderer] createTab:', { blockIds, mode, tabMode });
+    const tabId = createLayoutTab(nodeType, tabMode, blockIds); 
+    if (tabId && isFullscreen && dashboardGrid?.refresh) {
+      await tick();
+      await dashboardGrid.refresh();
+    }
+    return tabId;
+  }
+  
   export function getUsedBlockIds(): string[] { return usedTabIds(); }
   export function isTabContainer(blockId: string): boolean { return checkIsTabContainer(blockId); }
   export function compact() { dashboardGrid?.compact(); }
-  export function resetLayout() {
-    // 清除 Tab 状态（tabMode 始终是 fullscreen，因为节点模式共享全屏的 Tab 配置）
+  
+  /** 重置布局 */
+  export async function resetLayout() {
+    console.log('[NodeLayoutRenderer] resetLayout:', { mode, tabMode, isFullscreen });
+    
+    // 清除 Tab 状态（tabMode 始终是 fullscreen）
     clearTabStates(nodeType, tabMode);
     
     // 重置当前模式的布局
     const defaultLayout = isFullscreen ? defaultFullscreenLayout : defaultNormalLayout;
     updateGridLayout(nodeType, mode, defaultLayout);
     
-    // 如果在节点模式下重置，也需要重置 fullscreen 的 gridLayout（因为 Tab 状态在 fullscreen 中）
+    // 如果在节点模式下重置，也需要重置 fullscreen 的 gridLayout
     if (!isFullscreen) {
       updateGridLayout(nodeType, 'fullscreen', defaultFullscreenLayout);
     }
     
-    if (isFullscreen) dashboardGrid?.applyLayout(defaultLayout);
+    if (isFullscreen && dashboardGrid) {
+      dashboardGrid.applyLayout(defaultLayout);
+      await tick();
+      await dashboardGrid.refresh?.();
+    }
   }
-  export function applyLayout(layout: GridItem[]) { updateGridLayout(nodeType, mode, layout); if (isFullscreen) dashboardGrid?.applyLayout(layout); }
+  
+  /** 应用布局 */
+  export async function applyLayout(layout: GridItem[]) { 
+    updateGridLayout(nodeType, mode, layout); 
+    if (isFullscreen && dashboardGrid) {
+      dashboardGrid.applyLayout(layout);
+      await tick();
+      await dashboardGrid.refresh?.();
+    }
+  }
+  
   export function getCurrentLayout(): GridItem[] { return currentLayout; }
   export function getConfig(): NodeConfig { return nodeConfig; }
 </script>

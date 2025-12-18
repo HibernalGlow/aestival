@@ -25,6 +25,14 @@
 
   function getInitialState() {
     const storeState = getTabState(nodeType, mode, id);
+    console.log('[TabBlockCard] getInitialState:', { 
+      nodeType, 
+      mode, 
+      id, 
+      hasState: !!storeState,
+      children: storeState?.children,
+      originalPositions: storeState?.originalPositions
+    });
     return storeState ? { children: storeState.children, activeTab: storeState.activeTab } : { children: [], activeTab: 0 };
   }
 
