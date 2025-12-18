@@ -91,11 +91,18 @@
   export function isTabContainer(blockId: string): boolean { return checkIsTabContainer(blockId); }
   export function compact() { dashboardGrid?.compact(); }
   export function resetLayout() {
-    // 先清除 Tab 状态
+    // 清除 Tab 状态（tabMode 始终是 fullscreen，因为节点模式共享全屏的 Tab 配置）
     clearTabStates(nodeType, tabMode);
-    // 再重置布局
+    
+    // 重置当前模式的布局
     const defaultLayout = isFullscreen ? defaultFullscreenLayout : defaultNormalLayout;
     updateGridLayout(nodeType, mode, defaultLayout);
+    
+    // 如果在节点模式下重置，也需要重置 fullscreen 的 gridLayout（因为 Tab 状态在 fullscreen 中）
+    if (!isFullscreen) {
+      updateGridLayout(nodeType, 'fullscreen', defaultFullscreenLayout);
+    }
+    
     if (isFullscreen) dashboardGrid?.applyLayout(defaultLayout);
   }
   export function applyLayout(layout: GridItem[]) { updateGridLayout(nodeType, mode, layout); if (isFullscreen) dashboardGrid?.applyLayout(layout); }
