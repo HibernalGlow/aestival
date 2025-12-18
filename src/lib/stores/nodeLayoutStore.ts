@@ -506,8 +506,12 @@ export function createTab(
     if (item) {
       originalPositions[blockId] = { x: item.x, y: item.y, w: item.w, h: item.h };
       if (i === 0) firstBlockPosition = originalPositions[blockId];
+    } else {
+      // 容错处理：如果区块真的不存在（不应该发生），使用默认位置
+      console.warn(`[nodeLayoutStore] createTab - 区块 ${blockId} 不在当前布局中，使用默认位置`);
+      originalPositions[blockId] = getDefaultPosition(i, mode === 'fullscreen');
+      if (i === 0) firstBlockPosition = originalPositions[blockId];
     }
-    // 不再使用默认位置，因为已校验区块必须存在
   }
   
   console.log('[nodeLayoutStore] createTab - 保存原始位置:', {

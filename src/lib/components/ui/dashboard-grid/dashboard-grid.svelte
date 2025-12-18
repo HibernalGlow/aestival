@@ -23,10 +23,10 @@
    * 支持拖拽移动、调整大小、布局持久化、自动整理
    * 兼容 Svelte 5 runes
    */
-  import { onMount, onDestroy, tick } from 'svelte';
-  import { GridStack } from 'gridstack';
-  import 'gridstack/dist/gridstack.min.css';
-  import type { Snippet } from 'svelte';
+  import { onMount, onDestroy, tick } from "svelte";
+  import { GridStack } from "gridstack";
+  import "gridstack/dist/gridstack.min.css";
+  import type { Snippet } from "svelte";
 
   interface Props {
     items?: GridItem[];
@@ -53,19 +53,19 @@
     showToolbar = true,
     onLayoutChange,
     onReset,
-    children
+    children,
   }: Props = $props();
 
   let gridElement: HTMLDivElement | undefined = $state();
   let grid: GridStack | null = null;
-  
+
   /** 整理布局 - 消除空隙 */
   export function compact() {
     if (!grid) return;
     grid.compact();
     handleLayoutChange();
   }
-  
+
   /** 锁定/解锁布局 */
   export function setLocked(locked: boolean) {
     if (!grid) return;
@@ -77,7 +77,13 @@
   }
 
   /** 更新单个 item 的布局 */
-  export function updateItem(id: string, x: number, y: number, w: number, h: number) {
+  export function updateItem(
+    id: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number
+  ) {
     if (!grid) return;
     const el = gridElement?.querySelector(`[gs-id="${id}"]`) as HTMLElement;
     if (el) {
@@ -89,17 +95,19 @@
   /** 批量应用布局 - 用于切换预设 */
   export function applyLayout(newLayout: GridItem[]) {
     if (!grid || !gridElement) return;
-    
+
     // 批量更新模式，避免触发多次事件
     grid.batchUpdate();
-    
+
     for (const item of newLayout) {
-      const el = gridElement.querySelector(`[gs-id="${item.id}"]`) as HTMLElement;
+      const el = gridElement.querySelector(
+        `[gs-id="${item.id}"]`
+      ) as HTMLElement;
       if (el) {
         grid.update(el, { x: item.x, y: item.y, w: item.w, h: item.h });
       }
     }
-    
+
     grid.batchUpdate(false);
     handleLayoutChange();
   }
@@ -107,51 +115,92 @@
   /** 刷新网格 - 重新扫描并注册所有元素（用于动态添加/删除元素后） */
   export async function refresh() {
     if (!grid || !gridElement) return;
-    
+
     // 等待 DOM 更新
     await tick();
-    
-    // 获取当前 GridStack 管理的元素 ID
-    const managedIds = new Set(grid.getGridItems().map(el => el.getAttribute('gs-id')));
-    
-    // 查找所有 grid-stack-item 元素
-    const allItems = gridElement.querySelectorAll('.grid-stack-item') as NodeListOf<HTMLElement>;
-    
-    // 收集需要添加的新元素
-    const newElements: { el: HTMLElement; x: number; y: number; w: number; h: number; minW?: number; minH?: number }[] = [];
-    
-    for (const el of allItems) {
-      const id = el.getAttribute('gs-id');
-      if (id && !managedIds.has(id)) {
-        const x = parseInt(el.getAttribute('gs-x') || '0');
-        const y = parseInt(el.getAttribute('gs-y') || '0');
-        const w = parseInt(el.getAttribute('gs-w') || '1');
-        const h = parseInt(el.getAttribute('gs-h') || '1');
-        const minW = el.getAttribute('gs-min-w') ? parseInt(el.getAttribute('gs-min-w')!) : undefined;
-        const minH = el.getAttribute('gs-min-h') ? parseInt(el.getAttribute('gs-min-h')!) : undefined;
-        
-        newElements.push({ el, x, y, w, h, minW, minH });
-        console.log('[DashboardGrid] refresh - 发现新元素:', { id, x, y, w, h });
+
+    // 1. 清理：移除那些已经在 DOM 中不存在但在 GridStack 中还存在的元素
+    const currentGridItems = grid.getGridItems();
+    let needsPrune = false;
+
+    for (const item of currentGridItems) {
+      // 如果元素不再是 gridElement 的子元素，说明被 Svelte 移除了
+      if (!gridElement.contains(item)) {
+        console.log(
+          "[DashboardGrid] refresh - 移除失效元素:",
+          item.getAttribute("gs-id")
+        );
+        grid.removeWidget(item, false); // false 表示不从 DOM 移除（已经被 Svelte 移除了）
+        needsPrune = true;
       }
     }
-    
-    if (newElements.length === 0) {
-      console.log('[DashboardGrid] refresh - 没有新元素需要注册');
+
+    // 如果有清理，强制重新获取管理 ID 列表
+    const managedIds = new Set(
+      grid.getGridItems().map((el) => el.getAttribute("gs-id"))
+    );
+
+    // 2. 添加：注册新出现的元素
+    const allItems = gridElement.querySelectorAll(
+      ".grid-stack-item"
+    ) as NodeListOf<HTMLElement>;
+    const newElements: {
+      el: HTMLElement;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      minW?: number;
+      minH?: number;
+    }[] = [];
+
+    for (const el of allItems) {
+      const id = el.getAttribute("gs-id");
+      // 如果是非法元素或已在管理中，跳过
+      if (!id || managedIds.has(id)) continue;
+
+      // 优先从属性读取， fallback 到默认值
+      const x = parseInt(el.getAttribute("gs-x") || "0");
+      const y = parseInt(el.getAttribute("gs-y") || "0");
+      const w = parseInt(el.getAttribute("gs-w") || "1");
+      const h = parseInt(el.getAttribute("gs-h") || "1");
+      const minW = el.getAttribute("gs-min-w")
+        ? parseInt(el.getAttribute("gs-min-w")!)
+        : undefined;
+      const minH = el.getAttribute("gs-min-h")
+        ? parseInt(el.getAttribute("gs-min-h")!)
+        : undefined;
+
+      newElements.push({ el, x, y, w, h, minW, minH });
+      console.log("[DashboardGrid] refresh - 发现新元素需注册:", {
+        id,
+        x,
+        y,
+        w,
+        h,
+      });
+    }
+
+    if (newElements.length === 0 && !needsPrune) {
       return;
     }
-    
+
     grid.batchUpdate();
-    
+
     for (const { el, x, y, w, h, minW, minH } of newElements) {
-      // 先注册元素
+      // 先让 GridStack 识别
       grid.makeWidget(el);
-      // 再强制更新位置（makeWidget 可能会忽略位置参数）
+      // 显式强制更新位置和大小，确保 makeWidget 没弄丢它们
       grid.update(el, { x, y, w, h, minW, minH });
     }
-    
+
     grid.batchUpdate(false);
-    
-    console.log('[DashboardGrid] refresh - 完成，注册了', newElements.length, '个新元素');
+
+    console.log(
+      "[DashboardGrid] refresh - 完成，清理并注册了",
+      newElements.length,
+      "个新元素"
+    );
     handleLayoutChange();
   }
 
@@ -161,11 +210,11 @@
     return grid.getGridItems().map((el) => {
       const node = el.gridstackNode;
       // 优先从 DOM 属性获取，因为 resize 后 node 对象可能未及时更新
-      const id = el.getAttribute('gs-id') || node?.id || '';
-      const x = parseInt(el.getAttribute('gs-x') || '') || (node?.x ?? 0);
-      const y = parseInt(el.getAttribute('gs-y') || '') || (node?.y ?? 0);
-      const w = parseInt(el.getAttribute('gs-w') || '') || (node?.w ?? 1);
-      const h = parseInt(el.getAttribute('gs-h') || '') || (node?.h ?? 1);
+      const id = el.getAttribute("gs-id") || node?.id || "";
+      const x = parseInt(el.getAttribute("gs-x") || "") || (node?.x ?? 0);
+      const y = parseInt(el.getAttribute("gs-y") || "") || (node?.y ?? 0);
+      const w = parseInt(el.getAttribute("gs-w") || "") || (node?.w ?? 1);
+      const h = parseInt(el.getAttribute("gs-h") || "") || (node?.h ?? 1);
       return {
         id,
         x,
@@ -175,7 +224,7 @@
         minW: node?.minW,
         minH: node?.minH,
         maxW: node?.maxW,
-        maxH: node?.maxH
+        maxH: node?.maxH,
       };
     });
   }
@@ -189,32 +238,35 @@
 
   onMount(async () => {
     if (!gridElement) return;
-    
+
     // 等待 DOM 渲染完成
     await tick();
 
     // 初始化 GridStack
-    grid = GridStack.init({
-      column: columns,
-      cellHeight: cellHeight,
-      // margin 格式: 'top right bottom left' 或单个值
-      margin: `${margin}px`,
-      float: float,
-      disableDrag: disableDrag,
-      disableResize: disableResize,
-      animate: true,
-      resizable: { handles: 'se,sw,ne,nw,e,w,n,s' }
-    }, gridElement);
+    grid = GridStack.init(
+      {
+        column: columns,
+        cellHeight: cellHeight,
+        // margin 格式: 'top right bottom left' 或单个值
+        margin: `${margin}px`,
+        float: float,
+        disableDrag: disableDrag,
+        disableResize: disableResize,
+        animate: true,
+        resizable: { handles: "se,sw,ne,nw,e,w,n,s" },
+      },
+      gridElement
+    );
 
     // 监听布局变化事件
-    grid.on('change', handleLayoutChange);
-    grid.on('resizestop', handleLayoutChange);
-    grid.on('dragstop', handleLayoutChange);
+    grid.on("change", handleLayoutChange);
+    grid.on("resizestop", handleLayoutChange);
+    grid.on("dragstop", handleLayoutChange);
   });
 
   // 提供 context 给子组件
-  import { setContext } from 'svelte';
-  setContext('dashboard-grid', {
+  import { setContext } from "svelte";
+  setContext("dashboard-grid", {
     updateItem: (id: string, x: number, y: number, w: number, h: number) => {
       if (!grid) return;
       const el = gridElement?.querySelector(`[gs-id="${id}"]`) as HTMLElement;
@@ -222,21 +274,19 @@
         grid.update(el, { x, y, w, h });
         handleLayoutChange();
       }
-    }
+    },
   });
 
   onDestroy(() => {
     if (grid) {
-      grid.off('change');
-      grid.off('resizestop');
-      grid.off('dragstop');
+      grid.off("change");
+      grid.off("resizestop");
+      grid.off("dragstop");
       grid.destroy(false);
       grid = null;
     }
   });
 </script>
-
-
 
 <div class="dashboard-container">
   <div bind:this={gridElement} class="grid-stack dashboard-grid">
@@ -253,7 +303,7 @@
     height: 100%;
     width: 100%;
   }
-  
+
   .dashboard-grid {
     width: 100%;
     flex: 1;
