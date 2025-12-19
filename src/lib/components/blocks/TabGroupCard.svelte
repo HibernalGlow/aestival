@@ -93,7 +93,7 @@
   style={cardStyle}
 >
   <!-- 标签栏 - 居中布局，左右对称 -->
-  <div class="tab-bar drag-handle flex items-center justify-center {isFullscreen ? 'p-1.5 border-b bg-muted/30' : 'p-1'} shrink-0 cursor-move">
+  <div class="tab-bar flex items-center justify-center {isFullscreen ? 'p-1.5 border-b bg-muted/30 drag-handle cursor-move' : 'p-1'} shrink-0">
     <!-- 中心容器：切换按钮 | 凹槽分隔 | 操作按钮 -->
     <div class="flex items-center gap-1 bg-muted/40 rounded-lg px-1 py-0.5">
       <!-- 左侧：切换按钮 -->
