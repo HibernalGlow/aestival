@@ -69,7 +69,7 @@
   }
 </script>
 
-<div class="tab-group-card h-full flex flex-col {isFullscreen ? 'border border-primary/40 rounded-md bg-card/80 backdrop-blur-sm' : 'bg-card rounded-lg border shadow-sm'} {className}">
+<div class="tab-group-card h-full flex flex-col {isFullscreen ? 'border-2 border-primary/60 rounded-md bg-card shadow-md' : 'bg-card rounded-lg border shadow-sm'} {className}">
   <!-- 标签栏 -->
   <div class="tab-bar drag-handle flex items-center {isFullscreen ? 'p-1.5 border-b bg-muted/30' : 'p-1'} shrink-0 cursor-move">
     {#if editMode && blockDefs.length > 0}

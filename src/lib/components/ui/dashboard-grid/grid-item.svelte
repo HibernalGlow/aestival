@@ -57,3 +57,11 @@
     {/if}
   </div>
 </div>
+
+<style>
+  /* 被 Tab 分组隐藏的区块 - 完全不可见但保留在 GridStack 中 */
+  :global(.grid-stack-item.hidden-by-tab) {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+</style>

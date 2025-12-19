@@ -154,7 +154,7 @@
       }
     }
 
-    // 3. 找出位置不同步的元素（在两边都存在，但位置不一致）
+    // 3. 找出位置不同步的元素（在两边都存在，但位置不一致或 DOM 元素不同）
     // 注意：需要同时保存 managedEl（用于移除）和 domEl（用于重新添加）
     const toSync: { managedEl: HTMLElement; domEl: HTMLElement; x: number; y: number; w: number; h: number }[] = [];
     for (const [id, domEl] of domMap) {
@@ -165,21 +165,25 @@
         const domY = parseInt(domEl.getAttribute("gs-y") || "0");
         const domW = parseInt(domEl.getAttribute("gs-w") || "1");
         const domH = parseInt(domEl.getAttribute("gs-h") || "1");
-        const nodeX = node?.x ?? 0;
-        const nodeY = node?.y ?? 0;
-        const nodeW = node?.w ?? 1;
-        const nodeH = node?.h ?? 1;
+        // 从 GridStack node 获取正确的位置（这是 ground truth）
+        const nodeX = node?.x ?? domX;
+        const nodeY = node?.y ?? domY;
+        const nodeW = node?.w ?? domW;
+        const nodeH = node?.h ?? domH;
 
         // 检查位置是否不一致，或者 DOM 元素是否不同（Svelte 可能创建了新元素）
         if (domX !== nodeX || domY !== nodeY || domW !== nodeW || domH !== nodeH || managedEl !== domEl) {
-          toSync.push({ managedEl, domEl, x: domX, y: domY, w: domW, h: domH });
+          // 使用 GridStack node 的位置（正确的位置），而不是 DOM 属性
+          toSync.push({ managedEl, domEl, x: nodeX, y: nodeY, w: nodeW, h: nodeH });
         }
       }
     }
 
     console.log("[DashboardGrid] refresh - 详细状态:", {
-      managedIds: Array.from(managedMap.keys()),
-      domIds: Array.from(domMap.keys()),
+      managedIds: Array.from(managedMap.keys()).sort(),
+      domIds: Array.from(domMap.keys()).sort(),
+      managedCount: managedMap.size,
+      domCount: domMap.size,
     });
     
     console.log("[DashboardGrid] refresh - 操作:", {
@@ -198,7 +202,9 @@
 
       // 移除失效节点
       for (const el of toRemove) {
-        grid.removeWidget(el, false);
+        const id = el.getAttribute("gs-id");
+        console.log("[DashboardGrid] refresh - 移除失效节点:", { id });
+        grid.removeWidget(el, true); // 使用 true 完全移除，包括 DOM
       }
 
       // 注册新节点 - GridStack V11 使用 makeWidget 而非 addWidget
@@ -228,12 +234,14 @@
       }
 
       // 同步位置不一致的元素 - 需要先移除旧元素
-      for (const { managedEl, x, y, w, h } of toSync) {
+      for (const { managedEl, domEl, x, y, w, h } of toSync) {
         const id = managedEl.getAttribute("gs-id");
-        console.log("[DashboardGrid] refresh - 移除旧元素:", { id, x, y, w, h });
+        const sameElement = managedEl === domEl;
+        console.log("[DashboardGrid] refresh - 移除旧元素:", { id, x, y, w, h, sameElement });
         
-        // 从 GridStack 移除旧元素（但保留 DOM）
-        grid.removeWidget(managedEl, false);
+        // 从 GridStack 移除旧元素
+        // 如果 managedEl 和 domEl 是不同的元素，需要完全移除旧元素（包括 DOM）
+        grid.removeWidget(managedEl, !sameElement);
       }
     } finally {
       grid.batchUpdate(false);

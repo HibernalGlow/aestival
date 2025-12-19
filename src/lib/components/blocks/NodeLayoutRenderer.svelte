@@ -25,11 +25,8 @@
     removeBlockFromTabGroup,
     reorderTabGroupBlocks,
     clearTabGroups,
-    getEffectiveTabGroups,
     getUsedBlockIds,
-    computeEffectiveItems,
     type NodeConfig,
-    type EffectiveItem,
   } from "$lib/stores/nodeLayoutStore";
   import { getSizeMode, type SizeMode } from "$lib/utils/sizeUtils";
   import { onMount, tick } from "svelte";
@@ -149,17 +146,8 @@
   // tabGroups 始终从 fullscreen 模式读取（单一状态源）
   let tabGroups = $derived(nodeConfig.fullscreen.tabGroups);
   
-  // 计算有效渲染项
-  let effectiveItems = $derived.by(() => {
-    const items = computeEffectiveItems(currentLayout, tabGroups);
-    console.log("[NodeLayoutRenderer] effectiveItems 更新:", {
-      layoutCount: currentLayout.length,
-      tabGroupsCount: tabGroups.length,
-      effectiveCount: items.length,
-      items: items.map(i => ({ type: i.type, id: i.gridItem.id }))
-    });
-    return items;
-  });
+  // 计算被 Tab 分组隐藏的区块 ID（用于全屏模式的 CSS 隐藏）
+  let hiddenBlockIds = $derived(new Set(tabGroups.flatMap(g => g.blockIds.slice(1))));
 
   let dashboardGrid = $state<{
     compact: () => void;
@@ -171,17 +159,10 @@
     updateGridLayout(nodeType, mode, newLayout);
   }
 
-  /** 解散 Tab 分组并刷新 */
-  async function handleDissolveTabGroup(groupId: string) {
+  /** 解散 Tab 分组 - 使用 CSS 显示，无需刷新 GridStack */
+  function handleDissolveTabGroup(groupId: string) {
     console.log("[NodeLayoutRenderer] handleDissolveTabGroup:", { groupId });
     dissolveTabGroup(nodeType, groupId);
-    // 等待 nodeConfig 更新
-    await tick();
-    // 等待 effectiveItems 重新计算和 DOM 更新
-    await tick();
-    if (isFullscreen && dashboardGrid?.refresh) {
-      await dashboardGrid.refresh();
-    }
   }
 
   /** 切换 Tab 分组活动区块 */
@@ -190,15 +171,8 @@
   }
 
   /** 从 Tab 分组移除区块 */
-  async function handleRemoveBlockFromGroup(groupId: string, blockId: string) {
+  function handleRemoveBlockFromGroup(groupId: string, blockId: string) {
     removeBlockFromTabGroup(nodeType, groupId, blockId);
-    // 等待 nodeConfig 更新
-    await tick();
-    // 等待 effectiveItems 重新计算和 DOM 更新
-    await tick();
-    if (isFullscreen && dashboardGrid?.refresh) {
-      await dashboardGrid.refresh();
-    }
   }
 
   /** 重排序 Tab 分组区块 */
@@ -217,16 +191,10 @@
       : item;
   }
 
-  /** 创建 Tab 分组并刷新 */
+  /** 创建 Tab 分组 - 使用 CSS 隐藏，无需刷新 GridStack */
   export async function createTab(blockIds: string[]): Promise<string | null> {
     console.log("[NodeLayoutRenderer] createTab:", { blockIds });
     const groupId = createTabGroup(nodeType, blockIds);
-    if (groupId && isFullscreen && dashboardGrid?.refresh) {
-      // 等待 nodeConfig 更新和 DOM 重新渲染
-      await tick();
-      await tick(); // 双重 tick 确保 effectiveItems 更新后 DOM 也更新
-      await dashboardGrid.refresh();
-    }
     return groupId;
   }
 
@@ -297,32 +265,37 @@
       showToolbar={false}
       onLayoutChange={handleLayoutChange}
     >
-      {#each effectiveItems as item (item.gridItem.id)}
-        {@const gridItem = applyGridItemOverride(item.gridItem)}
+      {#each currentLayout as gridItem (gridItem.id)}
+        {@const item = applyGridItemOverride(gridItem)}
+        {@const tabGroup = tabGroups.find(g => g.blockIds[0] === gridItem.id)}
+        {@const isHiddenByTab = hiddenBlockIds.has(gridItem.id)}
         <DashboardItem
-          id={gridItem.id}
-          x={gridItem.x}
-          y={gridItem.y}
-          w={gridItem.w}
-          h={gridItem.h}
-          minW={gridItem.minW ?? 1}
-          minH={gridItem.minH ?? 1}
+          id={item.id}
+          x={item.x}
+          y={item.y}
+          w={item.w}
+          h={item.h}
+          minW={item.minW ?? 1}
+          minH={item.minH ?? 1}
+          class={isHiddenByTab ? 'hidden-by-tab' : ''}
         >
-          {#if item.type === 'tab-group'}
+          {#if tabGroup}
+            <!-- Tab 分组主区块 -->
             <TabGroupCard
-              group={item.group}
+              group={tabGroup}
               {nodeType}
               isFullscreen={true}
-              onSwitch={(index) => handleSwitchTab(item.group.id, index)}
-              onDissolve={() => handleDissolveTabGroup(item.group.id)}
-              onRemoveBlock={(blockId) => handleRemoveBlockFromGroup(item.group.id, blockId)}
-              onReorder={(newOrder) => handleReorderTabGroup(item.group.id, newOrder)}
+              onSwitch={(index) => handleSwitchTab(tabGroup.id, index)}
+              onDissolve={() => handleDissolveTabGroup(tabGroup.id)}
+              onRemoveBlock={(blockId) => handleRemoveBlockFromGroup(tabGroup.id, blockId)}
+              onReorder={(newOrder) => handleReorderTabGroup(tabGroup.id, newOrder)}
             >
               {#snippet renderContent(blockId: string)}
                 {@render renderBlock(blockId, sizeMode)}
               {/snippet}
             </TabGroupCard>
-          {:else}
+          {:else if !isHiddenByTab}
+            <!-- 普通区块 -->
             {@const blockDef = getBlockDefinition(nodeType, gridItem.id)}
             {#if blockDef}
               <BlockCard
@@ -350,29 +323,31 @@
       class="grid grid-cols-2 gap-2"
       style="grid-auto-rows: minmax(auto, max-content);"
     >
-      {#each effectiveItems as item (item.gridItem.id)}
-        {@const colSpan = item.gridItem.w >= 2 ? 2 : 1}
-        {#if item.type === 'tab-group'}
+      {#each currentLayout as gridItem (gridItem.id)}
+        {@const colSpan = gridItem.w >= 2 ? 2 : 1}
+        {@const tabGroup = tabGroups.find(g => g.blockIds[0] === gridItem.id)}
+        {@const isHiddenByTab = hiddenBlockIds.has(gridItem.id)}
+        {#if tabGroup}
           <div class={colSpan === 2 ? "col-span-2" : ""}>
             <TabGroupCard
-              group={item.group}
+              group={tabGroup}
               {nodeType}
               isFullscreen={false}
-              onSwitch={(index) => handleSwitchTab(item.group.id, index)}
-              onDissolve={() => handleDissolveTabGroup(item.group.id)}
-              onRemoveBlock={(blockId) => handleRemoveBlockFromGroup(item.group.id, blockId)}
-              onReorder={(newOrder) => handleReorderTabGroup(item.group.id, newOrder)}
+              onSwitch={(index) => handleSwitchTab(tabGroup.id, index)}
+              onDissolve={() => handleDissolveTabGroup(tabGroup.id)}
+              onRemoveBlock={(blockId) => handleRemoveBlockFromGroup(tabGroup.id, blockId)}
+              onReorder={(newOrder) => handleReorderTabGroup(tabGroup.id, newOrder)}
             >
               {#snippet renderContent(blockId: string)}
                 {@render renderBlock(blockId, sizeMode)}
               {/snippet}
             </TabGroupCard>
           </div>
-        {:else}
-          {@const blockDef = getBlockDefinition(nodeType, item.gridItem.id)}
+        {:else if !isHiddenByTab}
+          {@const blockDef = getBlockDefinition(nodeType, gridItem.id)}
           {#if blockDef}
             <BlockCard
-              id={item.gridItem.id}
+              id={gridItem.id}
               title={blockDef.title}
               icon={blockDef.icon as any}
               iconClass={blockDef.iconClass}
@@ -381,7 +356,7 @@
               class={colSpan === 2 ? "col-span-2" : ""}
             >
               {#snippet children()}
-                {@render renderBlock(item.gridItem.id, sizeMode)}
+                {@render renderBlock(gridItem.id, sizeMode)}
               {/snippet}
             </BlockCard>
           {/if}
