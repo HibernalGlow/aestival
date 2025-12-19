@@ -4,7 +4,9 @@
    * 用于选择要合并到 Tab 的区块和排序
    */
   import type { Component } from 'svelte';
+  import { onMount } from 'svelte';
   import { getNodeBlockLayout, type BlockDefinition } from './blockRegistry';
+  import { subscribeNodeConfig, type NodeConfig } from '$lib/stores/nodeLayoutStore';
   import { Plus, X, GripVertical, Check } from '@lucide/svelte';
   import { flip } from 'svelte/animate';
   import { dndzone } from 'svelte-dnd-action';
@@ -12,15 +14,25 @@
   interface Props {
     /** 节点类型 */
     nodeType: string;
-    /** 当前已在 Tab 中的区块 ID（不可选） */
-    usedBlockIds?: string[];
     /** 创建回调 */
     onCreate: (blockIds: string[]) => void;
     /** 取消回调 */
     onCancel: () => void;
   }
 
-  let { nodeType, usedBlockIds = [], onCreate, onCancel }: Props = $props();
+  let { nodeType, onCreate, onCancel }: Props = $props();
+  
+  // 订阅 store 变化，响应式获取已使用的区块 ID
+  let nodeConfig = $state<NodeConfig | undefined>(undefined);
+  let usedBlockIds = $derived(
+    nodeConfig?.fullscreen.tabGroups.flatMap(g => g.blockIds) ?? []
+  );
+  
+  onMount(() => {
+    return subscribeNodeConfig(nodeType, (config) => {
+      nodeConfig = config;
+    });
+  });
 
   // 获取所有可用区块
   let allBlocks = $derived(() => {
@@ -61,6 +73,8 @@
   function handleCreate() {
     if (selectedBlocks.length < 2) return;
     onCreate(selectedBlocks.map(s => s.id));
+    // 创建后清空已选列表，准备创建下一个
+    selectedBlocks = [];
   }
 </script>
 

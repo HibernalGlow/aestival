@@ -375,7 +375,6 @@
     <div class="px-3 py-2 bg-muted/20 border-b shrink-0">
       <TabConfigPanel 
         {nodeType}
-        usedBlockIds={usedTabBlockIds}
         onCreate={(blockIds) => { onCreateTab(blockIds); }}
         onCancel={() => showTabConfig = false}
       />
