@@ -244,7 +244,16 @@
 
   /** 应用布局 */
   export async function applyLayout(layout: GridItem[]) {
-    updateGridLayout(nodeType, mode, layout);
+    // 节点模式下限制宽度为最大 2（因为 grid 只有 2 列）
+    const adjustedLayout = isFullscreen 
+      ? layout 
+      : layout.map(item => ({
+          ...item,
+          w: Math.min(item.w, 2),
+          x: Math.min(item.x, 1) // x 也限制在 0-1 范围内
+        }));
+    
+    updateGridLayout(nodeType, mode, adjustedLayout);
     if (isFullscreen && dashboardGrid) {
       dashboardGrid.applyLayout(layout);
       await tick();
