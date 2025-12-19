@@ -145,10 +145,21 @@
   });
 
   let currentLayout = $derived(nodeConfig[mode].gridLayout);
-  let tabGroups = $derived(getEffectiveTabGroups(nodeType));
+  
+  // tabGroups 始终从 fullscreen 模式读取（单一状态源）
+  let tabGroups = $derived(nodeConfig.fullscreen.tabGroups);
   
   // 计算有效渲染项
-  let effectiveItems = $derived(computeEffectiveItems(currentLayout, tabGroups));
+  let effectiveItems = $derived.by(() => {
+    const items = computeEffectiveItems(currentLayout, tabGroups);
+    console.log("[NodeLayoutRenderer] effectiveItems 更新:", {
+      layoutCount: currentLayout.length,
+      tabGroupsCount: tabGroups.length,
+      effectiveCount: items.length,
+      items: items.map(i => ({ type: i.type, id: i.gridItem.id }))
+    });
+    return items;
+  });
 
   let dashboardGrid = $state<{
     compact: () => void;
@@ -164,6 +175,9 @@
   async function handleDissolveTabGroup(groupId: string) {
     console.log("[NodeLayoutRenderer] handleDissolveTabGroup:", { groupId });
     dissolveTabGroup(nodeType, groupId);
+    // 等待 nodeConfig 更新
+    await tick();
+    // 等待 effectiveItems 重新计算和 DOM 更新
     await tick();
     if (isFullscreen && dashboardGrid?.refresh) {
       await dashboardGrid.refresh();
@@ -178,6 +192,9 @@
   /** 从 Tab 分组移除区块 */
   async function handleRemoveBlockFromGroup(groupId: string, blockId: string) {
     removeBlockFromTabGroup(nodeType, groupId, blockId);
+    // 等待 nodeConfig 更新
+    await tick();
+    // 等待 effectiveItems 重新计算和 DOM 更新
     await tick();
     if (isFullscreen && dashboardGrid?.refresh) {
       await dashboardGrid.refresh();
@@ -205,7 +222,9 @@
     console.log("[NodeLayoutRenderer] createTab:", { blockIds });
     const groupId = createTabGroup(nodeType, blockIds);
     if (groupId && isFullscreen && dashboardGrid?.refresh) {
+      // 等待 nodeConfig 更新和 DOM 重新渲染
       await tick();
+      await tick(); // 双重 tick 确保 effectiveItems 更新后 DOM 也更新
       await dashboardGrid.refresh();
     }
     return groupId;
@@ -238,9 +257,14 @@
     }
 
     if (isFullscreen && dashboardGrid) {
-      dashboardGrid.applyLayout(defaultLayout);
+      // 先等待 nodeConfig 更新触发 effectiveItems 重新计算
       await tick();
+      // 再等待 DOM 根据新的 effectiveItems 更新
+      await tick();
+      // 现在 DOM 中应该有所有区块了，调用 refresh 同步 GridStack
       await dashboardGrid.refresh?.();
+      // 最后应用布局位置
+      dashboardGrid.applyLayout(defaultLayout);
     }
   }
 
