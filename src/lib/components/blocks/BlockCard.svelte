@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
-   * BlockCard - 通用区块卡片容器（Bento Grid 风格）
+   * BlockCard - 通用区块卡片容器（Bento Grid 风格 + Magic Card 效果）
    * 支持普通模式（Bento Grid）和全屏模式（GridStack）
-   * 特性：悬停动画、精致阴影、暗色模式优化、可选背景组件
+   * 特性：鼠标跟随聚光灯、悬停动画、精致阴影、暗色模式优化
    */
   import { ChevronDown, ChevronRight, ArrowRight } from '@lucide/svelte';
   import { slide } from 'svelte/transition';
@@ -49,6 +49,12 @@
     cta?: string;
     /** 启用 Bento 悬停动画 */
     bentoHover?: boolean;
+    /** Magic Card：渐变光圈大小（自适应卡片尺寸） */
+    magicGradientSize?: number;
+    /** Magic Card：渐变颜色（默认使用主题 primary 色） */
+    magicGradientColor?: string;
+    /** Magic Card：渐变透明度 */
+    magicGradientOpacity?: number;
   }
 
   let {
@@ -70,7 +76,10 @@
     description,
     href,
     cta,
-    bentoHover = false
+    bentoHover = false,
+    magicGradientSize,
+    magicGradientColor = "hsl(var(--primary) / 0.4)",
+    magicGradientOpacity = 0.8
   }: Props = $props();
 
   // isFullscreen 自动启用 fullHeight
@@ -91,10 +100,52 @@
     `background: color-mix(in srgb, var(--card) ${panelSettings.topToolbarOpacity * 0.4}%, transparent); backdrop-filter: blur(${panelSettings.topToolbarBlur}px);`
   );
 
+  // ========== Magic Card 鼠标跟随效果 ==========
+  let cardRef: HTMLDivElement | undefined = $state();
+  let mouseX = $state(0);
+  let mouseY = $state(0);
+  let isHovering = $state(false);
+  let cardWidth = $state(200);
+  let cardHeight = $state(200);
+
+  // 自适应渐变大小：基于卡片对角线长度
+  let adaptiveGradientSize = $derived(
+    magicGradientSize ?? Math.max(cardWidth, cardHeight) * 0.8
+  );
+
+  // 计算渐变背景样式
+  let gradientStyle = $derived(
+    `radial-gradient(${adaptiveGradientSize}px circle at ${mouseX}px ${mouseY}px, ${magicGradientColor}, transparent 100%)`
+  );
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!cardRef) return;
+    const rect = cardRef.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+  }
+
+  function handleMouseEnter() {
+    isHovering = true;
+    if (cardRef) {
+      cardWidth = cardRef.offsetWidth;
+      cardHeight = cardRef.offsetHeight;
+    }
+  }
+
+  function handleMouseLeave() {
+    isHovering = false;
+  }
+
   onMount(() => {
     settingsManager.addListener((s) => {
       panelSettings = s.panels;
     });
+    // 初始化卡片尺寸
+    if (cardRef) {
+      cardWidth = cardRef.offsetWidth;
+      cardHeight = cardRef.offsetHeight;
+    }
   });
 
   function toggleExpanded() {
@@ -103,6 +154,10 @@
 </script>
 
 <div 
+  bind:this={cardRef}
+  onmousemove={handleMouseMove}
+  onmouseenter={handleMouseEnter}
+  onmouseleave={handleMouseLeave}
   class="block-card group relative overflow-hidden rounded-xl
     {isFullscreen ? 'h-full flex flex-col' : ''} 
     {fullHeight ? 'h-full flex flex-col' : ''} 
@@ -119,6 +174,12 @@
   
   <!-- 悬停遮罩层 -->
   <div class="pointer-events-none absolute inset-0 z-[1] transition-all duration-300 group-hover:bg-black/[.03] dark:group-hover:bg-neutral-800/10"></div>
+  
+  <!-- Magic Card 渐变光效层 -->
+  <div
+    class="magic-glow pointer-events-none absolute -inset-px rounded-xl z-[2]"
+    style="--glow-bg: {gradientStyle}; --glow-opacity: {isHovering ? magicGradientOpacity : 0};"
+  ></div>
   
   <!-- 标题栏 -->
   {#if !hideHeader}
@@ -197,6 +258,13 @@
 </div>
 
 <style>
+  /* Magic Card 渐变光效 */
+  .magic-glow {
+    background: var(--glow-bg);
+    opacity: var(--glow-opacity);
+    transition: opacity 0.3s ease;
+  }
+  
   /* Bento 卡片样式 - 精致阴影和边框 */
   .bento-card {
     /* 亮色模式 */

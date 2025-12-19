@@ -1,3 +1,1 @@
-import MagicCard from "./MagicCard.svelte";
-
-export { MagicCard };
+export { default as MagicCard } from "./magic-card.svelte";
