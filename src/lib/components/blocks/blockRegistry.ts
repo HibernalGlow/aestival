@@ -35,6 +35,14 @@ export interface BlockDefinition {
   tabChildren?: string[];
   /** 是否为 Tab 容器类型 */
   isTabContainer?: boolean;
+  /** Bento 风格：启用悬停动画 */
+  bentoHover?: boolean;
+  /** Bento 风格：描述文字 */
+  description?: string;
+  /** Bento 风格：CTA 链接 */
+  href?: string;
+  /** Bento 风格：CTA 文字 */
+  cta?: string;
 }
 
 // Tab 区块配置
@@ -283,10 +291,13 @@ export const ENGINEV_BLOCKS: BlockDefinition[] = [
     icon: BarChart3,
     iconClass: 'text-yellow-500',
     colSpan: 1,
-    collapsible: true,
+    collapsible: false,
     defaultExpanded: true,
     visibleInNormal: true,
-    visibleInFullscreen: true
+    visibleInFullscreen: true,
+    // Bento 风格配置
+    bentoHover: true,
+    description: '壁纸扫描统计数据'
   },
   {
     id: 'operation',
@@ -295,7 +306,10 @@ export const ENGINEV_BLOCKS: BlockDefinition[] = [
     iconClass: 'text-green-500',
     colSpan: 1,
     visibleInNormal: true,
-    visibleInFullscreen: true
+    visibleInFullscreen: true,
+    // Bento 风格配置
+    bentoHover: true,
+    description: '执行批量操作'
   },
   {
     id: 'rename',

@@ -346,6 +346,10 @@
                 isFullscreen={true}
                 fullHeight={blockDef.fullHeight}
                 hideHeader={blockDef.hideHeader}
+                bentoHover={blockDef.bentoHover}
+                description={blockDef.description}
+                href={blockDef.href}
+                cta={blockDef.cta}
               >
                 {#snippet children()}
                   {@render renderBlock(gridItem.id, sizeMode)}
@@ -395,6 +399,10 @@
               collapsible={blockDef.collapsible}
               defaultExpanded={blockDef.defaultExpanded ?? true}
               class={colSpan === 2 ? "col-span-2" : ""}
+              bentoHover={blockDef.bentoHover}
+              description={blockDef.description}
+              href={blockDef.href}
+              cta={blockDef.cta}
             >
               {#snippet children()}
                 {@render renderBlock(gridItem.id, sizeMode)}
@@ -437,6 +445,10 @@
               collapsible={blockDef.collapsible}
               defaultExpanded={blockDef.defaultExpanded ?? true}
               fullHeight={true}
+              bentoHover={blockDef.bentoHover}
+              description={blockDef.description}
+              href={blockDef.href}
+              cta={blockDef.cta}
             >
               {#snippet children()}
                 {@render renderBlock(lastItem.id, sizeMode)}
