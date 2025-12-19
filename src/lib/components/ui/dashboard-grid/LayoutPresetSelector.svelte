@@ -18,15 +18,19 @@
     Save, Trash2, Download, Upload, Check, X, Pencil, RefreshCw, Maximize2, Minimize2
   } from '@lucide/svelte';
 
+  import type { PresetTabGroup } from '$lib/stores/layoutPresets';
+
   interface Props {
     nodeType: string;
     currentLayout: GridItem[];
-    onApply: (layout: GridItem[]) => void;
+    /** 当前 Tab 分组配置 */
+    currentTabGroups?: PresetTabGroup[];
+    onApply: (layout: GridItem[], tabGroups?: PresetTabGroup[]) => void;
     /** 当前布局模式（用于高亮当前模式的默认指示器） */
     currentMode?: PresetMode;
   }
 
-  let { nodeType, currentLayout, onApply, currentMode = 'fullscreen' }: Props = $props();
+  let { nodeType, currentLayout, currentTabGroups = [], onApply, currentMode = 'fullscreen' }: Props = $props();
 
   let presets = $state<LayoutPreset[]>([]);
   let selectedId = $state<string | null>(null);
@@ -78,13 +82,26 @@
     if (selectedId === preset.id) return; // 已选中则不重复应用
     selectedId = preset.id;
     showRenameInput = false;
-    onApply(JSON.parse(JSON.stringify(preset.layout)));
+    // 应用布局和 Tab 分组
+    // 注意：传递空数组 [] 会清除现有 Tab，传递 undefined 会保留现有 Tab
+    // 对于有 tabGroups 字段的预设，使用其值；对于没有的（旧预设/内置预设），传递空数组清除 Tab
+    onApply(
+      JSON.parse(JSON.stringify(preset.layout)),
+      preset.tabGroups !== undefined 
+        ? JSON.parse(JSON.stringify(preset.tabGroups)) 
+        : [] // 旧预设/内置预设没有 Tab，应用时清除现有 Tab
+    );
   }
 
-  // 保存当前布局为预设
+  // 保存当前布局为预设（包含 Tab 分组）
   function handleSave() {
     if (!inputValue.trim()) return;
-    const newPreset = savePreset(inputValue.trim(), nodeType, currentLayout);
+    const newPreset = savePreset(
+      inputValue.trim(), 
+      nodeType, 
+      currentLayout,
+      currentTabGroups.length > 0 ? currentTabGroups : undefined
+    );
     inputValue = '';
     showSaveInput = false;
     saveSuccess = true;
@@ -135,10 +152,14 @@
     }
   }
 
-  // 更新预设布局（覆盖当前选中的预设）
+  // 更新预设布局（覆盖当前选中的预设，包含 Tab 分组）
   function handleUpdate() {
     if (!selectedId || !canModify) return;
-    const success = updatePreset(selectedId, currentLayout);
+    const success = updatePreset(
+      selectedId, 
+      currentLayout,
+      currentTabGroups.length > 0 ? currentTabGroups : undefined
+    );
     if (success) {
       saveSuccess = true;
       setTimeout(() => saveSuccess = false, 2000);

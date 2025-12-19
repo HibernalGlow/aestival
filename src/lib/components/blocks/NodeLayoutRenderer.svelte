@@ -242,8 +242,11 @@
     }
   }
 
-  /** 应用布局 */
-  export async function applyLayout(layout: GridItem[]) {
+  /** 应用布局（包含 Tab 分组） */
+  export async function applyLayout(
+    layout: GridItem[], 
+    newTabGroups?: { id: string; blockIds: string[]; activeIndex: number }[] | null
+  ) {
     // 节点模式下限制宽度为最大 2（因为 grid 只有 2 列）
     const adjustedLayout = isFullscreen 
       ? layout 
@@ -254,6 +257,23 @@
         }));
     
     updateGridLayout(nodeType, mode, adjustedLayout);
+    
+    // 应用 Tab 分组：
+    // - 如果 newTabGroups 是数组（包括空数组），则清除现有分组并应用新分组
+    // - 如果 newTabGroups 是 undefined/null，则保留现有 Tab 分组（旧预设兼容）
+    if (Array.isArray(newTabGroups)) {
+      clearTabGroups(nodeType, mode);
+      for (const group of newTabGroups) {
+        if (group.blockIds.length >= 2) {
+          createTabGroup(nodeType, group.blockIds, mode);
+          // 设置活动索引
+          if (group.activeIndex > 0) {
+            switchTabGroupActive(nodeType, group.blockIds[0], group.activeIndex, mode);
+          }
+        }
+      }
+    }
+    
     if (isFullscreen && dashboardGrid) {
       dashboardGrid.applyLayout(layout);
       await tick();
@@ -263,6 +283,11 @@
 
   export function getCurrentLayout(): GridItem[] {
     return currentLayout;
+  }
+  
+  /** 获取当前 Tab 分组配置 */
+  export function getCurrentTabGroups(): { id: string; blockIds: string[]; activeIndex: number }[] {
+    return tabGroups;
   }
 
   export function getConfig(): NodeConfig {

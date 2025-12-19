@@ -494,7 +494,8 @@
     onResetLayout={() => layoutRenderer?.resetLayout()}
     nodeType="enginev" 
     currentLayout={layoutRenderer?.getCurrentLayout()}
-    onApplyLayout={(layout) => layoutRenderer?.applyLayout(layout)}
+    currentTabGroups={layoutRenderer?.getCurrentTabGroups()}
+    onApplyLayout={(layout, tabGroups) => layoutRenderer?.applyLayout(layout, tabGroups)}
     canCreateTab={true}
     onCreateTab={(blockIds) => layoutRenderer?.createTab(blockIds)}
     layoutMode={isFullscreenRender ? 'fullscreen' : 'normal'}

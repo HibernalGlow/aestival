@@ -93,8 +93,10 @@
     nodeType?: string;
     /** 当前布局（用于布局预设） */
     currentLayout?: GridItem[];
-    /** 应用布局回调（全屏模式） */
-    onApplyLayout?: (layout: GridItem[]) => void;
+    /** 当前 Tab 分组（用于布局预设保存） */
+    currentTabGroups?: { id: string; blockIds: string[]; activeIndex: number }[];
+    /** 应用布局回调（全屏模式，包含 Tab 分组） */
+    onApplyLayout?: (layout: GridItem[], tabGroups?: { id: string; blockIds: string[]; activeIndex: number }[]) => void;
     /** 创建 Tab 区块回调（传入选中的区块 ID 列表） */
     onCreateTab?: (blockIds: string[]) => void;
     /** 是否支持创建 Tab 区块 */
@@ -154,6 +156,7 @@
     onResetLayout,
     nodeType,
     currentLayout,
+    currentTabGroups,
     onApplyLayout,
     onCreateTab,
     canCreateTab = false,
@@ -275,7 +278,7 @@
       {#if canCreateTab && onCreateTab && nodeType}
         <button
           class="p-1 rounded hover:bg-muted transition-colors {showTabConfig ? 'text-primary' : 'text-muted-foreground'}"
-          onclick={() => { showTabConfig = !showTabConfig; if (showTabConfig) showLayoutBar = false; }}
+          onclick={() => showTabConfig = !showTabConfig}
           title="创建 Tab 区块"
         >
           <Layers class="w-3.5 h-3.5" />
@@ -286,7 +289,7 @@
       {#if nodeType && currentLayout && onApplyLayout}
         <button
           class="p-1 rounded hover:bg-muted transition-colors {showLayoutBar ? 'text-primary' : 'text-muted-foreground'}"
-          onclick={() => { showLayoutBar = !showLayoutBar; if (showLayoutBar) showTabConfig = false; }}
+          onclick={() => showLayoutBar = !showLayoutBar}
           title="布局预设"
         >
           <Layout class="w-3.5 h-3.5" />
@@ -342,6 +345,7 @@
         <LayoutPresetSelector 
           {nodeType}
           {currentLayout}
+          {currentTabGroups}
           onApply={onApplyLayout}
           currentMode={layoutMode}
         />

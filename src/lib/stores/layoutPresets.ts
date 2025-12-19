@@ -17,12 +17,20 @@ interface DefaultPresetConfig {
   normal?: string;      // 节点模式默认预设 ID
 }
 
+/** Tab 分组配置（与 nodeLayoutStore 中的 TabGroup 保持一致） */
+export interface PresetTabGroup {
+  id: string;
+  blockIds: string[];
+  activeIndex: number;
+}
+
 /** 布局预设 */
 export interface LayoutPreset {
   id: string;
   name: string;
   nodeType: string;  // 适用的节点类型，如 'trename', 'repacku'
   layout: GridItem[];
+  tabGroups?: PresetTabGroup[];  // Tab 分组配置（可选，兼容旧预设）
   createdAt: number;
   isBuiltin?: boolean;  // 是否为内置预设
 }
@@ -156,13 +164,19 @@ export function getPreset(id: string): LayoutPreset | undefined {
   return getAllPresets().find(p => p.id === id);
 }
 
-/** 保存新预设 */
-export function savePreset(name: string, nodeType: string, layout: GridItem[]): LayoutPreset {
+/** 保存新预设（包含 Tab 分组） */
+export function savePreset(
+  name: string, 
+  nodeType: string, 
+  layout: GridItem[], 
+  tabGroups?: PresetTabGroup[]
+): LayoutPreset {
   const preset: LayoutPreset = {
     id: `${nodeType}-${Date.now()}`,
     name,
     nodeType,
     layout: JSON.parse(JSON.stringify(layout)), // 深拷贝
+    tabGroups: tabGroups ? JSON.parse(JSON.stringify(tabGroups)) : undefined,
     createdAt: Date.now()
   };
   const userPresets = loadUserPresets();
@@ -191,12 +205,13 @@ export function renamePreset(id: string, newName: string): boolean {
   return true;
 }
 
-/** 更新用户预设的布局（覆盖） */
-export function updatePreset(id: string, layout: GridItem[]): boolean {
+/** 更新用户预设的布局（覆盖，包含 Tab 分组） */
+export function updatePreset(id: string, layout: GridItem[], tabGroups?: PresetTabGroup[]): boolean {
   const userPresets = loadUserPresets();
   const preset = userPresets.find(p => p.id === id);
   if (!preset) return false;
   preset.layout = JSON.parse(JSON.stringify(layout)); // 深拷贝
+  preset.tabGroups = tabGroups ? JSON.parse(JSON.stringify(tabGroups)) : undefined;
   saveUserPresets(userPresets);
   return true;
 }
