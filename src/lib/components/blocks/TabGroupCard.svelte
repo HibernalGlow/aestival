@@ -70,75 +70,82 @@
 </script>
 
 <div class="tab-group-card h-full flex flex-col {isFullscreen ? 'border-2 border-primary/60 rounded-md bg-card shadow-md' : 'bg-card rounded-lg border shadow-sm'} {className}">
-  <!-- 标签栏 -->
-  <div class="tab-bar drag-handle flex items-center {isFullscreen ? 'p-1.5 border-b bg-muted/30' : 'p-1'} shrink-0 cursor-move">
-    {#if editMode && blockDefs.length > 0}
-      <!-- 编辑模式：可拖拽排序和移除 -->
-      <div 
-        class="flex items-center gap-0.5 flex-1 overflow-x-auto" 
-        use:dndzone={{ items: dndItems, flipDurationMs: 200, type: 'tab-group-items' }} 
-        onconsider={handleDndConsider} 
-        onfinalize={handleDndFinalize}
-      >
-        {#each dndItems as item (item.id)}
-          {@const Icon = item.def.icon as Component | undefined}
-          <div 
-            class="tab-item-edit flex items-center gap-1 px-1.5 py-1 rounded-md text-sm font-medium bg-muted/50 border border-dashed cursor-move" 
-            animate:flip={{ duration: 200 }}
-          >
-            <GripVertical class="w-3 h-3 text-muted-foreground" />
-            {#if Icon}<Icon class="w-3.5 h-3.5 {item.def.iconClass}" />{/if}
-            {#if onRemoveBlock && blockDefs.length > 2}
-              <button 
-                type="button" 
-                class="p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive" 
-                onclick={() => onRemoveBlock(item.id)}
-                title="从分组移除"
-              >
-                <X class="w-3 h-3" />
-              </button>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {:else}
-      <!-- 普通模式：点击切换 -->
-      <div class="flex items-center gap-0.5 flex-1 overflow-x-auto">
-        {#each blockDefs as item, index}
-          {@const isActive = index === group.activeIndex}
-          {@const Icon = item.def?.icon as Component | undefined}
+  <!-- 标签栏 - 居中布局，左右对称 -->
+  <div class="tab-bar drag-handle flex items-center justify-center {isFullscreen ? 'p-1.5 border-b bg-muted/30' : 'p-1'} shrink-0 cursor-move">
+    <!-- 中心容器：切换按钮 | 凹槽分隔 | 操作按钮 -->
+    <div class="flex items-center gap-1 bg-muted/40 rounded-lg px-1 py-0.5">
+      <!-- 左侧：切换按钮 -->
+      {#if editMode && blockDefs.length > 0}
+        <!-- 编辑模式：可拖拽排序和移除 -->
+        <div 
+          class="flex items-center gap-0.5 overflow-x-auto" 
+          use:dndzone={{ items: dndItems, flipDurationMs: 200, type: 'tab-group-items' }} 
+          onconsider={handleDndConsider} 
+          onfinalize={handleDndFinalize}
+        >
+          {#each dndItems as item (item.id)}
+            {@const Icon = item.def.icon as Component | undefined}
+            <div 
+              class="tab-item-edit flex items-center gap-1 px-1.5 py-1 rounded-md text-sm font-medium bg-muted/50 border border-dashed cursor-move" 
+              animate:flip={{ duration: 200 }}
+            >
+              <GripVertical class="w-3 h-3 text-muted-foreground" />
+              {#if Icon}<Icon class="w-3.5 h-3.5 {item.def.iconClass}" />{/if}
+              {#if onRemoveBlock && blockDefs.length > 2}
+                <button 
+                  type="button" 
+                  class="p-0.5 rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive" 
+                  onclick={() => onRemoveBlock(item.id)}
+                  title="从分组移除"
+                >
+                  <X class="w-3 h-3" />
+                </button>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <!-- 普通模式：点击切换 -->
+        <div class="flex items-center gap-0.5 overflow-x-auto">
+          {#each blockDefs as item, index}
+            {@const isActive = index === group.activeIndex}
+            {@const Icon = item.def?.icon as Component | undefined}
+            <button 
+              type="button" 
+              class="tab-item flex items-center justify-center p-1.5 rounded-md transition-all {isActive ? 'bg-primary/20 shadow-sm ring-1 ring-primary/40' : 'hover:bg-muted/50'}" 
+              onclick={() => onSwitch(index)} 
+              title={item.def?.title}
+            >
+              {#if Icon}<Icon class="w-4 h-4 {item.def?.iconClass}" />{/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
+
+      <!-- 凹槽分隔线 -->
+      <div class="w-px h-5 bg-border/60 mx-1"></div>
+
+      <!-- 右侧：操作按钮 -->
+      <div class="flex items-center gap-0.5">
+        {#if blockDefs.length > 0}
           <button 
             type="button" 
-            class="tab-item flex items-center justify-center p-1.5 rounded-md transition-all {isActive ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}" 
-            onclick={() => onSwitch(index)} 
-            title={item.def?.title}
+            class="p-1.5 rounded-md transition-all {editMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}" 
+            onclick={() => editMode = !editMode} 
+            title={editMode ? '完成编辑' : '编辑标签'}
           >
-            {#if Icon}<Icon class="w-4 h-4 {isActive ? '' : item.def?.iconClass}" />{/if}
+            <GripVertical class="w-3.5 h-3.5" />
           </button>
-        {/each}
-      </div>
-    {/if}
-
-    <!-- 操作按钮 -->
-    <div class="flex items-center gap-1 ml-2 shrink-0">
-      {#if blockDefs.length > 0}
+        {/if}
         <button 
           type="button" 
-          class="p-1.5 rounded-md transition-all {editMode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}" 
-          onclick={() => editMode = !editMode} 
-          title={editMode ? '完成编辑' : '编辑标签'}
+          class="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all" 
+          onclick={onDissolve} 
+          title="解散分组"
         >
-          <GripVertical class="w-3.5 h-3.5" />
+          <Ungroup class="w-3.5 h-3.5" />
         </button>
-      {/if}
-      <button 
-        type="button" 
-        class="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all" 
-        onclick={onDissolve} 
-        title="解散分组"
-      >
-        <Ungroup class="w-3.5 h-3.5" />
-      </button>
+      </div>
     </div>
   </div>
 
