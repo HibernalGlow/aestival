@@ -358,9 +358,9 @@
     </DashboardGrid>
   </div>
 {:else}
-  <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 min-w-0">
+  <div class="flex-1 overflow-y-auto p-2">
     <div
-      class="grid grid-cols-2 gap-2 min-w-0"
+      class="grid grid-cols-2 gap-2"
       style="grid-auto-rows: minmax(auto, max-content);"
     >
       {#each currentLayout as gridItem (gridItem.id)}

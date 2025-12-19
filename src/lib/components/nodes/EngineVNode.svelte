@@ -4,7 +4,7 @@
    * 使用 NodeLayoutRenderer 统一布局，支持节点模式和全屏模式
    * 功能：扫描、过滤、预览、批量重命名
    */
-  import { Handle, Position, NodeResizer } from '@xyflow/svelte';
+  import { Handle, Position } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { Input } from '$lib/components/ui/input';
@@ -472,7 +472,6 @@
 <!-- ========== 主渲染 ========== -->
 <div class="h-full w-full flex flex-col overflow-hidden">
   {#if !isFullscreenRender}
-    <NodeResizer minWidth={280} minHeight={200} />
     <Handle type="target" position={Position.Left} class="bg-primary!" />
   {/if}
   

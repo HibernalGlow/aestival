@@ -307,9 +307,6 @@
   function handleLayoutChange() {
     if (!grid || !onLayoutChange) return;
     const newLayout = getCurrentLayout();
-    console.log("[DashboardGrid] handleLayoutChange - 布局变化:", 
-      newLayout.map(i => ({ id: i.id, w: i.w, h: i.h }))
-    );
     onLayoutChange(newLayout);
   }
 
