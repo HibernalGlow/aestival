@@ -96,11 +96,12 @@
   // 保存当前布局为预设（包含 Tab 分组）
   function handleSave() {
     if (!inputValue.trim()) return;
+    // 始终保存 tabGroups（即使是空数组），这样预设明确表示当前的 Tab 状态
     const newPreset = savePreset(
       inputValue.trim(), 
       nodeType, 
       currentLayout,
-      currentTabGroups.length > 0 ? currentTabGroups : undefined
+      currentTabGroups
     );
     inputValue = '';
     showSaveInput = false;
@@ -155,10 +156,11 @@
   // 更新预设布局（覆盖当前选中的预设，包含 Tab 分组）
   function handleUpdate() {
     if (!selectedId || !canModify) return;
+    // 始终保存 tabGroups（即使是空数组），这样预设明确表示当前的 Tab 状态
     const success = updatePreset(
       selectedId, 
       currentLayout,
-      currentTabGroups.length > 0 ? currentTabGroups : undefined
+      currentTabGroups
     );
     if (success) {
       saveSuccess = true;
