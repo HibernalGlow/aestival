@@ -7,6 +7,7 @@
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Badge } from '$lib/components/ui/badge';
+  import { onMount } from 'svelte';
   import { 
     getAllPresets, savePreset, deletePreset, exportPreset, importPreset,
     renamePreset, updatePreset, setDefaultPreset, unsetDefaultPreset,
@@ -48,12 +49,12 @@
     presetModes = modes;
   }
 
-  // 初始化
-  $effect(() => {
+  // 初始化：只在挂载时执行一次
+  onMount(() => {
     refreshPresets();
     // 默认选中当前模式的默认预设
     const defaultId = getDefaultPresetId(nodeType, currentMode);
-    if (defaultId && !selectedId) {
+    if (defaultId) {
       selectedId = defaultId;
     }
   });
