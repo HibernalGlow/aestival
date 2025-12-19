@@ -376,7 +376,7 @@
       <TabConfigPanel 
         {nodeType}
         usedBlockIds={usedTabBlockIds}
-        onCreate={(blockIds) => { onCreateTab(blockIds); showTabConfig = false; }}
+        onCreate={(blockIds) => { onCreateTab(blockIds); }}
         onCancel={() => showTabConfig = false}
       />
     </div>
