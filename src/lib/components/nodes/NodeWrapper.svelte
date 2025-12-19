@@ -389,7 +389,7 @@
 
   <!-- 内容区 -->
   {#if !collapsed || isFullscreenRender}
-    <div class="nodrag {isFullscreenRender ? 'flex-1 overflow-auto' : ''}">
+    <div class="nodrag flex-1 min-h-0 overflow-hidden">
       {@render children()}
     </div>
   {/if}

@@ -87,7 +87,7 @@
 </script>
 
 <div 
-  class="tab-group-card h-full flex flex-col {isFullscreen ? 'border-2 border-primary/60 rounded-md shadow-md' : 'rounded-lg border shadow-sm'} {className}"
+  class="tab-group-card flex-1 flex flex-col {isFullscreen ? 'border-2 border-primary/60 rounded-md shadow-md' : 'rounded-lg border shadow-sm'} {className}"
   style={cardStyle}
 >
   <!-- 标签栏 - 居中布局，左右对称 -->
@@ -171,13 +171,15 @@
 
   <!-- 内容区域 -->
   <div class="tab-content flex-1 min-h-0 overflow-auto {isFullscreen ? 'p-2' : 'p-2'}">
-    {#if activeBlockId}
-      {@render renderContent(activeBlockId)}
-    {:else}
-      <div class="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
-        <span class="text-sm">无可用区块</span>
-      </div>
-    {/if}
+    <div class="h-full">
+      {#if activeBlockId}
+        {@render renderContent(activeBlockId)}
+      {:else}
+        <div class="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+          <span class="text-sm">无可用区块</span>
+        </div>
+      {/if}
+    </div>
   </div>
 </div>
 

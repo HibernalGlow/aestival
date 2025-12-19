@@ -90,7 +90,7 @@
 </script>
 
 <div 
-  class="block-card rounded-{isFullscreen ? 'md' : 'lg'} border {isFullscreen ? 'h-full flex flex-col border-primary/40' : 'shadow-sm'} {fullHeight ? 'flex-1 min-h-0' : ''} {className}"
+  class="block-card rounded-{isFullscreen ? 'md' : 'lg'} border {isFullscreen ? 'h-full flex flex-col border-primary/40' : 'shadow-sm'} {fullHeight ? 'h-full flex flex-col' : ''} {className}"
   style={cardStyle}
 >
   <!-- 标题栏 -->
