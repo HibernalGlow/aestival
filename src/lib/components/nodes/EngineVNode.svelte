@@ -62,7 +62,7 @@
   // NodeLayoutRenderer 引用
   let layoutRenderer = $state<{ 
     createTab: (blockIds: string[]) => void;
-    getUsedBlockIds: () => string[];
+    getUsedBlockIdsForTab: () => string[];
     compact: () => void;
     resetLayout: () => void;
     applyLayout: (layout: any[]) => void;
@@ -497,7 +497,7 @@
     onApplyLayout={(layout) => layoutRenderer?.applyLayout(layout)}
     canCreateTab={true}
     onCreateTab={(blockIds) => layoutRenderer?.createTab(blockIds)}
-    usedTabBlockIds={layoutRenderer?.getUsedBlockIds() ?? []}
+    usedTabBlockIds={layoutRenderer?.getUsedBlockIdsForTab() ?? []}
   >
     {#snippet children()}
       <NodeLayoutRenderer

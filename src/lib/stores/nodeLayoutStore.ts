@@ -1,16 +1,17 @@
 /**
  * 节点布局状态存储 - 统一管理节点的所有配置
- * 两种模式共用 GridItem[] 结构，节点模式用静态渲染，全屏模式用 GridStack
  * 
- * Tab 状态内嵌在 ModeLayoutState 中，每个布局独立保存
- * 节点模式读取全屏模式的 Tab 配置
+ * Tab 分组采用"虚拟分组"模式：
+ * - 区块始终保留在 gridLayout 中，Tab 只是渲染层的逻辑分组
+ * - Tab 分组使用主区块（第一个区块）的位置渲染
+ * - 解散时无需恢复位置，区块位置一直在 gridLayout 中
+ * - tabGroups 只存储在 fullscreen 模式，normal 模式读取 fullscreen 的配置
  */
 
 import { Store } from '@tanstack/store';
 import type { GridItem } from '$lib/components/ui/dashboard-grid';
 
 const STORAGE_KEY = 'aestival-node-layouts';
-const OLD_TAB_STORAGE_KEY = 'aestival-unified-tabs';
 
 // ============ 类型定义 ============
 
@@ -22,67 +23,24 @@ export interface BlockSizeOverride {
   maxH?: number;
 }
 
-/** 区块原始位置 */
-export interface BlockPosition {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-/** 单个 Tab 容器的状态 */
-export interface TabContainerState {
-  /** Tab 容器独立 ID（格式：tab-{timestamp}-{random}） */
+/** Tab 分组配置 - 极简设计，不存储位置信息 */
+export interface TabGroup {
+  /** 分组 ID（使用主区块 ID） */
   id: string;
-  /** 子区块 ID 列表（所有子区块，不再复用第一个作为容器 ID） */
-  children: string[];
-  /** 当前活动标签索引 */
-  activeTab: number;
-  /** 子区块原始位置字典 */
-  originalPositions: Record<string, BlockPosition>;
-  /** 创建时间戳 */
-  createdAt: number;
-  /** 最后更新时间戳 */
-  updatedAt: number;
+  /** 分组内的区块 ID 列表，第一个为主区块 */
+  blockIds: string[];
+  /** 当前活动区块索引 */
+  activeIndex: number;
 }
 
-/** 生成唯一的 Tab 容器 ID */
-function generateTabId(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `tab-${timestamp}-${random}`;
-}
-
-/** 模式布局状态（包含 Tab 状态） */
+/** 模式布局状态 */
 export interface ModeLayoutState {
-  /** 布局配置 */
+  /** 布局配置 - 所有区块始终在此 */
   gridLayout: GridItem[];
   /** 尺寸覆盖 */
   sizeOverrides: Record<string, BlockSizeOverride>;
-  /** Tab 状态映射：tabId -> TabContainerState */
-  tabStates: Record<string, TabContainerState>;
-}
-
-
-/** 旧版模式布局状态（用于迁移） */
-interface LegacyModeLayoutState {
-  gridLayout: GridItem[];
-  tabStates?: Record<string, { activeTab: number; children: string[] }>;
-  tabBlocks?: string[];
-  sizeOverrides: Record<string, BlockSizeOverride>;
-}
-
-/** 旧版 unifiedTabStore 格式 */
-interface OldUnifiedTabConfig {
-  version: number;
-  containers: Record<string, {
-    id: string;
-    children: string[];
-    activeTab: number;
-    createdAt: number;
-    updatedAt: number;
-  }>;
-  containerIds: string[];
+  /** Tab 分组配置（仅 fullscreen 模式使用） */
+  tabGroups: TabGroup[];
 }
 
 /** 节点配置 */
@@ -95,13 +53,30 @@ export interface NodeConfig {
 
 type NodeConfigMap = Map<string, NodeConfig>;
 
+// ============ 旧版类型（用于迁移） ============
+
+interface LegacyTabContainerState {
+  id: string;
+  children: string[];
+  activeTab: number;
+  originalPositions?: Record<string, { x: number; y: number; w: number; h: number }>;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+interface LegacyModeLayoutState {
+  gridLayout: GridItem[];
+  sizeOverrides: Record<string, BlockSizeOverride>;
+  tabStates?: Record<string, LegacyTabContainerState>;
+}
+
 // ============ 默认配置 ============
 
 export function createDefaultModeState(defaultGridLayout: GridItem[] = []): ModeLayoutState {
   return {
     gridLayout: defaultGridLayout,
     sizeOverrides: {},
-    tabStates: {}
+    tabGroups: []
   };
 }
 
@@ -118,186 +93,135 @@ export function createDefaultNodeConfig(
   };
 }
 
-// ============ 验证函数 ============
+// ============ 验证和清理 ============
 
-/** 验证 Tab 容器状态 */
-export function validateTabContainerState(state: unknown): state is TabContainerState {
-  if (!state || typeof state !== 'object') return false;
-  const s = state as Record<string, unknown>;
-  
+/** 验证 TabGroup */
+function validateTabGroup(group: unknown): group is TabGroup {
+  if (!group || typeof group !== 'object') return false;
+  const g = group as Record<string, unknown>;
   return (
-    typeof s.id === 'string' &&
-    Array.isArray(s.children) &&
-    s.children.every((c: unknown) => typeof c === 'string') &&
-    typeof s.activeTab === 'number' &&
-    s.originalPositions !== undefined &&
-    typeof s.originalPositions === 'object' &&
-    typeof s.createdAt === 'number' &&
-    typeof s.updatedAt === 'number'
+    typeof g.id === 'string' &&
+    Array.isArray(g.blockIds) &&
+    g.blockIds.every((id: unknown) => typeof id === 'string') &&
+    typeof g.activeIndex === 'number'
   );
 }
 
-
-/** 验证模式布局状态 */
-export function validateModeLayoutState(state: unknown): state is ModeLayoutState {
-  if (!state || typeof state !== 'object') return false;
-  const s = state as Record<string, unknown>;
+/** 清理 TabGroup（过滤无效 ID、修正 activeIndex） */
+function sanitizeTabGroup(group: TabGroup, validBlockIds: Set<string>): TabGroup | null {
+  const blockIds = group.blockIds.filter(id => validBlockIds.has(id));
+  // 如果有效区块少于 2 个，返回 null 表示应删除此分组
+  if (blockIds.length < 2) return null;
   
-  if (!Array.isArray(s.gridLayout)) return false;
-  if (!s.sizeOverrides || typeof s.sizeOverrides !== 'object') return false;
-  if (s.tabStates !== undefined && typeof s.tabStates !== 'object') return false;
-  
-  if (s.tabStates) {
-    for (const tabState of Object.values(s.tabStates as Record<string, unknown>)) {
-      if (!validateTabContainerState(tabState)) return false;
-    }
-  }
-  
-  return true;
-}
-
-/** 清理 Tab 状态（过滤无效 ID、去重、修正 activeTab） */
-export function sanitizeTabState(
-  state: TabContainerState,
-  validBlockIds?: Set<string>
-): TabContainerState {
-  // 过滤无效 ID
-  let children = validBlockIds
-    ? state.children.filter(id => validBlockIds.has(id))
-    : state.children;
-  
-  // 去重
-  children = [...new Set(children)];
-  
-  // 修正 activeTab
-  const activeTab = children.length > 0 && state.activeTab >= children.length
-    ? 0
-    : state.activeTab;
-  
-  // 清理 originalPositions 中不存在的 ID
-  const originalPositions: Record<string, BlockPosition> = {};
-  for (const childId of children) {
-    if (state.originalPositions[childId]) {
-      originalPositions[childId] = state.originalPositions[childId];
-    }
-  }
-  
+  const activeIndex = group.activeIndex >= blockIds.length ? 0 : Math.max(0, group.activeIndex);
   return {
-    ...state,
-    children,
-    activeTab,
-    originalPositions,
-    updatedAt: Date.now()
+    id: blockIds[0], // 主区块 ID 作为分组 ID
+    blockIds,
+    activeIndex
   };
 }
 
-/** 获取默认位置 */
-function getDefaultPosition(index: number, isFullscreen: boolean): BlockPosition {
-  return {
-    x: isFullscreen ? 0 : index % 2,
-    y: isFullscreen ? index * 2 : Math.floor(index / 2),
-    w: 1,
-    h: isFullscreen ? 2 : 1
-  };
+/** 从旧格式迁移 Tab 状态 */
+function migrateFromLegacy(
+  legacyState: LegacyModeLayoutState,
+  validBlockIds: Set<string>
+): ModeLayoutState {
+  const gridLayout = Array.isArray(legacyState.gridLayout) ? legacyState.gridLayout : [];
+  const sizeOverrides = legacyState.sizeOverrides && typeof legacyState.sizeOverrides === 'object' 
+    ? legacyState.sizeOverrides : {};
+  
+  const tabGroups: TabGroup[] = [];
+  
+  if (legacyState.tabStates) {
+    for (const oldTab of Object.values(legacyState.tabStates)) {
+      if (!oldTab.children || oldTab.children.length < 2) continue;
+      
+      // 恢复子区块到 gridLayout（如果不存在）
+      const restoredLayout = [...gridLayout];
+      for (const childId of oldTab.children) {
+        if (!restoredLayout.some(item => item.id === childId)) {
+          const pos = oldTab.originalPositions?.[childId];
+          restoredLayout.push({
+            id: childId,
+            x: pos?.x ?? 0,
+            y: pos?.y ?? restoredLayout.length,
+            w: pos?.w ?? 1,
+            h: pos?.h ?? 2,
+            minW: 1,
+            minH: 1
+          });
+        }
+      }
+      
+      // 移除旧的 Tab 容器 ID（如果存在）
+      const finalLayout = restoredLayout.filter(item => !item.id.startsWith('tab-'));
+      
+      // 创建新的 TabGroup
+      const newGroup = sanitizeTabGroup({
+        id: oldTab.children[0],
+        blockIds: oldTab.children,
+        activeIndex: oldTab.activeTab ?? 0
+      }, new Set(finalLayout.map(i => i.id)));
+      
+      if (newGroup) {
+        tabGroups.push(newGroup);
+        // 更新 gridLayout
+        gridLayout.length = 0;
+        gridLayout.push(...finalLayout);
+      }
+    }
+  }
+  
+  return { gridLayout, sizeOverrides, tabGroups };
 }
 
-
-// ============ 数据迁移 ============
-
-/** 从旧格式迁移 Tab 状态到新格式 */
-function migrateTabStates(
-  oldTabConfig: OldUnifiedTabConfig | undefined,
-  gridLayout: GridItem[]
-): Record<string, TabContainerState> {
-  if (!oldTabConfig?.containers) return {};
+/** 验证并修复配置 */
+function validateAndFixConfig(config: unknown): NodeConfig {
+  if (!config || typeof config !== 'object') {
+    return createDefaultNodeConfig('unknown');
+  }
   
-  const result: Record<string, TabContainerState> = {};
+  const c = config as Record<string, unknown>;
+  const nodeType = typeof c.nodeType === 'string' ? c.nodeType : 'unknown';
   
-  for (const [tabId, oldState] of Object.entries(oldTabConfig.containers)) {
-    // 从 gridLayout 中获取原始位置
-    const originalPositions: Record<string, BlockPosition> = {};
-    for (const childId of oldState.children) {
-      const item = gridLayout.find(i => i.id === childId);
-      if (item) {
-        originalPositions[childId] = {
-          x: item.x,
-          y: item.y,
-          w: item.w,
-          h: item.h
-        };
-      } else {
-        // 使用默认位置
-        originalPositions[childId] = getDefaultPosition(Object.keys(originalPositions).length, true);
+  const fixModeState = (state: unknown): ModeLayoutState => {
+    if (!state || typeof state !== 'object') return createDefaultModeState();
+    const s = state as Record<string, unknown>;
+    
+    const gridLayout = Array.isArray(s.gridLayout) ? s.gridLayout as GridItem[] : [];
+    const sizeOverrides = s.sizeOverrides && typeof s.sizeOverrides === 'object' 
+      ? s.sizeOverrides as Record<string, BlockSizeOverride> : {};
+    
+    // 检查是否是旧格式（有 tabStates）
+    if ('tabStates' in s && s.tabStates && typeof s.tabStates === 'object') {
+      const validIds = new Set(gridLayout.map(i => i.id));
+      return migrateFromLegacy(s as unknown as LegacyModeLayoutState, validIds);
+    }
+    
+    // 新格式
+    let tabGroups: TabGroup[] = [];
+    if (Array.isArray(s.tabGroups)) {
+      const validIds = new Set(gridLayout.map(i => i.id));
+      for (const group of s.tabGroups) {
+        if (validateTabGroup(group)) {
+          const sanitized = sanitizeTabGroup(group, validIds);
+          if (sanitized) tabGroups.push(sanitized);
+        }
       }
     }
     
-    result[tabId] = {
-      id: tabId,
-      children: oldState.children,
-      activeTab: oldState.activeTab,
-      originalPositions,
-      createdAt: oldState.createdAt ?? Date.now(),
-      updatedAt: oldState.updatedAt ?? Date.now()
-    };
-  }
-  
-  return result;
-}
-
-/** 验证并修复配置结构（兼容旧格式） */
-function validateAndFixConfig(
-  config: NodeConfig | { fullscreen?: LegacyModeLayoutState; normal?: LegacyModeLayoutState; nodeType?: string; updatedAt?: number },
-  oldTabConfig?: OldUnifiedTabConfig
-): NodeConfig {
-  const fixModeState = (state: ModeLayoutState | LegacyModeLayoutState | undefined, useOldTabs: boolean): ModeLayoutState => {
-    if (!state) return createDefaultModeState();
-    
-    const gridLayout = Array.isArray(state.gridLayout) ? state.gridLayout : [];
-    const sizeOverrides = state.sizeOverrides && typeof state.sizeOverrides === 'object' ? state.sizeOverrides : {};
-    
-    // 如果已有新格式的 tabStates，直接使用
-    if ('tabStates' in state && state.tabStates && typeof state.tabStates === 'object') {
-      return { gridLayout, sizeOverrides, tabStates: state.tabStates as Record<string, TabContainerState> };
-    }
-    
-    // 从旧格式迁移
-    const tabStates = useOldTabs && oldTabConfig ? migrateTabStates(oldTabConfig, gridLayout) : {};
-    
-    return { gridLayout, sizeOverrides, tabStates };
+    return { gridLayout, sizeOverrides, tabGroups };
   };
   
   return {
-    nodeType: config.nodeType || 'unknown',
-    fullscreen: fixModeState(config.fullscreen, true),
-    normal: fixModeState(config.normal, false), // 节点模式不迁移，读取 fullscreen
-    updatedAt: config.updatedAt || Date.now()
+    nodeType,
+    fullscreen: fixModeState(c.fullscreen),
+    normal: fixModeState(c.normal),
+    updatedAt: typeof c.updatedAt === 'number' ? c.updatedAt : Date.now()
   };
 }
 
-
 // ============ 存储 ============
-
-/** 加载旧的 unifiedTabStore 数据 */
-function loadOldTabConfig(): Record<string, OldUnifiedTabConfig> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const stored = localStorage.getItem(OLD_TAB_STORAGE_KEY);
-    if (!stored) return {};
-    return JSON.parse(stored) as Record<string, OldUnifiedTabConfig>;
-  } catch {
-    return {};
-  }
-}
-
-/** 清理旧的 unifiedTabStore 数据 */
-function clearOldTabConfig(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(OLD_TAB_STORAGE_KEY);
-  } catch {
-    // 忽略错误
-  }
-}
 
 function loadFromStorage(): NodeConfigMap {
   if (typeof window === 'undefined') return new Map();
@@ -306,22 +230,10 @@ function loadFromStorage(): NodeConfigMap {
     if (!stored) return new Map();
     const parsed = JSON.parse(stored);
     
-    // 加载旧的 Tab 配置用于迁移
-    const oldTabConfigs = loadOldTabConfig();
-    
     const result = new Map<string, NodeConfig>();
     for (const [nodeType, config] of Object.entries(parsed)) {
-      const oldTabConfig = oldTabConfigs[nodeType];
-      const fixed = validateAndFixConfig(config as NodeConfig, oldTabConfig);
-      result.set(nodeType, fixed);
+      result.set(nodeType, validateAndFixConfig(config));
     }
-    
-    // 如果有迁移，清理旧数据
-    if (Object.keys(oldTabConfigs).length > 0) {
-      clearOldTabConfig();
-      console.log('[nodeLayoutStore] 已迁移旧 Tab 配置并清理');
-    }
-    
     return result;
   } catch (e) {
     console.error('[nodeLayoutStore] 加载失败:', e);
@@ -335,7 +247,7 @@ function saveToStorage(configs: NodeConfigMap): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(configs)));
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.warn('[nodeLayoutStore] localStorage 配额已满，仅保留内存状态');
+      console.warn('[nodeLayoutStore] localStorage 配额已满');
     } else {
       console.warn('[nodeLayoutStore] 保存失败:', e);
     }
@@ -359,7 +271,6 @@ nodeLayoutStore.subscribe(() => {
   if (isHydrated) saveToStorage(nodeLayoutStore.state);
 });
 
-
 // ============ CRUD ============
 
 export function getNodeConfig(nodeType: string): NodeConfig | undefined {
@@ -375,19 +286,6 @@ export function setNodeConfig(nodeType: string, config: NodeConfig): void {
   });
 }
 
-/** 按 nodeType 设置配置 */
-function setNodeConfigByType(nodeType: string, config: NodeConfig): void {
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, { ...config, updatedAt: Date.now() });
-    return next;
-  });
-}
-
-/**
- * 获取或创建节点配置
- * 注意：使用 nodeType 作为 key，同类型节点共享布局配置
- */
 export function getOrCreateNodeConfig(
   _nodeId: string, 
   nodeType: string,
@@ -400,13 +298,14 @@ export function getOrCreateNodeConfig(
   if (existing) {
     const fixed = validateAndFixConfig(existing);
     if (JSON.stringify(fixed) !== JSON.stringify(existing)) {
-      setNodeConfigByType(nodeType, fixed);
+      setNodeConfig(nodeType, fixed);
       return fixed;
     }
     return existing;
   }
+  
   const newConfig = createDefaultNodeConfig(nodeType, defaultFullscreenLayout, defaultNormalLayout);
-  setNodeConfigByType(nodeType, newConfig);
+  setNodeConfig(nodeType, newConfig);
   return newConfig;
 }
 
@@ -417,7 +316,6 @@ export function deleteNodeConfig(nodeType: string): void {
     return next;
   });
 }
-
 
 // ============ 布局操作 ============
 
@@ -459,509 +357,343 @@ export function updateSizeOverride(
   });
 }
 
-// ============ Tab 操作 ============
+// ============ Tab 分组操作（新 API） ============
 
-/** 创建 Tab 容器 */
-export function createTab(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  blockIds: string[]
-): string | null {
+/** 获取有效的 Tab 分组（两种模式都返回 fullscreen 的配置） */
+export function getEffectiveTabGroups(nodeType: string): TabGroup[] {
+  hydrateFromStorage();
+  const config = nodeLayoutStore.state.get(nodeType);
+  if (!config) return [];
+  // 始终返回 fullscreen 的 tabGroups
+  return config.fullscreen.tabGroups;
+}
+
+/** 获取所有 Tab 分组 */
+export function getTabGroups(nodeType: string): TabGroup[] {
+  return getEffectiveTabGroups(nodeType);
+}
+
+/** 获取区块所属的 Tab 分组 */
+export function getBlockTabGroup(nodeType: string, blockId: string): TabGroup | undefined {
+  const groups = getEffectiveTabGroups(nodeType);
+  return groups.find(g => g.blockIds.includes(blockId));
+}
+
+/** 创建 Tab 分组 */
+export function createTabGroup(nodeType: string, blockIds: string[]): string | null {
   if (blockIds.length < 2) {
-    console.warn('[nodeLayoutStore] 创建 Tab 需要至少 2 个区块');
+    console.warn('[nodeLayoutStore] 创建 Tab 分组需要至少 2 个区块');
     return null;
   }
   
   hydrateFromStorage();
   const config = nodeLayoutStore.state.get(nodeType) || createDefaultNodeConfig(nodeType);
-  const modeState = config[mode];
+  const fullscreenState = config.fullscreen;
   
   // 校验所有区块都存在于 gridLayout 中
-  const gridLayoutIds = new Set(modeState.gridLayout.map(item => item.id));
+  const gridLayoutIds = new Set(fullscreenState.gridLayout.map(item => item.id));
   const missingBlocks = blockIds.filter(id => !gridLayoutIds.has(id));
   if (missingBlocks.length > 0) {
     console.warn('[nodeLayoutStore] 区块不存在于 gridLayout 中:', missingBlocks);
     return null;
   }
   
-  // 检查是否有区块已在其他 Tab 中
-  const usedIds = getUsedBlockIds(nodeType, mode);
-  const conflicts = blockIds.filter(id => usedIds.includes(id));
+  // 检查是否有区块已在其他分组中
+  const usedIds = new Set(fullscreenState.tabGroups.flatMap(g => g.blockIds));
+  const conflicts = blockIds.filter(id => usedIds.has(id));
   if (conflicts.length > 0) {
-    console.warn('[nodeLayoutStore] 区块已在其他 Tab 中:', conflicts);
+    console.warn('[nodeLayoutStore] 区块已在其他 Tab 分组中:', conflicts);
     return null;
   }
   
-  // 生成独立的 Tab 容器 ID
-  const tabId = generateTabId();
-  const now = Date.now();
+  // 创建新分组，使用第一个区块 ID 作为分组 ID
+  const groupId = blockIds[0];
+  const newGroup: TabGroup = {
+    id: groupId,
+    blockIds: [...blockIds],
+    activeIndex: 0
+  };
   
-  // 从 gridLayout 获取每个区块的原始位置
-  const originalPositions: Record<string, BlockPosition> = {};
-  let firstBlockPosition: BlockPosition | null = null;
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeType) || createDefaultNodeConfig(nodeType);
+    next.set(nodeType, {
+      ...current,
+      fullscreen: {
+        ...current.fullscreen,
+        tabGroups: [...current.fullscreen.tabGroups, newGroup]
+      },
+      updatedAt: Date.now()
+    });
+    return next;
+  });
   
-  for (let i = 0; i < blockIds.length; i++) {
-    const blockId = blockIds[i];
-    const item = modeState.gridLayout.find(g => g.id === blockId);
-    if (item) {
-      originalPositions[blockId] = { x: item.x, y: item.y, w: item.w, h: item.h };
-      if (i === 0) firstBlockPosition = originalPositions[blockId];
+  console.log('[nodeLayoutStore] 创建 Tab 分组:', { nodeType, groupId, blockIds });
+  return groupId;
+}
+
+/** 解散 Tab 分组 */
+export function dissolveTabGroup(nodeType: string, groupId: string): void {
+  hydrateFromStorage();
+  const config = nodeLayoutStore.state.get(nodeType);
+  if (!config) return;
+  
+  const groupIndex = config.fullscreen.tabGroups.findIndex(g => g.id === groupId);
+  if (groupIndex === -1) {
+    console.warn('[nodeLayoutStore] Tab 分组不存在:', groupId);
+    return;
+  }
+  
+  // 直接删除分组，不需要修改 gridLayout（区块位置一直在）
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeType);
+    if (!current) return next;
+    
+    const newTabGroups = current.fullscreen.tabGroups.filter(g => g.id !== groupId);
+    next.set(nodeType, {
+      ...current,
+      fullscreen: {
+        ...current.fullscreen,
+        tabGroups: newTabGroups
+      },
+      updatedAt: Date.now()
+    });
+    return next;
+  });
+  
+  console.log('[nodeLayoutStore] 解散 Tab 分组:', { nodeType, groupId });
+}
+
+/** 切换活动区块 */
+export function switchTabGroupActive(nodeType: string, groupId: string, index: number): void {
+  hydrateFromStorage();
+  const config = nodeLayoutStore.state.get(nodeType);
+  if (!config) return;
+  
+  const group = config.fullscreen.tabGroups.find(g => g.id === groupId);
+  if (!group) return;
+  
+  const safeIndex = index >= group.blockIds.length ? 0 : Math.max(0, index);
+  
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeType);
+    if (!current) return next;
+    
+    const newTabGroups = current.fullscreen.tabGroups.map(g => 
+      g.id === groupId ? { ...g, activeIndex: safeIndex } : g
+    );
+    next.set(nodeType, {
+      ...current,
+      fullscreen: {
+        ...current.fullscreen,
+        tabGroups: newTabGroups
+      },
+      updatedAt: Date.now()
+    });
+    return next;
+  });
+}
+
+/** 向分组添加区块 */
+export function addBlockToTabGroup(nodeType: string, groupId: string, blockId: string): void {
+  hydrateFromStorage();
+  const config = nodeLayoutStore.state.get(nodeType);
+  if (!config) return;
+  
+  const group = config.fullscreen.tabGroups.find(g => g.id === groupId);
+  if (!group) return;
+  if (group.blockIds.includes(blockId)) return;
+  
+  // 检查区块是否存在于 gridLayout
+  if (!config.fullscreen.gridLayout.some(item => item.id === blockId)) {
+    console.warn('[nodeLayoutStore] 区块不存在于 gridLayout:', blockId);
+    return;
+  }
+  
+  // 检查区块是否已在其他分组
+  const otherGroup = config.fullscreen.tabGroups.find(g => g.id !== groupId && g.blockIds.includes(blockId));
+  if (otherGroup) {
+    console.warn('[nodeLayoutStore] 区块已在其他分组中:', blockId);
+    return;
+  }
+  
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeType);
+    if (!current) return next;
+    
+    const newTabGroups = current.fullscreen.tabGroups.map(g => 
+      g.id === groupId ? { ...g, blockIds: [...g.blockIds, blockId] } : g
+    );
+    next.set(nodeType, {
+      ...current,
+      fullscreen: {
+        ...current.fullscreen,
+        tabGroups: newTabGroups
+      },
+      updatedAt: Date.now()
+    });
+    return next;
+  });
+}
+
+/** 从分组移除区块 */
+export function removeBlockFromTabGroup(nodeType: string, groupId: string, blockId: string): void {
+  hydrateFromStorage();
+  const config = nodeLayoutStore.state.get(nodeType);
+  if (!config) return;
+  
+  const group = config.fullscreen.tabGroups.find(g => g.id === groupId);
+  if (!group) return;
+  
+  const newBlockIds = group.blockIds.filter(id => id !== blockId);
+  
+  // 如果剩余区块少于 2 个，自动解散分组
+  if (newBlockIds.length < 2) {
+    dissolveTabGroup(nodeType, groupId);
+    return;
+  }
+  
+  // 更新分组 ID（如果移除的是主区块）
+  const newGroupId = newBlockIds[0];
+  const newActiveIndex = group.activeIndex >= newBlockIds.length ? newBlockIds.length - 1 : group.activeIndex;
+  
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeType);
+    if (!current) return next;
+    
+    const newTabGroups = current.fullscreen.tabGroups.map(g => 
+      g.id === groupId ? { id: newGroupId, blockIds: newBlockIds, activeIndex: newActiveIndex } : g
+    );
+    next.set(nodeType, {
+      ...current,
+      fullscreen: {
+        ...current.fullscreen,
+        tabGroups: newTabGroups
+      },
+      updatedAt: Date.now()
+    });
+    return next;
+  });
+}
+
+/** 重排序分组内区块 */
+export function reorderTabGroupBlocks(nodeType: string, groupId: string, newOrder: string[]): void {
+  hydrateFromStorage();
+  const config = nodeLayoutStore.state.get(nodeType);
+  if (!config) return;
+  
+  const group = config.fullscreen.tabGroups.find(g => g.id === groupId);
+  if (!group) return;
+  
+  // 找到当前活动区块的新索引
+  const activeBlockId = group.blockIds[group.activeIndex];
+  const newActiveIndex = newOrder.indexOf(activeBlockId);
+  const newGroupId = newOrder[0];
+  
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeType);
+    if (!current) return next;
+    
+    const newTabGroups = current.fullscreen.tabGroups.map(g => 
+      g.id === groupId ? { 
+        id: newGroupId, 
+        blockIds: newOrder, 
+        activeIndex: newActiveIndex >= 0 ? newActiveIndex : 0 
+      } : g
+    );
+    next.set(nodeType, {
+      ...current,
+      fullscreen: {
+        ...current.fullscreen,
+        tabGroups: newTabGroups
+      },
+      updatedAt: Date.now()
+    });
+    return next;
+  });
+}
+
+/** 清除所有 Tab 分组 */
+export function clearTabGroups(nodeType: string): void {
+  hydrateFromStorage();
+  const config = nodeLayoutStore.state.get(nodeType);
+  if (!config) return;
+  
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    const current = next.get(nodeType);
+    if (!current) return next;
+    
+    next.set(nodeType, {
+      ...current,
+      fullscreen: {
+        ...current.fullscreen,
+        tabGroups: []
+      },
+      updatedAt: Date.now()
+    });
+    return next;
+  });
+  
+  console.log('[nodeLayoutStore] 清除所有 Tab 分组:', nodeType);
+}
+
+// ============ 渲染辅助 ============
+
+/** 有效渲染项类型 */
+export type EffectiveItem = 
+  | { type: 'block'; gridItem: GridItem }
+  | { type: 'tab-group'; gridItem: GridItem; group: TabGroup };
+
+/** 计算有效的渲染项 */
+export function computeEffectiveItems(
+  gridLayout: GridItem[],
+  tabGroups: TabGroup[]
+): EffectiveItem[] {
+  // 收集所有非主区块（被分组但不是第一个的区块）
+  const groupedNonPrimaryIds = new Set(
+    tabGroups.flatMap(g => g.blockIds.slice(1))
+  );
+  
+  // 主区块 ID 到分组的映射
+  const primaryToGroup = new Map(
+    tabGroups.map(g => [g.blockIds[0], g])
+  );
+  
+  const items: EffectiveItem[] = [];
+  
+  for (const gridItem of gridLayout) {
+    // 跳过非主区块
+    if (groupedNonPrimaryIds.has(gridItem.id)) continue;
+    
+    // 检查是否是某个分组的主区块
+    const group = primaryToGroup.get(gridItem.id);
+    
+    if (group) {
+      items.push({ type: 'tab-group', gridItem, group });
     } else {
-      // 容错处理：如果区块真的不存在（不应该发生），使用默认位置
-      console.warn(`[nodeLayoutStore] createTab - 区块 ${blockId} 不在当前布局中，使用默认位置`);
-      originalPositions[blockId] = getDefaultPosition(i, mode === 'fullscreen');
-      if (i === 0) firstBlockPosition = originalPositions[blockId];
+      items.push({ type: 'block', gridItem });
     }
   }
   
-  console.log('[nodeLayoutStore] createTab - 保存原始位置:', {
-    blockIds,
-    originalPositions,
-    firstBlockPosition
-  });
-  
-  // 创建 Tab 状态
-  const newTabState: TabContainerState = {
-    id: tabId,
-    children: blockIds,
-    activeTab: 0,
-    originalPositions,
-    createdAt: now,
-    updatedAt: now
-  };
-  
-  // 更新 gridLayout：移除被合并区块，添加 Tab 容器
-  const newGridLayout = modeState.gridLayout.filter(item => !blockIds.includes(item.id));
-  if (firstBlockPosition) {
-    newGridLayout.push({
-      id: tabId,
-      x: firstBlockPosition.x,
-      y: firstBlockPosition.y,
-      w: firstBlockPosition.w,
-      h: firstBlockPosition.h,
-      minW: 1,
-      minH: 1
-    });
-  }
-  
-  // 更新配置
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, {
-      ...config,
-      [mode]: {
-        ...modeState,
-        gridLayout: newGridLayout,
-        tabStates: { ...modeState.tabStates, [tabId]: newTabState }
-      },
-      updatedAt: now
-    });
-    return next;
-  });
-  
-  console.log('[nodeLayoutStore] 创建 Tab 完成:', { 
-    nodeType, 
-    mode, 
-    tabId, 
-    children: blockIds,
-    originalPositions,
-    newGridLayout: newGridLayout.map(i => i.id)
-  });
-  return tabId;
+  return items;
 }
 
-/** 删除 Tab 容器 */
-export function removeTab(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  tabId: string
-): void {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) {
-    console.warn('[nodeLayoutStore] removeTab - 配置不存在:', nodeType);
-    return;
-  }
-  
-  const modeState = config[mode];
-  const tabState = modeState.tabStates[tabId];
-  if (!tabState) {
-    console.warn('[nodeLayoutStore] removeTab - Tab 不存在:', { nodeType, mode, tabId, availableTabs: Object.keys(modeState.tabStates) });
-    return;
-  }
-  
-  // 恢复所有子区块到 gridLayout
-  console.log('[nodeLayoutStore] removeTab - 开始恢复:', {
-    tabId,
-    children: tabState.children,
-    originalPositions: tabState.originalPositions,
-    currentGridLayout: modeState.gridLayout.map(i => ({ id: i.id, x: i.x, y: i.y, w: i.w, h: i.h }))
-  });
-  
-  const restoredItems: GridItem[] = tabState.children.map((childId, index) => {
-    const pos = tabState.originalPositions[childId];
-    const hasOriginal = !!pos;
-    const finalPos = pos || getDefaultPosition(index, mode === 'fullscreen');
-    
-    console.log('[nodeLayoutStore] removeTab - 恢复区块:', { 
-      childId, 
-      hasOriginal,
-      originalPos: pos,
-      finalPos
-    });
-    
-    return {
-      id: childId,
-      x: finalPos.x,
-      y: finalPos.y,
-      w: finalPos.w,
-      h: finalPos.h,
-      minW: 1,
-      minH: 1
-    };
-  });
-  
-  // 从 gridLayout 移除 Tab 容器，添加恢复的区块
-  const newGridLayout = modeState.gridLayout.filter(item => item.id !== tabId);
-  newGridLayout.push(...restoredItems);
-  
-  // 从 tabStates 删除
-  const newTabStates = { ...modeState.tabStates };
-  delete newTabStates[tabId];
-  
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, {
-      ...config,
-      [mode]: {
-        ...modeState,
-        gridLayout: newGridLayout,
-        tabStates: newTabStates
-      },
-      updatedAt: Date.now()
-    });
-    return next;
-  });
-  
-  console.log('[nodeLayoutStore] removeTab - 完成:', { 
-    nodeType, 
-    mode, 
-    tabId,
-    restoredCount: restoredItems.length,
-    newGridLayoutIds: newGridLayout.map(i => i.id)
-  });
+/** 获取所有被 Tab 分组使用的区块 ID */
+export function getUsedBlockIds(nodeType: string): string[] {
+  const groups = getEffectiveTabGroups(nodeType);
+  return groups.flatMap(g => g.blockIds);
 }
 
-
-/** 设置活动标签 */
-export function setActiveTab(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  tabId: string,
-  index: number
-): void {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return;
-  
-  const modeState = config[mode];
-  const tabState = modeState.tabStates[tabId];
-  if (!tabState) return;
-  
-  // 处理越界
-  const safeIndex = index >= tabState.children.length ? 0 : Math.max(0, index);
-  
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, {
-      ...config,
-      [mode]: {
-        ...modeState,
-        tabStates: {
-          ...modeState.tabStates,
-          [tabId]: { ...tabState, activeTab: safeIndex, updatedAt: Date.now() }
-        }
-      },
-      updatedAt: Date.now()
-    });
-    return next;
-  });
-}
-
-/** 添加子区块到 Tab */
-export function addChildToTab(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  tabId: string,
-  blockId: string
-): void {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return;
-  
-  const modeState = config[mode];
-  const tabState = modeState.tabStates[tabId];
-  if (!tabState) return;
-  if (tabState.children.includes(blockId)) return;
-  
-  // 获取区块原始位置
-  const item = modeState.gridLayout.find(g => g.id === blockId);
-  const originalPosition = item 
-    ? { x: item.x, y: item.y, w: item.w, h: item.h }
-    : getDefaultPosition(tabState.children.length, mode === 'fullscreen');
-  
-  // 从 gridLayout 移除该区块
-  const newGridLayout = modeState.gridLayout.filter(g => g.id !== blockId);
-  
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, {
-      ...config,
-      [mode]: {
-        ...modeState,
-        gridLayout: newGridLayout,
-        tabStates: {
-          ...modeState.tabStates,
-          [tabId]: {
-            ...tabState,
-            children: [...tabState.children, blockId],
-            originalPositions: { ...tabState.originalPositions, [blockId]: originalPosition },
-            updatedAt: Date.now()
-          }
-        }
-      },
-      updatedAt: Date.now()
-    });
-    return next;
-  });
-}
-
-
-/** 从 Tab 移除子区块 */
-export function removeChildFromTab(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  tabId: string,
-  blockId: string
-): void {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return;
-  
-  const modeState = config[mode];
-  const tabState = modeState.tabStates[tabId];
-  if (!tabState) return;
-  
-  const newChildren = tabState.children.filter(id => id !== blockId);
-  
-  // 如果 children < 2，自动删除 Tab 容器
-  if (newChildren.length < 2) {
-    removeTab(nodeType, mode, tabId);
-    return;
-  }
-  
-  // 恢复区块到 gridLayout
-  const pos = tabState.originalPositions[blockId] || getDefaultPosition(0, mode === 'fullscreen');
-  const restoredItem: GridItem = {
-    id: blockId,
-    x: pos.x,
-    y: pos.y,
-    w: pos.w,
-    h: pos.h,
-    minW: 1,
-    minH: 1
-  };
-  
-  // 修正 activeTab
-  const activeTab = tabState.activeTab >= newChildren.length
-    ? newChildren.length - 1
-    : tabState.activeTab;
-  
-  // 清理 originalPositions
-  const newOriginalPositions = { ...tabState.originalPositions };
-  delete newOriginalPositions[blockId];
-  
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, {
-      ...config,
-      [mode]: {
-        ...modeState,
-        gridLayout: [...modeState.gridLayout, restoredItem],
-        tabStates: {
-          ...modeState.tabStates,
-          [tabId]: {
-            ...tabState,
-            children: newChildren,
-            activeTab,
-            originalPositions: newOriginalPositions,
-            updatedAt: Date.now()
-          }
-        }
-      },
-      updatedAt: Date.now()
-    });
-    return next;
-  });
-}
-
-/** 重排序 Tab 子区块 */
-export function reorderTabChildren(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  tabId: string,
-  newOrder: string[]
-): void {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return;
-  
-  const modeState = config[mode];
-  const tabState = modeState.tabStates[tabId];
-  if (!tabState) return;
-  
-  // 找到当前活动区块的 ID
-  const activeBlockId = tabState.children[tabState.activeTab];
-  
-  // 更新顺序后，找到活动区块的新索引
-  const newActiveTab = newOrder.indexOf(activeBlockId);
-  
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, {
-      ...config,
-      [mode]: {
-        ...modeState,
-        tabStates: {
-          ...modeState.tabStates,
-          [tabId]: {
-            ...tabState,
-            children: newOrder,
-            activeTab: newActiveTab >= 0 ? newActiveTab : 0,
-            updatedAt: Date.now()
-          }
-        }
-      },
-      updatedAt: Date.now()
-    });
-    return next;
-  });
-}
-
-
-// ============ Tab 辅助方法 ============
-
-/** 获取 Tab 状态 */
-export function getTabState(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  tabId: string
-): TabContainerState | undefined {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return undefined;
-  return config[mode].tabStates[tabId];
-}
-
-/** 获取所有被 Tab 使用的区块 ID（Tab 容器使用独立 ID，所以返回所有子区块） */
-export function getUsedBlockIds(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal'
-): string[] {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return [];
-  
-  const ids: string[] = [];
-  for (const tabState of Object.values(config[mode].tabStates)) {
-    // Tab 容器使用独立 ID，所以所有子区块都是"被使用"的
-    ids.push(...tabState.children);
-  }
-  return ids;
-}
-
-/** 检查区块是否是 Tab 容器 */
-export function isTabContainer(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal',
-  blockId: string
-): boolean {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return false;
-  return blockId in config[mode].tabStates;
-}
-
-/** 获取所有 Tab 容器 ID */
-export function getTabContainerIds(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal'
-): string[] {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return [];
-  return Object.keys(config[mode].tabStates);
-}
-
-/** 清除所有 Tab 状态并恢复子区块（重置布局时调用） */
-export function clearTabStates(
-  nodeType: string,
-  mode: 'fullscreen' | 'normal'
-): void {
-  hydrateFromStorage();
-  const config = nodeLayoutStore.state.get(nodeType);
-  if (!config) return;
-  
-  const modeState = config[mode];
-  const tabIds = Object.keys(modeState.tabStates);
-  
-  // 如果没有 Tab，直接返回
-  if (tabIds.length === 0) {
-    console.log('[nodeLayoutStore] 没有 Tab 需要清除:', { nodeType, mode });
-    return;
-  }
-  
-  // 收集所有需要恢复的区块
-  const restoredItems: GridItem[] = [];
-  const tabContainerIds = new Set<string>();
-  
-  for (const tabState of Object.values(modeState.tabStates)) {
-    tabContainerIds.add(tabState.id);
-    
-    // 恢复所有子区块到原始位置
-    tabState.children.forEach((childId, index) => {
-      const pos = tabState.originalPositions[childId] || getDefaultPosition(index, mode === 'fullscreen');
-      restoredItems.push({
-        id: childId,
-        x: pos.x,
-        y: pos.y,
-        w: pos.w,
-        h: pos.h,
-        minW: 1,
-        minH: 1
-      });
-    });
-  }
-  
-  // 从 gridLayout 移除 Tab 容器，添加恢复的区块
-  const newGridLayout = modeState.gridLayout.filter(item => !tabContainerIds.has(item.id));
-  newGridLayout.push(...restoredItems);
-  
-  nodeLayoutStore.setState((prev) => {
-    const next = new Map(prev);
-    next.set(nodeType, {
-      ...config,
-      [mode]: {
-        ...modeState,
-        gridLayout: newGridLayout,
-        tabStates: {}
-      },
-      updatedAt: Date.now()
-    });
-    return next;
-  });
-  
-  console.log('[nodeLayoutStore] 清除 Tab 状态并恢复区块:', { nodeType, mode, restored: restoredItems.length });
+/** 检查区块是否是 Tab 分组的主区块 */
+export function isTabGroupPrimary(nodeType: string, blockId: string): boolean {
+  const groups = getEffectiveTabGroups(nodeType);
+  return groups.some(g => g.blockIds[0] === blockId);
 }
 
 // ============ 订阅 ============
@@ -985,7 +717,9 @@ export function exportNodeConfig(nodeType: string): string | null {
 
 export function importNodeConfig(nodeType: string, json: string): boolean {
   try {
-    setNodeConfigByType(nodeType, JSON.parse(json) as NodeConfig);
+    const parsed = JSON.parse(json);
+    const validated = validateAndFixConfig(parsed);
+    setNodeConfig(nodeType, validated);
     return true;
   } catch {
     return false;
