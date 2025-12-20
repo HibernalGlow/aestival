@@ -88,16 +88,26 @@ class MigrateFAdapter(BaseAdapter):
         """执行文件迁移"""
         mode = input_data.mode.lower()
         
-        # 收集源路径
+        # 收集源路径，去除引号
         source_paths = list(input_data.source_paths) if input_data.source_paths else []
-        if input_data.path and input_data.path not in source_paths:
-            source_paths.append(input_data.path)
+        if input_data.path:
+            path = input_data.path.strip().strip('"')
+            if path not in source_paths:
+                source_paths.append(path)
+        
+        # 处理所有路径的引号
+        source_paths = [p.strip().strip('"') for p in source_paths]
         
         if not source_paths:
             return MigrateFOutput(success=False, message="未指定源路径")
         
-        if not input_data.target_path:
+        # 目标路径也去除引号
+        target_path = input_data.target_path.strip().strip('"') if input_data.target_path else ""
+        if not target_path:
             return MigrateFOutput(success=False, message="未指定目标路径")
+        
+        # 更新 input_data 的 target_path
+        input_data.target_path = target_path
         
         # 验证源路径
         valid_paths = []
