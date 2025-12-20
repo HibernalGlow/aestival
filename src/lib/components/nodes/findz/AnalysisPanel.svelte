@@ -260,7 +260,7 @@
           onclick={() => groupBy = opt.field}
           title={opt.label}
         >
-          <svelte:component this={opt.icon} class="w-3 h-3" />
+          <opt.icon class="w-3 h-3" />
           <span class="cq-wide-only">{opt.label}</span>
         </button>
       {/each}
@@ -380,7 +380,7 @@
       </div>
     {:else if files.length > 0}
       <div class="text-center text-muted-foreground py-2 text-[10px]">
-        <svelte:component this={currentGroupOption.icon} class="w-6 h-6 mx-auto mb-2 opacity-50" />
+        <currentGroupOption.icon class="w-6 h-6 mx-auto mb-2 opacity-50" />
         <div>无匹配的分组数据</div>
         {#if hasActiveFilter}
           <button class="text-primary hover:underline mt-1" onclick={resetFilter}>清除过滤</button>

@@ -338,3 +338,38 @@
     max-height: 10rem;
   }
 }
+
+/* ========== 统计卡片 ========== */
+
+.cq-stat-card {
+  padding: 0.375rem;
+  border-radius: 0.375rem;
+}
+
+@container (min-width: 500px) {
+  .cq-stat-card {
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+  }
+}
+
+.cq-stat-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@container (min-width: 500px) {
+  .cq-stat-value {
+    font-size: 1.125rem;
+  }
+}
+
+.cq-stat-label {
+  font-size: 0.625rem;
+}
+
+@container (min-width: 500px) {
+  .cq-stat-label {
+    font-size: 0.75rem;
+  }
+}
