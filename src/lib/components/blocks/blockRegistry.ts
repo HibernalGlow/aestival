@@ -76,172 +76,35 @@ export interface NodeBlockLayout {
 
 // ============ 导入各节点的 block 配置 ============
 
-// Findz
 import { FINDZ_BLOCKS, FINDZ_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/findz/blocks';
+import { REPACKU_BLOCKS, REPACKU_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/repacku/blocks';
+import { TRENAME_BLOCKS, TRENAME_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/trename/blocks';
+import { ENGINEV_BLOCKS, ENGINEV_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/enginev/blocks';
+import { RAWFILTER_BLOCKS, RAWFILTER_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/rawfilter/blocks';
+import { CRASHU_BLOCKS, CRASHU_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/crashu/blocks';
+import { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/migratefnode/blocks';
+import { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/formatv/blocks';
+
+// 重新导出供外部使用
 export { FINDZ_BLOCKS, FINDZ_DEFAULT_GRID_LAYOUT };
-
-// 其他节点（暂时保留在此文件，后续可逐步拆分）
-import { 
-  FolderOpen, FileText, Play, FolderTree, Package, Copy,
-  FilePenLine, RefreshCw, Upload, Settings2,
-  Filter, BarChart3, Pencil, Grid3X3, Video,
-  Search, Zap, Sliders, FolderInput, FolderOutput, ArrowRight
-} from '@lucide/svelte';
-
-// ============ Repacku 节点 ============
-export const REPACKU_BLOCKS: BlockDefinition[] = [
-  { id: 'path', title: '目标路径', icon: FolderOpen, iconClass: 'text-primary', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'types', title: '文件类型', icon: FileText, iconClass: 'text-blue-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'operation', title: '操作', icon: Play, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'stats', title: '统计', icon: FolderTree, iconClass: 'text-yellow-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'progress', title: '状态', icon: Package, iconClass: 'text-muted-foreground', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'tree', title: '文件夹结构', icon: FolderTree, iconClass: 'text-yellow-500', colSpan: 2, fullHeight: true, collapsible: true, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'log', title: '日志', icon: Copy, iconClass: 'text-muted-foreground', colSpan: 2, collapsible: true, visibleInNormal: true, visibleInFullscreen: true }
-];
-
-export const REPACKU_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 1, minH: 2 },
-  { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'progress', x: 2, y: 2, w: 2, h: 1, minW: 1, minH: 1 },
-  { id: 'tree', x: 0, y: 3, w: 3, h: 4, minW: 1, minH: 2 },
-  { id: 'log', x: 3, y: 3, w: 1, h: 4, minW: 1, minH: 1 }
-];
-
-// ============ Trename 节点 ============
-export const TRENAME_BLOCKS: BlockDefinition[] = [
-  { id: 'path', title: '扫描路径', icon: FolderOpen, iconClass: 'text-primary', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'scan', title: '扫描', icon: RefreshCw, iconClass: 'text-blue-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: false },
-  { id: 'operation', title: '操作', icon: Play, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'stats', title: '统计', icon: FilePenLine, iconClass: 'text-yellow-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'importExport', title: '导入/导出', icon: Upload, iconClass: 'text-muted-foreground', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'options', title: '高级选项', icon: Settings2, iconClass: 'text-muted-foreground', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'tree', title: '文件树', icon: FolderTree, iconClass: 'text-yellow-500', colSpan: 2, fullHeight: true, collapsible: true, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'log', title: '日志', icon: Copy, iconClass: 'text-muted-foreground', colSpan: 2, collapsible: true, visibleInNormal: true, visibleInFullscreen: true }
-];
-
-export const TRENAME_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 3, minW: 1, minH: 2 },
-  { id: 'operation', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'stats', x: 3, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'importExport', x: 2, y: 2, w: 2, h: 1, minW: 1, minH: 1 },
-  { id: 'tree', x: 0, y: 3, w: 2, h: 4, minW: 1, minH: 2 },
-  { id: 'options', x: 2, y: 3, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'log', x: 2, y: 5, w: 2, h: 2, minW: 1, minH: 1 }
-];
-
-// ============ EngineV 节点 ============
-export const ENGINEV_BLOCKS: BlockDefinition[] = [
-  { id: 'path', title: '工坊路径', icon: FolderOpen, iconClass: 'text-primary', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'filter', title: '过滤条件', icon: Filter, iconClass: 'text-blue-500', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'stats', title: '统计', icon: BarChart3, iconClass: 'text-yellow-500', colSpan: 1, collapsible: true, defaultExpanded: true, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'operation', title: '操作', icon: Play, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'rename', title: '重命名', icon: Pencil, iconClass: 'text-orange-500', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'gallery', title: '壁纸列表', icon: Grid3X3, iconClass: 'text-purple-500', colSpan: 2, fullHeight: true, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'log', title: '日志', icon: Copy, iconClass: 'text-muted-foreground', colSpan: 2, collapsible: true, visibleInNormal: true, visibleInFullscreen: true }
-];
-
-export const ENGINEV_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'filter', x: 2, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'stats', x: 0, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'operation', x: 1, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'rename', x: 2, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'gallery', x: 0, y: 4, w: 3, h: 4, minW: 2, minH: 2 },
-  { id: 'log', x: 3, y: 4, w: 1, h: 4, minW: 1, minH: 1 }
-];
-
-// ============ Rawfilter 节点 ============
-export const RAWFILTER_BLOCKS: BlockDefinition[] = [
-  { id: 'path', title: '目标路径', icon: FolderOpen, iconClass: 'text-primary', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'options', title: '过滤选项', icon: Settings2, iconClass: 'text-blue-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'operation', title: '操作', icon: Play, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'stats', title: '统计', icon: Search, iconClass: 'text-yellow-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'progress', title: '状态', icon: Search, iconClass: 'text-muted-foreground', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'log', title: '日志', icon: Copy, iconClass: 'text-muted-foreground', colSpan: 2, collapsible: true, visibleInNormal: true, visibleInFullscreen: true }
-];
-
-export const RAWFILTER_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'options', x: 2, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'operation', x: 0, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'stats', x: 1, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'progress', x: 2, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'log', x: 0, y: 4, w: 4, h: 3, minW: 1, minH: 1 }
-];
-
-// ============ Crashu 节点 ============
-export const CRASHU_BLOCKS: BlockDefinition[] = [
-  { id: 'path', title: '目标路径', icon: FolderOpen, iconClass: 'text-primary', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'options', title: '检测选项', icon: Sliders, iconClass: 'text-blue-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'operation', title: '操作', icon: Play, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'stats', title: '统计', icon: Zap, iconClass: 'text-yellow-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'progress', title: '状态', icon: Zap, iconClass: 'text-muted-foreground', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'duplicates', title: '重复文件', icon: Copy, iconClass: 'text-orange-500', colSpan: 2, fullHeight: true, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'log', title: '日志', icon: Copy, iconClass: 'text-muted-foreground', colSpan: 2, collapsible: true, visibleInNormal: true, visibleInFullscreen: true }
-];
-
-export const CRASHU_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'options', x: 2, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'operation', x: 0, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'stats', x: 1, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'progress', x: 2, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'duplicates', x: 0, y: 4, w: 3, h: 4, minW: 1, minH: 2 },
-  { id: 'log', x: 3, y: 4, w: 1, h: 4, minW: 1, minH: 1 }
-];
-
-// ============ MigrateF 节点 ============
-export const MIGRATEF_BLOCKS: BlockDefinition[] = [
-  { id: 'path', title: '路径配置', icon: FolderInput, iconClass: 'text-primary', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'source', title: '源目录', icon: FolderInput, iconClass: 'text-blue-500', colSpan: 1, visibleInNormal: false, visibleInFullscreen: true },
-  { id: 'target', title: '目标目录', icon: FolderOutput, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: false, visibleInFullscreen: true },
-  { id: 'options', title: '迁移选项', icon: Settings2, iconClass: 'text-blue-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'operation', title: '操作', icon: Play, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'stats', title: '统计', icon: BarChart3, iconClass: 'text-yellow-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'progress', title: '状态', icon: ArrowRight, iconClass: 'text-muted-foreground', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'log', title: '日志', icon: Copy, iconClass: 'text-muted-foreground', colSpan: 2, collapsible: true, visibleInNormal: true, visibleInFullscreen: true }
-];
-
-export const MIGRATEF_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'source', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'target', x: 2, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'options', x: 0, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'operation', x: 2, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'stats', x: 3, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'progress', x: 0, y: 4, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'log', x: 2, y: 4, w: 2, h: 2, minW: 1, minH: 1 }
-];
-
-// ============ FormatV 节点 ============
-export const FORMATV_BLOCKS: BlockDefinition[] = [
-  { id: 'path', title: '目标路径', icon: FolderOpen, iconClass: 'text-primary', colSpan: 2, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'operation', title: '操作', icon: Play, iconClass: 'text-green-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'stats', title: '统计', icon: BarChart3, iconClass: 'text-yellow-500', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'progress', title: '状态', icon: Video, iconClass: 'text-muted-foreground', colSpan: 1, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'tree', title: '文件列表', icon: FolderTree, iconClass: 'text-blue-500', colSpan: 2, fullHeight: true, visibleInNormal: true, visibleInFullscreen: true },
-  { id: 'log', title: '日志', icon: Copy, iconClass: 'text-muted-foreground', colSpan: 2, collapsible: true, visibleInNormal: true, visibleInFullscreen: true }
-];
-
-export const FORMATV_DEFAULT_GRID_LAYOUT: GridItem[] = [
-  { id: 'path', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'operation', x: 2, y: 0, w: 2, h: 3, minW: 1, minH: 2 },
-  { id: 'stats', x: 0, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'progress', x: 2, y: 3, w: 2, h: 1, minW: 1, minH: 1 },
-  { id: 'tree', x: 0, y: 4, w: 3, h: 4, minW: 1, minH: 2 },
-  { id: 'log', x: 3, y: 4, w: 1, h: 4, minW: 1, minH: 1 }
-];
+export { REPACKU_BLOCKS, REPACKU_DEFAULT_GRID_LAYOUT };
+export { TRENAME_BLOCKS, TRENAME_DEFAULT_GRID_LAYOUT };
+export { ENGINEV_BLOCKS, ENGINEV_DEFAULT_GRID_LAYOUT };
+export { RAWFILTER_BLOCKS, RAWFILTER_DEFAULT_GRID_LAYOUT };
+export { CRASHU_BLOCKS, CRASHU_DEFAULT_GRID_LAYOUT };
+export { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT };
+export { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT };
 
 // ============ 注册表 ============
 export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
+  findz: { nodeType: 'findz', blocks: FINDZ_BLOCKS, defaultGridLayout: FINDZ_DEFAULT_GRID_LAYOUT },
   repacku: { nodeType: 'repacku', blocks: REPACKU_BLOCKS, defaultGridLayout: REPACKU_DEFAULT_GRID_LAYOUT },
   trename: { nodeType: 'trename', blocks: TRENAME_BLOCKS, defaultGridLayout: TRENAME_DEFAULT_GRID_LAYOUT },
   enginev: { nodeType: 'enginev', blocks: ENGINEV_BLOCKS, defaultGridLayout: ENGINEV_DEFAULT_GRID_LAYOUT },
   rawfilter: { nodeType: 'rawfilter', blocks: RAWFILTER_BLOCKS, defaultGridLayout: RAWFILTER_DEFAULT_GRID_LAYOUT },
   crashu: { nodeType: 'crashu', blocks: CRASHU_BLOCKS, defaultGridLayout: CRASHU_DEFAULT_GRID_LAYOUT },
   migratef: { nodeType: 'migratef', blocks: MIGRATEF_BLOCKS, defaultGridLayout: MIGRATEF_DEFAULT_GRID_LAYOUT },
-  formatv: { nodeType: 'formatv', blocks: FORMATV_BLOCKS, defaultGridLayout: FORMATV_DEFAULT_GRID_LAYOUT },
-  findz: { nodeType: 'findz', blocks: FINDZ_BLOCKS, defaultGridLayout: FINDZ_DEFAULT_GRID_LAYOUT }
+  formatv: { nodeType: 'formatv', blocks: FORMATV_BLOCKS, defaultGridLayout: FORMATV_DEFAULT_GRID_LAYOUT }
 };
 
 // ============ 工具函数 ============
