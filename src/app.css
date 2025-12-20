@@ -134,6 +134,11 @@
   border-color: var(--primary) !important;
 }
 
+/* 修复节点高度限制问题 - 确保节点内容不会撑开节点 */
+.svelte-flow__node {
+  overflow: hidden !important;
+}
+
 /* 隐藏滚动条 */
 .scrollbar-hide {
   -ms-overflow-style: none;

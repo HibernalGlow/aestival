@@ -160,6 +160,12 @@
   }
   :global(.svelte-flow__node) {
     cursor: pointer;
+    overflow: hidden !important;
+  }
+  /* 确保节点内容正确继承高度 */
+  :global(.svelte-flow__node > div) {
+    height: 100% !important;
+    overflow: hidden !important;
   }
   :global(.svelte-flow__background) {
     opacity: 0.3;

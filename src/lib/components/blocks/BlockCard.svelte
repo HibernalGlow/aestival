@@ -229,10 +229,7 @@
   <!-- 内容区 -->
   {#if isExpanded || hideHeader}
     <div 
-      class="relative z-10 transition-all duration-300
-        {hideHeader ? '' : (compact ? 'px-2 pb-2' : 'px-3 pb-3')}
-        {fullHeight ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : ''}
-        {bentoHover ? 'group-hover:-translate-y-1' : ''}"
+      class="relative z-10 transition-all duration-300 {hideHeader ? '' : (compact ? 'px-2 pb-2' : 'px-3 pb-3')} {fullHeight ? 'flex-1 min-h-0 flex flex-col overflow-hidden' : ''} {bentoHover ? 'group-hover:-translate-y-1' : ''}"
       transition:slide={{ duration: 150 }}
     >
       {@render children()}
