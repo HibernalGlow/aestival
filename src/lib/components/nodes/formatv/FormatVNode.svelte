@@ -119,101 +119,127 @@
     return path.split(/[/\\]/).pop() || path;
   }
 
-  // 获取目录名
-  function getDirName(path: string): string {
-    const parts = path.split(/[/\\]/);
-    parts.pop();
-    return parts.pop() || '';
-  }
-
   // 获取视频缩略图 URL（使用系统缩略图）
   function getThumbnailUrl(filePath: string): string {
     return `${apiBase}/file?path=${encodeURIComponent(filePath)}&thumbnail=true`;
   }
 
-  // 构建文件树结构
-  function buildFileTree(files: string[], category: FileCategory): FileTreeNode[] {
-    const root: Record<string, FileTreeNode> = {};
+  /**
+   * 构建完整的文件树结构
+   * 将所有文件路径合并成一棵树，保留完整的目录层级
+   */
+  function buildFullFileTree(fileListData: FileListData): FileTreeNode[] {
+    // 使用 Map 存储树节点，key 为完整路径
+    const nodeMap = new Map<string, FileTreeNode>();
     
-    for (const filePath of files) {
+    // 处理单个文件，确保所有父目录都存在
+    function addFile(filePath: string, category: FileCategory) {
       const parts = filePath.split(/[/\\]/);
-      const fileName = parts.pop() || '';
-      
-      // 获取父目录路径
       let currentPath = '';
-      let currentLevel = root;
       
-      for (let i = 0; i < parts.length; i++) {
+      // 创建所有父目录节点
+      for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i];
+        const parentPath = currentPath;
         currentPath = currentPath ? `${currentPath}\\${part}` : part;
         
-        if (!currentLevel[part]) {
-          currentLevel[part] = {
+        if (!nodeMap.has(currentPath)) {
+          const dirNode: FileTreeNode = {
             name: part,
             path: currentPath,
             isDir: true,
             children: []
           };
+          nodeMap.set(currentPath, dirNode);
+          
+          // 添加到父节点的 children
+          if (parentPath && nodeMap.has(parentPath)) {
+            const parent = nodeMap.get(parentPath)!;
+            if (!parent.children!.find(c => c.path === currentPath)) {
+              parent.children!.push(dirNode);
+            }
+          }
         }
-        
-        // 移动到下一层
-        if (!currentLevel[part].children) {
-          currentLevel[part].children = [];
-        }
-        
-        // 转换为以名称为键的对象
-        const childMap: Record<string, FileTreeNode> = {};
-        for (const child of currentLevel[part].children!) {
-          childMap[child.name] = child;
-        }
-        currentLevel = childMap;
-        
-        // 更新 children 数组
-        currentLevel[part] = currentLevel[part] || {
-          name: part,
-          path: currentPath + '\\' + part,
-          isDir: true,
-          children: []
-        };
       }
       
-      // 添加文件
-      currentLevel[fileName] = {
+      // 创建文件节点
+      const fileName = parts[parts.length - 1];
+      const fileNode: FileTreeNode = {
         name: fileName,
         path: filePath,
         isDir: false,
         category
       };
-    }
-    
-    // 转换为数组
-    function toArray(obj: Record<string, FileTreeNode>): FileTreeNode[] {
-      return Object.values(obj).map(node => {
-        if (node.children && typeof node.children === 'object' && !Array.isArray(node.children)) {
-          node.children = toArray(node.children as unknown as Record<string, FileTreeNode>);
+      nodeMap.set(filePath, fileNode);
+      
+      // 添加到父目录
+      if (currentPath && nodeMap.has(currentPath)) {
+        const parent = nodeMap.get(currentPath)!;
+        if (!parent.children!.find(c => c.path === filePath)) {
+          parent.children!.push(fileNode);
         }
-        return node;
-      }).sort((a, b) => {
-        // 目录在前，文件在后
-        if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-        return a.name.localeCompare(b.name);
-      });
+      }
     }
     
-    return toArray(root);
-  }
-
-  // 按目录分组文件
-  function groupFilesByDir(files: string[]): Record<string, string[]> {
-    const groups: Record<string, string[]> = {};
-    for (const file of files) {
-      const parts = file.split(/[/\\]/);
-      const fileName = parts.pop() || '';
-      const dirPath = parts.join('\\');
-      if (!groups[dirPath]) groups[dirPath] = [];
-      groups[dirPath].push(file);
+    // 添加所有文件
+    for (const file of fileListData.normal_files ?? []) {
+      addFile(file, 'normal');
     }
-    return groups;
+    for (const file of fileListData.nov_files ?? []) {
+      addFile(file, 'nov');
+    }
+    for (const [prefix, files] of Object.entries(fileListData.prefixed_files ?? {})) {
+      for (const file of files ?? []) {
+        addFile(file, prefix);
+      }
+    }
+    
+    // 找出根节点（没有父节点的目录）
+    const rootNodes: FileTreeNode[] = [];
+    for (const [path, node] of nodeMap) {
+      if (node.isDir) {
+        const parentPath = path.split(/[/\\]/).slice(0, -1).join('\\');
+        if (!parentPath || !nodeMap.has(parentPath)) {
+          rootNodes.push(node);
+        }
+      }
+    }
+    
+    // 递归排序所有节点的 children
+    function sortChildren(node: FileTreeNode) {
+      if (node.children && node.children.length > 0) {
+        node.children.sort((a, b) => {
+          // 目录在前，文件在后
+          if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+          return a.name.localeCompare(b.name);
+        });
+        for (const child of node.children) {
+          sortChildren(child);
+        }
+      }
+    }
+    
+    for (const root of rootNodes) {
+      sortChildren(root);
+    }
+    
+    // 排序根节点
+    rootNodes.sort((a, b) => a.name.localeCompare(b.name));
+    
+    return rootNodes;
+  }
+  
+  // 计算树中的文件总数
+  function countFilesInTree(nodes: FileTreeNode[]): number {
+    let count = 0;
+    for (const node of nodes) {
+      if (node.isDir && node.children) {
+        count += countFilesInTree(node.children);
+      } else if (!node.isDir) {
+        count++;
+      }
+    }
+    return count;
   }
 
   async function selectFolder() {
@@ -512,151 +538,92 @@
   {/if}
 {/snippet}
 
+<!-- 递归渲染文件树节点 -->
+{#snippet renderTreeNode(node: FileTreeNode)}
+  {#if node.isDir}
+    <TreeView.Folder name={node.name} open={true} class="text-xs">
+      {#snippet icon()}
+        <Folder class="w-3 h-3 text-yellow-500" />
+      {/snippet}
+      {#snippet children()}
+        {#if node.children}
+          {#each node.children as child}
+            {@render renderTreeNode(child)}
+          {/each}
+        {/if}
+      {/snippet}
+    </TreeView.Folder>
+  {:else}
+    {@const categoryColor = node.category === 'normal' ? 'text-green-500' : node.category === 'nov' ? 'text-yellow-500' : 'text-blue-500'}
+    <button 
+      class="flex items-center gap-2 py-1 px-1 w-full text-left hover:bg-muted/50 rounded transition-colors {selectedFile === node.path ? 'bg-primary/10' : ''}"
+      onclick={() => selectedFile = node.path}
+    >
+      <div class="w-10 h-7 rounded bg-muted/50 overflow-hidden shrink-0 flex items-center justify-center relative">
+        <img 
+          src={getThumbnailUrl(node.path)} 
+          alt="" 
+          class="w-full h-full object-cover" 
+          loading="lazy"
+          onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
+        <Video class="w-3 h-3 {categoryColor} absolute" />
+      </div>
+      <span class="truncate flex-1 text-xs" title={node.path}>{node.name}</span>
+      {#if node.category && node.category !== 'normal'}
+        <span class="text-[10px] px-1 rounded {node.category === 'nov' ? 'bg-yellow-500/20 text-yellow-600' : 'bg-blue-500/20 text-blue-600'}">
+          {node.category === 'nov' ? '.nov' : `[${node.category}]`}
+        </span>
+      {/if}
+    </button>
+  {/if}
+{/snippet}
+
 <!-- 文件树区块 -->
 {#snippet treeBlock(size: SizeMode)}
   {@const c = getSizeClasses(size)}
+  {@const fileTree = fileListData ? buildFullFileTree(fileListData) : []}
+  {@const totalFiles = fileListData ? (fileListData.normal_files?.length ?? 0) + (fileListData.nov_files?.length ?? 0) + Object.values(fileListData.prefixed_files ?? {}).reduce((sum, arr) => sum + (arr?.length ?? 0), 0) : 0}
+  
   {#if size === 'normal'}
     <div class="h-full flex flex-col overflow-hidden">
       <!-- 标题栏 -->
       <div class="flex items-center justify-between p-2 border-b bg-muted/30 shrink-0">
         <span class="font-semibold flex items-center gap-2">
-          <Folder class="w-5 h-5 text-yellow-500" />文件列表
+          <Folder class="w-5 h-5 text-yellow-500" />文件树
         </span>
-        <div class="flex items-center gap-2">
-          <span class="text-sm text-muted-foreground">
-            {(fileListData?.normal_files?.length ?? 0) + (fileListData?.nov_files?.length ?? 0)} 个
+        <div class="flex items-center gap-3 text-xs">
+          <span class="flex items-center gap-1 text-green-600">
+            <span class="w-2 h-2 rounded-full bg-green-500"></span>
+            {fileListData?.normal_files?.length ?? 0}
           </span>
+          <span class="flex items-center gap-1 text-yellow-600">
+            <span class="w-2 h-2 rounded-full bg-yellow-500"></span>
+            {fileListData?.nov_files?.length ?? 0}
+          </span>
+          {#each Object.entries(fileListData?.prefixed_files ?? {}) as [prefix, files]}
+            {#if files?.length > 0}
+              <span class="flex items-center gap-1 text-blue-600">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                [{prefix}] {files.length}
+              </span>
+            {/if}
+          {/each}
         </div>
       </div>
       
       <!-- 文件树内容 -->
       <div class="flex-1 overflow-y-auto p-2">
-        {#if fileListData}
+        {#if fileTree.length > 0}
           <TreeView.Root class="text-sm">
-            <!-- 普通视频文件 -->
-            {#if fileListData.normal_files?.length > 0}
-              <TreeView.Folder name="普通视频 ({fileListData.normal_files.length})" open={true} class="text-xs">
-                {#snippet icon()}
-                  <Video class="w-4 h-4 text-green-500" />
-                {/snippet}
-                {#snippet children()}
-                  {#each Object.entries(groupFilesByDir(fileListData.normal_files)) as [dir, files]}
-                    <TreeView.Folder name="{getDirName(dir) || '根目录'} ({files.length})" open={false} class="text-xs">
-                      {#snippet icon()}
-                        <Folder class="w-3 h-3 text-yellow-500" />
-                      {/snippet}
-                      {#snippet children()}
-                        {#each files.slice(0, 100) as file}
-                          <button 
-                            class="flex items-center gap-2 py-1 px-1 w-full text-left hover:bg-muted/50 rounded transition-colors {selectedFile === file ? 'bg-primary/10' : ''}"
-                            onclick={() => selectedFile = file}
-                          >
-                            <div class="w-12 h-8 rounded bg-muted/50 overflow-hidden shrink-0 flex items-center justify-center">
-                              <img 
-                                src={getThumbnailUrl(file)} 
-                                alt="" 
-                                class="w-full h-full object-cover" 
-                                loading="lazy"
-                                onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                              />
-                              <Video class="w-4 h-4 text-muted-foreground absolute" />
-                            </div>
-                            <span class="truncate flex-1 text-xs" title={file}>{getFileName(file)}</span>
-                          </button>
-                        {/each}
-                        {#if files.length > 100}
-                          <div class="text-xs text-muted-foreground italic pl-4">...还有 {files.length - 100} 个文件</div>
-                        {/if}
-                      {/snippet}
-                    </TreeView.Folder>
-                  {/each}
-                {/snippet}
-              </TreeView.Folder>
-            {/if}
-            
-            <!-- .nov 文件 -->
-            {#if fileListData.nov_files?.length > 0}
-              <TreeView.Folder name=".nov 文件 ({fileListData.nov_files.length})" open={true} class="text-xs">
-                {#snippet icon()}
-                  <Video class="w-4 h-4 text-yellow-500" />
-                {/snippet}
-                {#snippet children()}
-                  {#each Object.entries(groupFilesByDir(fileListData.nov_files)) as [dir, files]}
-                    <TreeView.Folder name="{getDirName(dir) || '根目录'} ({files.length})" open={false} class="text-xs">
-                      {#snippet icon()}
-                        <Folder class="w-3 h-3 text-yellow-500" />
-                      {/snippet}
-                      {#snippet children()}
-                        {#each files.slice(0, 100) as file}
-                          <button 
-                            class="flex items-center gap-2 py-1 px-1 w-full text-left hover:bg-muted/50 rounded transition-colors {selectedFile === file ? 'bg-primary/10' : ''}"
-                            onclick={() => selectedFile = file}
-                          >
-                            <div class="w-12 h-8 rounded bg-muted/50 overflow-hidden shrink-0 flex items-center justify-center">
-                              <Video class="w-4 h-4 text-muted-foreground" />
-                            </div>
-                            <span class="truncate flex-1 text-xs" title={file}>{getFileName(file)}</span>
-                          </button>
-                        {/each}
-                        {#if files.length > 100}
-                          <div class="text-xs text-muted-foreground italic pl-4">...还有 {files.length - 100} 个文件</div>
-                        {/if}
-                      {/snippet}
-                    </TreeView.Folder>
-                  {/each}
-                {/snippet}
-              </TreeView.Folder>
-            {/if}
-            
-            <!-- 前缀文件 -->
-            {#each Object.entries(fileListData.prefixed_files ?? {}) as [prefix, files]}
-              {#if files?.length > 0}
-                <TreeView.Folder name="[{prefix}] 文件 ({files.length})" open={false} class="text-xs">
-                  {#snippet icon()}
-                    <Video class="w-4 h-4 text-blue-500" />
-                  {/snippet}
-                  {#snippet children()}
-                    {#each Object.entries(groupFilesByDir(files)) as [dir, dirFiles]}
-                      <TreeView.Folder name="{getDirName(dir) || '根目录'} ({dirFiles.length})" open={false} class="text-xs">
-                        {#snippet icon()}
-                          <Folder class="w-3 h-3 text-yellow-500" />
-                        {/snippet}
-                        {#snippet children()}
-                          {#each dirFiles.slice(0, 100) as file}
-                            <button 
-                              class="flex items-center gap-2 py-1 px-1 w-full text-left hover:bg-muted/50 rounded transition-colors {selectedFile === file ? 'bg-primary/10' : ''}"
-                              onclick={() => selectedFile = file}
-                            >
-                              <div class="w-12 h-8 rounded bg-muted/50 overflow-hidden shrink-0 flex items-center justify-center">
-                                <img 
-                                  src={getThumbnailUrl(file)} 
-                                  alt="" 
-                                  class="w-full h-full object-cover" 
-                                  loading="lazy"
-                                  onerror={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                                <Video class="w-4 h-4 text-muted-foreground absolute" />
-                              </div>
-                              <span class="truncate flex-1 text-xs" title={file}>{getFileName(file)}</span>
-                            </button>
-                          {/each}
-                          {#if dirFiles.length > 100}
-                            <div class="text-xs text-muted-foreground italic pl-4">...还有 {dirFiles.length - 100} 个文件</div>
-                          {/if}
-                        {/snippet}
-                      </TreeView.Folder>
-                    {/each}
-                  {/snippet}
-                </TreeView.Folder>
-              {/if}
+            {#each fileTree as node}
+              {@render renderTreeNode(node)}
             {/each}
           </TreeView.Root>
-          
-          {#if !fileListData.normal_files?.length && !fileListData.nov_files?.length && !Object.values(fileListData.prefixed_files ?? {}).some(f => f?.length > 0)}
-            <div class="text-center text-muted-foreground py-8">没有找到视频文件</div>
-          {/if}
+        {:else if fileListData}
+          <div class="text-center text-muted-foreground py-8">没有找到视频文件</div>
         {:else}
-          <div class="text-center text-muted-foreground py-8">扫描后显示文件列表</div>
+          <div class="text-center text-muted-foreground py-8">扫描后显示文件树</div>
         {/if}
       </div>
     </div>
@@ -664,24 +631,26 @@
     <!-- 紧凑模式 -->
     <div class="flex items-center justify-between mb-2">
       <span class="{c.text} font-semibold flex items-center gap-1">
-        <Folder class="w-3 h-3 text-yellow-500" />文件
+        <Folder class="w-3 h-3 text-yellow-500" />文件树
       </span>
       <div class="flex items-center gap-2 {c.textSm}">
-        <span class="flex items-center gap-0.5 text-green-600">{fileListData?.normal_files?.length ?? 0}</span>
-        <span class="flex items-center gap-0.5 text-yellow-600">{fileListData?.nov_files?.length ?? 0}</span>
+        <span class="flex items-center gap-0.5 text-green-600">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+          {fileListData?.normal_files?.length ?? 0}
+        </span>
+        <span class="flex items-center gap-0.5 text-yellow-600">
+          <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>
+          {fileListData?.nov_files?.length ?? 0}
+        </span>
       </div>
     </div>
     <div class="{c.maxHeight} overflow-y-auto">
-      {#if fileListData}
-        {#each (fileListData.normal_files ?? []).slice(0, 5) as file}
-          <div class="flex items-center gap-1 py-0.5 {c.text}">
-            <Video class="w-3 h-3 text-green-500 shrink-0" />
-            <span class="truncate" title={file}>{getFileName(file)}</span>
-          </div>
-        {/each}
-        {#if (fileListData.normal_files?.length ?? 0) > 5}
-          <div class="{c.text} text-muted-foreground">...还有 {(fileListData.normal_files?.length ?? 0) - 5} 个</div>
-        {/if}
+      {#if fileTree.length > 0}
+        <TreeView.Root class="text-xs">
+          {#each fileTree as node}
+            {@render renderTreeNode(node)}
+          {/each}
+        </TreeView.Root>
       {:else}
         <div class="{c.text} text-muted-foreground text-center py-3">扫描后显示</div>
       {/if}
