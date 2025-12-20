@@ -58,7 +58,7 @@
 
   // 状态初始化
   let sourcePath = $state(data?.config?.path ?? '');
-  let targetPath = $state(data?.config?.target_path ?? '');
+  let targetPath = $state(data?.config?.target_path ?? 'E:\\1Hub\\EH\\2EHV');
   let mode = $state<'preserve' | 'flat' | 'direct'>(data?.config?.mode as any ?? 'preserve');
   let action = $state<'copy' | 'move'>(data?.config?.action as any ?? 'move');
   
