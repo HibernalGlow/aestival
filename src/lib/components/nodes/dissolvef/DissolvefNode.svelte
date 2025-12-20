@@ -2,12 +2,14 @@
   /**
    * DissolvefNode - 文件夹解散节点组件
    * 支持解散嵌套文件夹、单媒体文件夹、单压缩包文件夹、直接解散
+   * 支持相似度限制和撤销功能
    */
   import { Handle, Position, NodeResizer } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { Progress } from '$lib/components/ui/progress';
   import { Input } from '$lib/components/ui/input';
+  import { Slider } from '$lib/components/ui/slider';
   import * as Select from '$lib/components/ui/select';
 
   import { NodeLayoutRenderer } from '$lib/components/blocks';
@@ -18,7 +20,7 @@
   import NodeWrapper from '../NodeWrapper.svelte';
   import { 
     Play, LoaderCircle, Clipboard, FolderOpen, FolderInput,
-    CircleCheck, CircleX, Copy, Check, RotateCcw
+    CircleCheck, CircleX, Copy, Check, RotateCcw, Undo2
   } from '@lucide/svelte';
 
   interface Props {
@@ -48,6 +50,15 @@
 
   type Phase = 'idle' | 'running' | 'completed' | 'error';
 
+  interface OperationRecord {
+    id: string;
+    timestamp: string;
+    mode: string;
+    path: string;
+    count: number;
+    canUndo: boolean;
+  }
+
   interface DissolvefState {
     phase: Phase;
     progress: number;
@@ -61,7 +72,11 @@
     excludeKeywords: string;
     fileConflict: string;
     dirConflict: string;
+    enableSimilarity: boolean;
+    similarityThreshold: number;
     result: DissolveResult | null;
+    operationHistory: OperationRecord[];
+    lastOperationId: string;
   }
 
   interface DissolveResult {
@@ -71,6 +86,7 @@
     archive_count: number;
     direct_files: number;
     direct_dirs: number;
+    skipped_count: number;
   }
 
   const nodeId = $derived(id);
@@ -88,6 +104,8 @@
   let excludeKeywords = $state('');
   let fileConflict = $state('auto');
   let dirConflict = $state('auto');
+  let enableSimilarity = $state(true);
+  let similarityThreshold = $state([0.6]);
   let phase = $state<Phase>('idle');
   let logs = $state<string[]>([]);
   let hasInputConnection = $state(false);
@@ -96,6 +114,8 @@
   let progressText = $state('');
   let result = $state<DissolveResult | null>(null);
   let layoutRenderer = $state<any>(undefined);
+  let operationHistory = $state<OperationRecord[]>([]);
+  let lastOperationId = $state('');
 
   $effect(() => {
     pathText = configPath;
@@ -114,7 +134,11 @@
       excludeKeywords = savedState.excludeKeywords ?? '';
       fileConflict = savedState.fileConflict ?? 'auto';
       dirConflict = savedState.dirConflict ?? 'auto';
+      enableSimilarity = savedState.enableSimilarity ?? true;
+      similarityThreshold = [savedState.similarityThreshold ?? 0.6];
       result = savedState.result ?? null;
+      operationHistory = savedState.operationHistory ?? [];
+      lastOperationId = savedState.lastOperationId ?? '';
     }
   });
 
@@ -122,7 +146,9 @@
     setNodeState<DissolvefState>(nodeId, {
       phase, progress, progressText, pathText,
       nestedMode, mediaMode, archiveMode, directMode, previewMode,
-      excludeKeywords, fileConflict, dirConflict, result
+      excludeKeywords, fileConflict, dirConflict,
+      enableSimilarity, similarityThreshold: similarityThreshold[0],
+      result, operationHistory, lastOperationId
     });
   }
 
@@ -133,7 +159,7 @@
     completed: 'border-primary/50', error: 'border-destructive/50'
   }[phase]);
 
-  $effect(() => { if (phase || result) saveState(); });
+  $effect(() => { if (phase || result || operationHistory) saveState(); });
 
   function log(msg: string) { logs = [...logs.slice(-30), msg]; }
 
@@ -201,7 +227,9 @@
         preview: previewMode,
         exclude: excludeKeywords || undefined,
         file_conflict: fileConflict,
-        dir_conflict: dirConflict
+        dir_conflict: dirConflict,
+        enable_similarity: enableSimilarity,
+        similarity_threshold: similarityThreshold[0]
       }, { taskId, nodeId }) as any;
       
       if (response.success) {
@@ -212,9 +240,25 @@
           media_count: response.data?.media_count ?? 0,
           archive_count: response.data?.archive_count ?? 0,
           direct_files: response.data?.direct_files ?? 0,
-          direct_dirs: response.data?.direct_dirs ?? 0
+          direct_dirs: response.data?.direct_dirs ?? 0,
+          skipped_count: response.data?.skipped_count ?? 0
         };
         log(`✅ ${response.message}`);
+        
+        // 保存操作记录
+        const opId = response.data?.operation_id;
+        if (opId && !previewMode) {
+          lastOperationId = opId;
+          const totalCount = (result.nested_count || 0) + (result.archive_count || 0) + (result.media_count || 0);
+          operationHistory = [{
+            id: opId,
+            timestamp: new Date().toLocaleTimeString(),
+            mode: directMode ? 'direct' : (nestedMode ? 'nested' : (archiveMode ? 'archive' : 'media')),
+            path: pathText.split(/[/\\]/).pop() || pathText,
+            count: totalCount,
+            canUndo: true
+          }, ...operationHistory].slice(0, 10);
+        }
       } else { 
         phase = 'error'; progress = 0; 
         log(`❌ 处理失败: ${response.message}`); 
@@ -224,6 +268,32 @@
       log(`❌ 处理失败: ${error}`); 
     } finally {
       if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+    }
+  }
+
+  async function handleUndo(opId?: string) {
+    const targetId = opId || lastOperationId;
+    if (!targetId) { log('❌ 无可撤销操作'); return; }
+    
+    log('🔄 撤销中...');
+    try {
+      const response = await api.executeNode('dissolvef', {
+        action: 'undo',
+        undo_id: targetId
+      }) as any;
+      
+      if (response.success) {
+        log(`✅ ${response.message}`);
+        operationHistory = operationHistory.map(op => 
+          op.id === targetId ? { ...op, canUndo: false } : op
+        );
+        if (targetId === lastOperationId) lastOperationId = '';
+        phase = 'idle';
+      } else {
+        log(`❌ ${response.message}`);
+      }
+    } catch (e) {
+      log(`❌ 撤销失败: ${e}`);
     }
   }
 
@@ -298,6 +368,24 @@
       <span class="cq-text">预览模式</span>
     </label>
     <Input bind:value={excludeKeywords} placeholder="排除关键词(逗号分隔)" disabled={isRunning} class="cq-text-sm" />
+    
+    <!-- 相似度设置 -->
+    {#if !directMode && (nestedMode || archiveMode)}
+      <div class="flex flex-col cq-gap mt-1 pt-1 border-t border-border/50">
+        <label class="flex items-center cq-gap cursor-pointer">
+          <Checkbox bind:checked={enableSimilarity} disabled={isRunning} />
+          <span class="cq-text">相似度限制</span>
+        </label>
+        {#if enableSimilarity}
+          <div class="flex items-center cq-gap">
+            <Slider type="multiple" bind:value={similarityThreshold} min={0} max={1} step={0.1} disabled={isRunning} class="flex-1" />
+            <span class="cq-text-sm text-muted-foreground w-10 text-right">{Math.round(similarityThreshold[0] * 100)}%</span>
+          </div>
+          <span class="cq-text-sm text-muted-foreground">父文件夹与子项名称相似度需超过此值</span>
+        {/if}
+      </div>
+    {/if}
+    
     {#if directMode}
       <div class="flex flex-col cq-gap mt-1">
         <span class="cq-text-sm text-muted-foreground">文件冲突</span>
@@ -334,6 +422,9 @@
         {#if result.success}
           <CircleCheck class="cq-icon text-green-500 shrink-0" />
           <span class="cq-text text-green-600 font-medium">完成</span>
+          {#if result.skipped_count > 0}
+            <span class="cq-text-sm text-muted-foreground ml-auto">跳过 {result.skipped_count}</span>
+          {/if}
         {:else}
           <CircleX class="cq-icon text-red-500 shrink-0" />
           <span class="cq-text text-red-600 font-medium">失败</span>
@@ -384,6 +475,9 @@
             {#if archiveMode}
               <div class="flex justify-between"><span>单压缩包文件夹</span><span class="text-green-600">{result.archive_count}</span></div>
             {/if}
+            {#if result.skipped_count > 0}
+              <div class="flex justify-between text-muted-foreground"><span>跳过（相似度不足）</span><span>{result.skipped_count}</span></div>
+            {/if}
           {:else}
             <div class="flex justify-between"><span>移动文件</span><span class="text-green-600">{result.direct_files}</span></div>
             <div class="flex justify-between"><span>移动目录</span><span class="text-green-600">{result.direct_dirs}</span></div>
@@ -404,11 +498,38 @@
         {#if copied}<Check class="w-3 h-3 text-green-500" />{:else}<Copy class="w-3 h-3" />{/if}
       </Button>
     </div>
-    <div class="flex-1 overflow-y-auto bg-muted/30 cq-rounded cq-padding font-mono cq-text-sm space-y-0.5">
+    <div class="flex-1 overflow-y-auto bg-muted/30 cq-rounded cq-padding font-mono cq-text-sm space-y-0.5 mb-2" style="max-height: 80px;">
       {#if logs.length > 0}
-        {#each logs.slice(-10) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}
+        {#each logs.slice(-8) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}
       {:else}
         <div class="text-muted-foreground text-center py-2">暂无日志</div>
+      {/if}
+    </div>
+    
+    <!-- 操作历史 -->
+    <div class="flex items-center gap-2 mb-1 shrink-0">
+      <Undo2 class="cq-icon" />
+      <span class="cq-text font-semibold">操作历史</span>
+    </div>
+    <div class="flex-1 overflow-y-auto">
+      {#if operationHistory.length > 0}
+        {#each operationHistory as op}
+          <div class="flex items-center justify-between cq-padding bg-muted/30 cq-rounded mb-1 cq-text-sm">
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="truncate">{op.path}</span>
+              <span class="text-muted-foreground">{op.timestamp} - {op.count}项</span>
+            </div>
+            {#if op.canUndo}
+              <Button variant="ghost" size="sm" class="h-5 px-2 cq-text-sm shrink-0" onclick={() => handleUndo(op.id)}>
+                撤销
+              </Button>
+            {:else}
+              <span class="text-muted-foreground cq-text-sm">已撤销</span>
+            {/if}
+          </div>
+        {/each}
+      {:else}
+        <div class="cq-text-sm text-muted-foreground text-center py-2">暂无记录</div>
       {/if}
     </div>
   </div>

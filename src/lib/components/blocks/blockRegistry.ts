@@ -85,6 +85,7 @@ import { CRASHU_BLOCKS, CRASHU_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes
 import { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/migratefnode/blocks';
 import { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/formatv/blocks';
 import { BANDIA_BLOCKS, BANDIA_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/bandia/blocks';
+import { DISSOLVEF_BLOCKS, DISSOLVEF_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/dissolvef/blocks';
 
 // 重新导出供外部使用
 export { FINDZ_BLOCKS, FINDZ_DEFAULT_GRID_LAYOUT };
@@ -96,6 +97,7 @@ export { CRASHU_BLOCKS, CRASHU_DEFAULT_GRID_LAYOUT };
 export { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT };
 export { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT };
 export { BANDIA_BLOCKS, BANDIA_DEFAULT_GRID_LAYOUT };
+export { DISSOLVEF_BLOCKS, DISSOLVEF_DEFAULT_GRID_LAYOUT };
 
 // ============ 注册表 ============
 export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
