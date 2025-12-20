@@ -12,7 +12,7 @@ export interface BackupExclusionSettings {
 	excludedKeys: string[]; // 手动排除的 localStorage 键名
 	excludedModules: string[]; // 排除的模块名
 	autoExcludeLargeData: boolean; // 自动排除大数据
-	maxLineCount: number; // 超过此行数的数据将被排除
+	maxLineCount: number; // 超过此行数的数据将被排除（JSON 格式化后计算）
 }
 
 export interface BackupSettings {
@@ -212,11 +212,20 @@ class AutoBackupStore {
 	// ==================== 备份功能 ====================
 
 	/**
-	 * 计算字符串的行数
+	 * 计算字符串的行数（如果是 JSON 则先格式化）
 	 */
 	private countLines(str: string): number {
 		if (!str) return 0;
-		return str.split('\n').length;
+		
+		// 尝试解析为 JSON 并格式化，这样才能正确计算行数
+		try {
+			const parsed = JSON.parse(str);
+			const formatted = JSON.stringify(parsed, null, 2);
+			return formatted.split('\n').length;
+		} catch {
+			// 不是 JSON，直接计算原始行数
+			return str.split('\n').length;
+		}
 	}
 
 	/**
