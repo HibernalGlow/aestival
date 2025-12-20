@@ -106,7 +106,7 @@ class DissolvefAdapter(BaseAdapter):
             records = undo_mgr.list_records()
             
             if on_log:
-                on_log(f"📋 找到 {len(records)} 条撤销记录")
+                on_log(f"[LIST] 找到 {len(records)} 条撤销记录")
             
             return DissolvefOutput(
                 success=True,
@@ -136,12 +136,12 @@ class DissolvefAdapter(BaseAdapter):
             undo_id = input_data.undo_id if input_data.undo_id else None
             
             if on_log:
-                on_log(f"🔄 开始撤销操作...")
+                on_log(f"[UNDO] 开始撤销操作...")
             
             success_count, failed_count = undo_mgr.undo(undo_id)
             
             if on_log:
-                on_log(f"✅ 撤销完成: {success_count} 成功, {failed_count} 失败")
+                on_log(f"[OK] 撤销完成: {success_count} 成功, {failed_count} 失败")
             
             return DissolvefOutput(
                 success=True,
@@ -152,7 +152,7 @@ class DissolvefAdapter(BaseAdapter):
             return DissolvefOutput(success=False, message=f"导入 dissolvef 失败: {e}")
         except Exception as e:
             if on_log:
-                on_log(f"❌ 撤销失败: {e}")
+                on_log(f"[ERR] 撤销失败: {e}")
             return DissolvefOutput(success=False, message=f"撤销失败: {e}")
     
     async def _dissolve(
@@ -192,9 +192,9 @@ class DissolvefAdapter(BaseAdapter):
         similarity = input_data.similarity_threshold if input_data.enable_similarity else 0.0
         
         if on_log:
-            on_log(f"📂 {mode_prefix}开始处理: {path}")
+            on_log(f"[DIR] {mode_prefix}开始处理: {path}")
             if input_data.enable_similarity and not input_data.direct:
-                on_log(f"📊 相似度阈值: {input_data.similarity_threshold:.0%}")
+                on_log(f"[SIM] 相似度阈值: {input_data.similarity_threshold:.0%}")
         
         try:
             if input_data.direct:
@@ -202,7 +202,7 @@ class DissolvefAdapter(BaseAdapter):
                 if on_progress:
                     on_progress(10, "直接解散文件夹...")
                 if on_log:
-                    on_log(f"🔄 {mode_prefix}直接解散文件夹...")
+                    on_log(f"[RUN] {mode_prefix}直接解散文件夹...")
                 
                 success, files_count, dirs_count = mod["dissolve_folder"](
                     path,
@@ -216,7 +216,7 @@ class DissolvefAdapter(BaseAdapter):
                 direct_dirs = dirs_count
                 
                 if on_log:
-                    on_log(f"✅ {mode_prefix}移动 {files_count} 个文件, {dirs_count} 个目录")
+                    on_log(f"[OK] {mode_prefix}移动 {files_count} 个文件, {dirs_count} 个目录")
                 
             else:
                 # 其他解散模式
@@ -229,14 +229,14 @@ class DissolvefAdapter(BaseAdapter):
                     if on_progress:
                         on_progress(progress_pct, "解散单媒体文件夹...")
                     if on_log:
-                        on_log(f"🎬 {mode_prefix}解散单媒体文件夹...")
+                        on_log(f"[MEDIA] {mode_prefix}解散单媒体文件夹...")
                     
                     media_count = mod["release_single_media_folder"](
                         path, exclude_keywords, input_data.preview
                     )
                     
                     if on_log:
-                        on_log(f"✅ {mode_prefix}处理 {media_count} 个单媒体文件夹")
+                        on_log(f"[OK] {mode_prefix}处理 {media_count} 个单媒体文件夹")
                 
                 if input_data.nested:
                     current_step += 1
@@ -244,7 +244,7 @@ class DissolvefAdapter(BaseAdapter):
                     if on_progress:
                         on_progress(progress_pct, "解散嵌套文件夹...")
                     if on_log:
-                        on_log(f"📁 {mode_prefix}解散嵌套文件夹...")
+                        on_log(f"[NESTED] {mode_prefix}解散嵌套文件夹...")
                     
                     # 调用带相似度检测的函数
                     result = mod["flatten_single_subfolder"](
@@ -261,7 +261,7 @@ class DissolvefAdapter(BaseAdapter):
                         nested_count = result
                     
                     if on_log:
-                        msg = f"✅ {mode_prefix}处理 {nested_count} 个嵌套文件夹"
+                        msg = f"[OK] {mode_prefix}处理 {nested_count} 个嵌套文件夹"
                         if isinstance(result, tuple) and result[1] > 0:
                             msg += f"，跳过 {result[1]} 个（相似度不足）"
                         on_log(msg)
@@ -272,7 +272,7 @@ class DissolvefAdapter(BaseAdapter):
                     if on_progress:
                         on_progress(progress_pct, "解散单压缩包文件夹...")
                     if on_log:
-                        on_log(f"📦 {mode_prefix}解散单压缩包文件夹...")
+                        on_log(f"[ARCHIVE] {mode_prefix}解散单压缩包文件夹...")
                     
                     # 调用带相似度检测的函数
                     result = mod["release_single_archive_folder"](
@@ -289,7 +289,7 @@ class DissolvefAdapter(BaseAdapter):
                         archive_count = result
                     
                     if on_log:
-                        msg = f"✅ {mode_prefix}处理 {archive_count} 个单压缩包文件夹"
+                        msg = f"[OK] {mode_prefix}处理 {archive_count} 个单压缩包文件夹"
                         if isinstance(result, tuple) and result[1] > 0:
                             msg += f"，跳过 {result[1]} 个（相似度不足）"
                         on_log(msg)
@@ -306,7 +306,7 @@ class DissolvefAdapter(BaseAdapter):
                     if records:
                         operation_id = records[0].id
                         if on_log:
-                            on_log(f"🔄 撤销 ID: {operation_id}")
+                            on_log(f"[UNDO] 撤销 ID: {operation_id}")
                 except:
                     pass
             
@@ -326,7 +326,7 @@ class DissolvefAdapter(BaseAdapter):
                     message += f"，跳过 {skipped_count}"
             
             if on_log:
-                on_log(f"📊 {message}")
+                on_log(f"[DONE] {message}")
             
             return DissolvefOutput(
                 success=True,
@@ -351,5 +351,5 @@ class DissolvefAdapter(BaseAdapter):
             
         except Exception as e:
             if on_log:
-                on_log(f"❌ 处理失败: {e}")
+                on_log(f"[ERR] 处理失败: {e}")
             return DissolvefOutput(success=False, message=f"处理失败: {e}")
