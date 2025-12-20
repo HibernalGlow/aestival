@@ -16,7 +16,7 @@
   import { CRASHU_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
-  import NodeWrapper from './NodeWrapper.svelte';
+  import NodeWrapper from '../NodeWrapper.svelte';
   import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
   import { 
     Play, LoaderCircle, FolderOpen, Clipboard, Zap,

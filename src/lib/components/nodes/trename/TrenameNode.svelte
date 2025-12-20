@@ -14,7 +14,7 @@
   import { TRENAME_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
-  import NodeWrapper from './NodeWrapper.svelte';
+  import NodeWrapper from '../NodeWrapper.svelte';
   import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
   import { 
     LoaderCircle, FolderOpen, Clipboard, FilePenLine, Search, Undo2,
@@ -25,7 +25,7 @@
     type TreeNode, type TrenameState, type Phase, type OperationRecord,
     isDir, getNodeStatus, parseTree, getPhaseBorderClass,
     DEFAULT_STATS, DEFAULT_EXCLUDE_EXTS, generateDownloadFilename
-  } from './trename-utils';
+  } from './utils';
 
   interface Props {
     id: string;

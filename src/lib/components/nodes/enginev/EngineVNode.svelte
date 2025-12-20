@@ -14,7 +14,7 @@
   import { ENGINEV_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
-  import NodeWrapper from './NodeWrapper.svelte';
+  import NodeWrapper from '../NodeWrapper.svelte';
   import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
   import { 
     LoaderCircle, FolderOpen, Clipboard, Download,
@@ -25,7 +25,7 @@
     type WallpaperItem, type FilterOptions, type EngineVStats, type RenameConfig, type Phase, type EngineVState,
     getPhaseBorderClass, getRatingInfo, formatSize, calculateStats, filterWallpapers, getPreviewUrl,
     DEFAULT_STATS, DEFAULT_FILTERS, DEFAULT_RENAME_CONFIG
-  } from './enginev-utils';
+  } from './utils';
   import { getApiV1Url } from '$lib/stores/backend';
   
   interface Props {

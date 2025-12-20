@@ -15,10 +15,10 @@
   import { REPACKU_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
-  import NodeWrapper from './NodeWrapper.svelte';
+  import NodeWrapper from '../NodeWrapper.svelte';
   import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
   import type { FolderNode, CompressionStats } from '$lib/types/repacku';
-  import { getModeColorClass, getModeName, countCompressionModes } from './repacku-utils';
+  import { getModeColorClass, getModeName, countCompressionModes } from './utils';
   import { 
     Play, LoaderCircle, FolderOpen, Clipboard, Package,
     CircleCheck, CircleX, FileArchive, Search, FolderTree,

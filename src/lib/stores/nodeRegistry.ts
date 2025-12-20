@@ -12,12 +12,12 @@ export type { NodeDefinition } from '$lib/types';
 // 导入所有节点组件
 import InputNode from '$lib/components/nodes/InputNode.svelte';
 import OutputNode from '$lib/components/nodes/OutputNode.svelte';
-import RepackuNode from '$lib/components/nodes/RepackuNode.svelte';
-import RawfilterNode from '$lib/components/nodes/RawfilterNode.svelte';
-import CrashuNode from '$lib/components/nodes/CrashuNode.svelte';
 import TerminalNode from '$lib/components/nodes/TerminalNode.svelte';
-import TrenameNode from '$lib/components/nodes/TrenameNode.svelte';
-import EngineVNode from '$lib/components/nodes/EngineVNode.svelte';
+import { RepackuNode } from '$lib/components/nodes/repacku';
+import { RawfilterNode } from '$lib/components/nodes/rawfilter';
+import { CrashuNode } from '$lib/components/nodes/crashu';
+import { TrenameNode } from '$lib/components/nodes/trename';
+import { EngineVNode } from '$lib/components/nodes/enginev';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
