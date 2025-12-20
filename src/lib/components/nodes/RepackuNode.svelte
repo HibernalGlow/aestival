@@ -342,7 +342,6 @@
         <InteractiveHover text="开始压缩" class="w-full h-12 text-sm" onclick={handleCompress} disabled={!canCompress}>
           {#snippet icon()}<FileArchive class="h-4 w-4" />{/snippet}
         </InteractiveHover>
-        <Button variant="outline" class="h-9" onclick={handleReset}>重置</Button>
       {:else if phase === 'compressing'}
         <InteractiveHover text="压缩中" class="w-full h-12 text-sm" disabled>
           {#snippet icon()}<LoaderCircle class="h-4 w-4 animate-spin" />{/snippet}
@@ -352,30 +351,39 @@
           {#snippet icon()}<Play class="h-4 w-4" />{/snippet}
         </InteractiveHover>
       {/if}
+      <!-- 重置按钮常驻 -->
+      <Button variant="ghost" class="h-9" onclick={handleReset} disabled={isRunning}>
+        <Trash2 class="h-4 w-4 mr-2" />重置
+      </Button>
     {:else}
-      <!-- 紧凑模式：保持原有按钮 -->
-      {#if phase === 'idle' || phase === 'error'}
-        <Button class="flex-1 {c.button}" onclick={handleAnalyze} disabled={!canAnalyze}>
-          <Search class="{c.icon} mr-1" />扫描
+      <!-- 紧凑模式 -->
+      <div class="flex {c.gapSm}">
+        {#if phase === 'idle' || phase === 'error'}
+          <Button class="flex-1 {c.button}" onclick={handleAnalyze} disabled={!canAnalyze}>
+            <Search class="{c.icon} mr-1" />扫描
+          </Button>
+        {:else if phase === 'analyzing'}
+          <Button class="flex-1 {c.button}" disabled>
+            <LoaderCircle class="{c.icon} mr-1 animate-spin" />分析中
+          </Button>
+        {:else if phase === 'analyzed'}
+          <Button class="flex-1 {c.button}" onclick={handleCompress} disabled={!canCompress}>
+            <FileArchive class="{c.icon} mr-1" />压缩
+          </Button>
+        {:else if phase === 'compressing'}
+          <Button class="flex-1 {c.button}" disabled>
+            <LoaderCircle class="{c.icon} mr-1 animate-spin" />压缩中
+          </Button>
+        {:else if phase === 'completed'}
+          <Button class="flex-1 {c.button}" variant="outline" onclick={handleReset}>
+            <Play class="{c.icon} mr-1" />重新
+          </Button>
+        {/if}
+        <!-- 重置按钮常驻 -->
+        <Button variant="ghost" size="icon" class="{c.buttonIcon}" onclick={handleReset} disabled={isRunning} title="重置">
+          <Trash2 class={c.icon} />
         </Button>
-      {:else if phase === 'analyzing'}
-        <Button class="flex-1 {c.button}" disabled>
-          <LoaderCircle class="{c.icon} mr-1 animate-spin" />分析中
-        </Button>
-      {:else if phase === 'analyzed'}
-        <Button class="flex-1 {c.button}" onclick={handleCompress} disabled={!canCompress}>
-          <FileArchive class="{c.icon} mr-1" />压缩
-        </Button>
-        <Button variant="outline" class="{c.buttonSm}" onclick={handleReset}>重置</Button>
-      {:else if phase === 'compressing'}
-        <Button class="flex-1 {c.button}" disabled>
-          <LoaderCircle class="{c.icon} mr-1 animate-spin" />压缩中
-        </Button>
-      {:else if phase === 'completed'}
-        <Button class="flex-1 {c.button}" variant="outline" onclick={handleReset}>
-          <Play class="{c.icon} mr-1" />重新开始
-        </Button>
-      {/if}
+      </div>
     {/if}
   </div>
 {/snippet}
