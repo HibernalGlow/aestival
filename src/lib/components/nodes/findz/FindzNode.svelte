@@ -239,6 +239,24 @@
       analysisSortOrder = 'desc';
     }
   }
+
+  /** 获取分组内的所有文件 */
+  function getFilesInGroup(groupKey: string): FileData[] {
+    return files.filter(f => getGroupKey(f, analysisGroupBy) === groupKey);
+  }
+
+  /** 复制分组内文件路径 */
+  let copiedGroupKey = $state<string | null>(null);
+  async function copyGroupPaths(groupKey: string) {
+    try {
+      const groupFiles = getFilesInGroup(groupKey);
+      const paths = groupFiles.map(f => f.container ? `${f.container}//${f.path}` : f.path).join('\n');
+      await navigator.clipboard.writeText(paths);
+      copiedGroupKey = groupKey;
+      setTimeout(() => { copiedGroupKey = null; }, 2000);
+    } catch (e) { console.error('复制失败:', e); }
+  }
+
   let layoutRenderer = $state<any>(undefined);
   let selectedFile = $state<string | null>(null);
   let advancedMode = $state(false);
@@ -920,14 +938,28 @@
         {#if analysisData.length > 0}
           <div class="space-y-2">
             {#each analysisData as group}
-              <div class="p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
+              <div class="group/item p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
                 <div class="flex items-start justify-between gap-2 mb-1">
                   <span class="text-sm font-medium truncate flex-1" title={group.key}>
                     {group.name}
                   </span>
-                  <span class="text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-600 rounded shrink-0">
-                    平均 {group.avgSizeFormatted}
-                  </span>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <!-- 复制路径按钮 -->
+                    <button
+                      class="p-1 rounded opacity-0 group-hover/item:opacity-100 hover:bg-muted transition-all"
+                      onclick={() => copyGroupPaths(group.key)}
+                      title="复制该分组所有文件路径"
+                    >
+                      {#if copiedGroupKey === group.key}
+                        <Check class="w-3 h-3 text-green-500" />
+                      {:else}
+                        <Copy class="w-3 h-3" />
+                      {/if}
+                    </button>
+                    <span class="text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-600 rounded">
+                      平均 {group.avgSizeFormatted}
+                    </span>
+                  </div>
                 </div>
                 <div class="flex items-center gap-3 text-xs text-muted-foreground">
                   <span>{group.fileCount} 文件</span>
