@@ -17,12 +17,27 @@
   // 自动隐藏标题栏引用
   let autoHideTitleBar: AutoHideTitleBar;
   
-  // 获取全屏节点的信息
-  let fullscreenNode = $derived(
-    $fullscreenNodeStore.isOpen && $fullscreenNodeStore.nodeId
-      ? $flowStore.nodes.find(n => n.id === $fullscreenNodeStore.nodeId)
-      : null
-  );
+  // 获取全屏节点的信息（支持两种模式：通过 nodeId 或 nodeType）
+  let fullscreenNode = $derived(() => {
+    if (!$fullscreenNodeStore.isOpen) return null;
+    
+    // 模式1：通过 nodeId 打开已存在的节点
+    if ($fullscreenNodeStore.nodeId) {
+      return $flowStore.nodes.find(n => n.id === $fullscreenNodeStore.nodeId) || null;
+    }
+    
+    // 模式2：通过 nodeType 直接打开（面板预览）
+    if ($fullscreenNodeStore.nodeType) {
+      return {
+        id: `preview-${$fullscreenNodeStore.nodeType}`,
+        type: $fullscreenNodeStore.nodeType,
+        data: { label: $fullscreenNodeStore.nodeType, status: 'idle' as const },
+        position: { x: 0, y: 0 }
+      };
+    }
+    
+    return null;
+  });
   
   // 获取节点类型组件
   const nodeTypes = getNodeTypes();
@@ -102,29 +117,32 @@
 </div>
 
 <!-- 全屏节点容器（在 xyflow 外部渲染） -->
-{#if fullscreenNode && fullscreenNode.type && nodeTypes[fullscreenNode.type]}
-  {@const FullscreenComponent = nodeTypes[fullscreenNode.type]}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div 
-    class="fixed inset-0 z-[100]"
-    onclick={() => fullscreenNodeStore.close()}
-  >
-    <!-- 全屏背景图 -->
-    {#if $themeStore.backgroundImage}
-      <div 
-        class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style="background-image: url({$themeStore.backgroundImage}); opacity: {$themeStore.backgroundOpacity / 100};"
-      ></div>
-    {/if}
-    <!-- 半透明遮罩 -->
-    <div class="absolute inset-0 bg-background/40 backdrop-blur-sm"></div>
-  </div>
-  <div class="fixed inset-4 z-[101] flex flex-col">
-    <FullscreenComponent 
-      id={fullscreenNode.id} 
-      data={fullscreenNode.data}
-      isFullscreenRender={true}
-    />
-  </div>
+{#if fullscreenNode()}
+  {@const fsNode = fullscreenNode()}
+  {#if fsNode && fsNode.type && nodeTypes[fsNode.type]}
+    {@const FullscreenComponent = nodeTypes[fsNode.type]}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div 
+      class="fixed inset-0 z-[100]"
+      onclick={() => fullscreenNodeStore.close()}
+    >
+      <!-- 全屏背景图 -->
+      {#if $themeStore.backgroundImage}
+        <div 
+          class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style="background-image: url({$themeStore.backgroundImage}); opacity: {$themeStore.backgroundOpacity / 100};"
+        ></div>
+      {/if}
+      <!-- 半透明遮罩 -->
+      <div class="absolute inset-0 bg-background/40 backdrop-blur-sm"></div>
+    </div>
+    <div class="fixed inset-4 z-[101] flex flex-col">
+      <FullscreenComponent 
+        id={fsNode.id} 
+        data={fsNode.data}
+        isFullscreenRender={true}
+      />
+    </div>
+  {/if}
 {/if}

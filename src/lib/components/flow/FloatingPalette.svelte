@@ -204,7 +204,7 @@
   }
 
   function openFullscreen(type: string) {
-    fullscreenNodeStore.open(type);
+    fullscreenNodeStore.openByType(type);
   }
 
   function onDragStart(event: DragEvent, type: string, label: string) {

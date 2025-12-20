@@ -2,19 +2,22 @@
  * 全屏节点状态管理
  * 用于控制节点的全屏显示
  * 
- * 新方案：记录全屏的 nodeId，让 NodeWrapper 自动处理全屏样式
- * 节点组件完全不需要知道全屏的存在
+ * 支持两种模式：
+ * 1. 通过 nodeId 打开已存在的节点
+ * 2. 通过 nodeType 直接打开（用于面板预览）
  */
 import { writable, get } from 'svelte/store';
 
 export interface FullscreenNodeState {
   isOpen: boolean;
   nodeId: string | null;
+  nodeType: string | null;  // 新增：支持直接用类型打开
 }
 
 const initialState: FullscreenNodeState = {
   isOpen: false,
-  nodeId: null
+  nodeId: null,
+  nodeType: null
 };
 
 function createFullscreenNodeStore() {
@@ -23,11 +26,21 @@ function createFullscreenNodeStore() {
   return {
     subscribe,
     
-    /** 打开全屏节点 - 只需要 nodeId */
+    /** 打开全屏节点 - 通过 nodeId（已存在的节点） */
     open(nodeId: string) {
       set({
         isOpen: true,
-        nodeId
+        nodeId,
+        nodeType: null
+      });
+    },
+    
+    /** 打开全屏节点 - 通过类型（面板预览，无需先添加节点） */
+    openByType(nodeType: string) {
+      set({
+        isOpen: true,
+        nodeId: null,
+        nodeType
       });
     },
     
