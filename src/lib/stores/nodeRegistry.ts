@@ -18,6 +18,7 @@ import { RawfilterNode } from '$lib/components/nodes/rawfilter';
 import { CrashuNode } from '$lib/components/nodes/crashu';
 import { TrenameNode } from '$lib/components/nodes/trename';
 import { EngineVNode } from '$lib/components/nodes/enginev';
+import { MigrateFNode } from '$lib/components/nodes/migratefnode';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -139,6 +140,23 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
     configSchema: {
       path: { type: 'path', label: '工坊路径', required: true },
       template: { type: 'string', label: '命名模板', default: '[#{id}]{original_name}+{title}' },
+      dry_run: { type: 'boolean', label: '模拟执行', default: true }
+    }
+  },
+  {
+    type: 'migratefnode',
+    category: 'tool',
+    label: 'migratefnode',
+    description: '文件迁移：扫描并迁移文件到目标目录，支持模式匹配',
+    icon: 'FolderInput',
+    inputs: ['path'],
+    outputs: ['path'],
+    component: MigrateFNode,
+    configSchema: {
+      path: { type: 'path', label: '源路径', required: true },
+      target_path: { type: 'path', label: '目标路径', required: true },
+      pattern: { type: 'string', label: '匹配模式', default: '*' },
+      recursive: { type: 'boolean', label: '递归扫描', default: true },
       dry_run: { type: 'boolean', label: '模拟执行', default: true }
     }
   },
