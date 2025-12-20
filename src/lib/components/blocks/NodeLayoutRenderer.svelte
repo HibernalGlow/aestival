@@ -29,7 +29,7 @@
     type NodeConfig,
     type LayoutMode,
   } from "$lib/stores/nodeLayoutStore";
-  import { getSizeMode, type SizeMode } from "$lib/utils/sizeUtils";
+  // 已迁移到 Container Query CSS，不再需要 SizeMode
   import { onMount, tick } from "svelte";
 
   interface Props {
@@ -38,7 +38,7 @@
     isFullscreen: boolean;
     defaultFullscreenLayout?: GridItem[];
     defaultNormalLayout?: GridItem[];
-    renderBlock: Snippet<[blockId: string, size: SizeMode]>;
+    renderBlock: Snippet<[blockId: string]>;
     onConfigChange?: (config: NodeConfig) => void;
   }
 
@@ -53,7 +53,6 @@
   }: Props = $props();
 
   let mode = $derived(isFullscreen ? "fullscreen" : "normal") as "fullscreen" | "normal";
-  let sizeMode = $derived(getSizeMode(isFullscreen));
 
   function generateNormalLayout(): GridItem[] {
     const layout = getNodeBlockLayout(nodeType);
@@ -392,7 +391,7 @@
               onReorder={(newOrder) => handleReorderTabGroup(tabGroup.id, newOrder)}
             >
               {#snippet renderContent(blockId: string)}
-                {@render renderBlock(blockId, sizeMode)}
+                {@render renderBlock(blockId)}
               {/snippet}
             </TabGroupCard>
           {:else if !isHiddenByTab}
@@ -409,7 +408,7 @@
                 hideHeader={blockDef.hideHeader}
               >
                 {#snippet children()}
-                  {@render renderBlock(gridItem.id, sizeMode)}
+                  {@render renderBlock(gridItem.id)}
                 {/snippet}
               </BlockCard>
             {/if}
@@ -441,7 +440,7 @@
               onReorder={(newOrder) => handleReorderTabGroup(tabGroup.id, newOrder)}
             >
               {#snippet renderContent(blockId: string)}
-                {@render renderBlock(blockId, sizeMode)}
+                {@render renderBlock(blockId)}
               {/snippet}
             </TabGroupCard>
           </div>
@@ -458,7 +457,7 @@
               class={colSpan === 2 ? "col-span-2" : ""}
             >
               {#snippet children()}
-                {@render renderBlock(gridItem.id, sizeMode)}
+                {@render renderBlock(gridItem.id)}
               {/snippet}
             </BlockCard>
           {/if}
@@ -482,7 +481,7 @@
             onReorder={(newOrder) => handleReorderTabGroup(tabGroup.id, newOrder)}
           >
             {#snippet renderContent(blockId: string)}
-              {@render renderBlock(blockId, sizeMode)}
+              {@render renderBlock(blockId)}
             {/snippet}
           </TabGroupCard>
         </div>
@@ -500,7 +499,7 @@
               fullHeight={true}
             >
               {#snippet children()}
-                {@render renderBlock(lastItem.id, sizeMode)}
+                {@render renderBlock(lastItem.id)}
               {/snippet}
             </BlockCard>
           </div>
