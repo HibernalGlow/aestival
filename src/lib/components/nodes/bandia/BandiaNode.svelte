@@ -77,24 +77,39 @@
   // 当前正在处理的文件索引（用于实时显示）
   let currentFileIndex = $state(-1);
 
+  // 初始化标记
+  let initialized = $state(false);
+  
+  // 初始化 effect - 只执行一次
   $effect(() => {
-    pathsText = configPaths.join('\n');
-    deleteAfter = configDeleteAfter;
-    useTrash = configUseTrash;
-    logs = [...dataLogs];
-    hasInputConnection = dataHasInputConnection;
+    if (initialized) return;
+    
     if (savedState) {
       phase = savedState.phase ?? 'idle';
       progress = savedState.progress ?? 0;
       progressText = savedState.progressText ?? '';
       archivePaths = savedState.archivePaths ?? [];
-      deleteAfter = savedState.deleteAfter ?? true;
-      useTrash = savedState.useTrash ?? true;
+      deleteAfter = savedState.deleteAfter ?? configDeleteAfter;
+      useTrash = savedState.useTrash ?? configUseTrash;
       extractResult = savedState.extractResult ?? null;
+      pathsText = savedState.archivePaths?.join('\n') || configPaths.join('\n');
+    } else {
+      pathsText = configPaths.join('\n');
+      deleteAfter = configDeleteAfter;
+      useTrash = configUseTrash;
     }
+    
+    initialized = true;
+  });
+  
+  // 持续同步外部数据
+  $effect(() => {
+    logs = [...dataLogs];
+    hasInputConnection = dataHasInputConnection;
   });
 
   function saveState() {
+    if (!initialized) return;
     setNodeState<BandiaState>(nodeId, {
       phase, progress, progressText, archivePaths, deleteAfter, useTrash, extractResult
     });

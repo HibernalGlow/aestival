@@ -42,7 +42,7 @@
 
   interface DuplicateGroup { hash: string; files: string[]; size: number; }
   interface CrashuResult { totalScanned: number; duplicateGroups: number; duplicateFiles: number; savedSpace: number; groups: DuplicateGroup[]; }
-  interface CrashuState { phase: Phase; progress: number; progressText: string; crashuResult: CrashuResult | null; similarityThreshold: number; autoMove: boolean; expandedGroups: string[]; }
+  interface CrashuState { phase: Phase; progress: number; progressText: string; crashuResult: CrashuResult | null; similarityThreshold: number; autoMove: boolean; expandedGroups: string[]; path: string; }
 
   // 使用 $derived 确保响应式
   const nodeId = $derived(id);
@@ -67,13 +67,12 @@
 
   let layoutRenderer = $state<any>(undefined);
 
-  // 初始化状态
+  // 初始化标记
+  let initialized = $state(false);
+  
+  // 初始化 effect - 只执行一次
   $effect(() => {
-    path = configPath;
-    similarityThreshold = savedState?.similarityThreshold ?? configSimilarityThreshold;
-    autoMove = savedState?.autoMove ?? configAutoMove;
-    logs = [...dataLogs];
-    hasInputConnection = dataHasInputConnection;
+    if (initialized) return;
     
     if (savedState) {
       phase = savedState.phase ?? 'idle';
@@ -81,10 +80,28 @@
       progressText = savedState.progressText ?? '';
       crashuResult = savedState.crashuResult ?? null;
       expandedGroups = new Set(savedState.expandedGroups ?? []);
+      similarityThreshold = savedState.similarityThreshold ?? configSimilarityThreshold;
+      autoMove = savedState.autoMove ?? configAutoMove;
+      path = savedState.path || configPath || '';
+    } else {
+      path = configPath || '';
+      similarityThreshold = configSimilarityThreshold;
+      autoMove = configAutoMove;
     }
+    
+    initialized = true;
+  });
+  
+  // 持续同步外部数据
+  $effect(() => {
+    logs = [...dataLogs];
+    hasInputConnection = dataHasInputConnection;
   });
 
-  function saveState() { setNodeState<CrashuState>(nodeId, { phase, progress, progressText, crashuResult, similarityThreshold, autoMove, expandedGroups: Array.from(expandedGroups) }); }
+  function saveState() { 
+    if (!initialized) return;
+    setNodeState<CrashuState>(nodeId, { phase, progress, progressText, crashuResult, similarityThreshold, autoMove, expandedGroups: Array.from(expandedGroups), path }); 
+  }
 
   let canExecute = $derived(phase === 'idle' && (path.trim() !== '' || hasInputConnection));
   let isRunning = $derived(phase === 'scanning');
