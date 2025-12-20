@@ -1,32 +1,31 @@
 <script lang="ts">
   /**
    * MigrateFNode - 文件迁移节点组件
-   * 扫描并迁移文件到目标目录
+   * 保持目录结构迁移文件和文件夹
    */
   import { Handle, Position, NodeResizer } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { Input } from '$lib/components/ui/input';
   import { Progress } from '$lib/components/ui/progress';
-  import { Badge } from '$lib/components/ui/badge';
 
   import { InteractiveHover } from '$lib/components/ui/interactive-hover';
   import { NodeLayoutRenderer } from '$lib/components/blocks';
+  import { MIGRATEF_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
   import NodeWrapper from '../NodeWrapper.svelte';
   import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
-  import { formatFileSize, getStatusColorClass, getStatusName } from './utils';
   import { 
     Play, LoaderCircle, FolderOpen, Clipboard, FolderInput,
-    CircleCheck, CircleX, Search, FileText, ArrowRight,
-    Copy, Check, RotateCcw, FolderOutput
+    CircleCheck, CircleX, ArrowRight, FolderOutput,
+    Copy, Check, RotateCcw
   } from '@lucide/svelte';
 
   interface Props {
     id: string;
     data?: {
-      config?: { path?: string; target_path?: string; pattern?: string; recursive?: boolean; dry_run?: boolean };
+      config?: { path?: string; target_path?: string; mode?: string; action?: string };
       status?: 'idle' | 'running' | 'completed' | 'error';
       hasInputConnection?: boolean;
       logs?: string[];
@@ -37,29 +36,20 @@
 
   let { id, data = {}, isFullscreenRender = false }: Props = $props();
 
-  type Phase = 'idle' | 'scanning' | 'scanned' | 'migrating' | 'completed' | 'error';
-
-  interface ScanResult {
-    configPath: string;
-    totalFiles: number;
-    totalSize: number;
-    fileList?: any[];
-  }
+  type Phase = 'idle' | 'migrating' | 'completed' | 'error';
 
   interface MigrateResultData {
     success: boolean;
-    moved: number;
+    migrated: number;
     skipped: number;
-    failed: number;
+    error: number;
     total: number;
-    dryRun: boolean;
   }
 
   interface MigrateFNodeState {
     phase: Phase;
     progress: number;
     progressText: string;
-    scanResult: ScanResult | null;
     migrateResult: MigrateResultData | null;
   }
 
@@ -69,11 +59,8 @@
   // 状态初始化
   let sourcePath = $state(data?.config?.path ?? '');
   let targetPath = $state(data?.config?.target_path ?? '');
-  let pattern = $state(data?.config?.pattern ?? '*');
-  let recursive = $state(data?.config?.recursive ?? true);
-  let dryRun = $state(data?.config?.dry_run ?? true);
-  let overwrite = $state(false);
-  let preserveStructure = $state(true);
+  let mode = $state<'preserve' | 'flat' | 'direct'>(data?.config?.mode as any ?? 'preserve');
+  let action = $state<'copy' | 'move'>(data?.config?.action as any ?? 'move');
   
   let phase = $state<Phase>(savedState?.phase ?? 'idle');
   let logs = $state<string[]>(data?.logs ? [...data.logs] : []);
@@ -83,30 +70,34 @@
   let progress = $state(savedState?.progress ?? 0);
   let progressText = $state(savedState?.progressText ?? '');
 
-  let scanResult = $state<ScanResult | null>(savedState?.scanResult ?? null);
   let migrateResult = $state<MigrateResultData | null>(savedState?.migrateResult ?? null);
 
   // NodeLayoutRenderer 引用
   let layoutRenderer = $state<any>(undefined);
 
+  const modeOptions = [
+    { value: 'preserve', label: '保持结构' },
+    { value: 'flat', label: '扁平' },
+    { value: 'direct', label: '直接' }
+  ];
+
   function saveState() {
     setNodeState<MigrateFNodeState>(id, {
-      phase, progress, progressText, scanResult, migrateResult
+      phase, progress, progressText, migrateResult
     });
   }
 
   // 响应式派生值
-  let canScan = $derived(phase === 'idle' && (sourcePath.trim() !== '' || hasInputConnection));
-  let canMigrate = $derived(phase === 'scanned' && scanResult !== null && targetPath.trim() !== '');
-  let isRunning = $derived(phase === 'scanning' || phase === 'migrating');
+  let canMigrate = $derived(phase === 'idle' && (sourcePath.trim() !== '' || hasInputConnection) && targetPath.trim() !== '');
+  let isRunning = $derived(phase === 'migrating');
   let borderClass = $derived({
-    idle: 'border-border', scanning: 'border-primary shadow-sm', scanned: 'border-primary/50',
-    migrating: 'border-primary shadow-sm', completed: 'border-primary/50', error: 'border-destructive/50'
+    idle: 'border-border', migrating: 'border-primary shadow-sm',
+    completed: 'border-primary/50', error: 'border-destructive/50'
   }[phase]);
 
   // 状态变化时自动保存
   $effect(() => {
-    if (phase || scanResult || migrateResult) saveState();
+    if (phase || migrateResult) saveState();
   });
 
   function log(msg: string) { logs = [...logs.slice(-30), msg]; }
@@ -133,59 +124,33 @@
     } catch (e) { log(`读取剪贴板失败: ${e}`); }
   }
 
-  async function handleScan() {
-    if (!canScan) return;
-    phase = 'scanning'; progress = 0; progressText = '正在扫描文件...';
-    scanResult = null; migrateResult = null;
-    log(`🔍 开始扫描目录: ${sourcePath}`);
-    log(`📋 匹配模式: ${pattern}, 递归: ${recursive ? '是' : '否'}`);
-
-    try {
-      progress = 30; progressText = '正在分析文件...';
-      const response = await api.executeNode('migratefnode', {
-        action: 'scan', path: sourcePath, pattern, recursive
-      }) as any;
-
-      if (response.success && response.data) {
-        phase = 'scanned'; progress = 100; progressText = '扫描完成';
-        scanResult = {
-          configPath: response.data.config_path ?? '',
-          totalFiles: response.data.total_files ?? 0,
-          totalSize: response.data.total_size ?? 0,
-          fileList: response.data.file_list
-        };
-        log(`✅ 扫描完成，共 ${scanResult.totalFiles} 个文件`);
-        log(`📊 总大小: ${formatFileSize(scanResult.totalSize)}`);
-      } else { phase = 'error'; progress = 0; log(`❌ 扫描失败: ${response.message}`); }
-    } catch (error) { phase = 'error'; progress = 0; log(`❌ 扫描失败: ${error}`); }
-  }
-
   async function handleMigrate() {
-    if (!canMigrate || !scanResult) return;
-    phase = 'migrating'; progress = 0; progressText = '正在迁移文件...';
-    log(`📁 开始迁移到: ${targetPath}`);
-    log(`⚙️ 模式: ${dryRun ? '模拟执行' : '实际执行'}`);
+    if (!canMigrate) return;
+    phase = 'migrating'; progress = 0; progressText = '正在迁移...';
+    migrateResult = null;
+    
+    const actionText = action === 'move' ? '移动' : '复制';
+    const modeText = mode === 'preserve' ? '保持结构' : mode === 'flat' ? '扁平' : '直接';
+    log(`📁 开始${actionText}到: ${targetPath}`);
+    log(`⚙️ 模式: ${modeText}`);
 
     try {
-      progress = 20;
-      const response = await api.executeNode('migratefnode', {
-        action: 'migrate',
-        config_path: scanResult.configPath,
+      progress = 10;
+      const response = await api.executeNode('migratef', {
+        path: sourcePath,
         target_path: targetPath,
-        dry_run: dryRun,
-        overwrite,
-        preserve_structure: preserveStructure
+        mode,
+        action
       }) as any;
 
       if (response.success) {
         phase = 'completed'; progress = 100; progressText = '迁移完成';
         migrateResult = {
           success: true,
-          moved: response.data?.moved_count ?? 0,
+          migrated: response.data?.migrated_count ?? 0,
           skipped: response.data?.skipped_count ?? 0,
-          failed: response.data?.failed_count ?? 0,
-          total: response.data?.total_files ?? 0,
-          dryRun: response.data?.dry_run ?? dryRun
+          error: response.data?.error_count ?? 0,
+          total: response.data?.total_count ?? 0
         };
         log(`✅ ${response.message}`);
       } else { phase = 'error'; progress = 0; log(`❌ 迁移失败: ${response.message}`); }
@@ -194,7 +159,7 @@
 
   function handleReset() {
     phase = 'idle'; progress = 0; progressText = '';
-    scanResult = null; migrateResult = null; logs = [];
+    migrateResult = null; logs = [];
   }
 
   async function copyLogs() {
@@ -255,26 +220,27 @@
 {#snippet optionsBlock(size: SizeMode)}
   {@const c = getSizeClasses(size)}
   <div class="space-y-2">
-    <div class="flex {c.gap}">
-      <Input bind:value={pattern} placeholder="匹配模式 (如 *.jpg)" disabled={isRunning} class="flex-1 {c.input}" />
+    <div class="flex items-center gap-1 {c.text}">
+      <span class="font-medium">迁移模式</span>
     </div>
     <div class="flex flex-wrap {c.gap}">
-      <label class="flex items-center {c.gap} cursor-pointer {c.text}">
-        <Checkbox bind:checked={recursive} disabled={isRunning} />
-        <span>递归</span>
-      </label>
-      <label class="flex items-center {c.gap} cursor-pointer {c.text}">
-        <Checkbox bind:checked={preserveStructure} disabled={isRunning} />
-        <span>保持结构</span>
-      </label>
-      <label class="flex items-center {c.gap} cursor-pointer {c.text}">
-        <Checkbox bind:checked={overwrite} disabled={isRunning} />
-        <span>覆盖</span>
-      </label>
-      <label class="flex items-center {c.gap} cursor-pointer {c.text}">
-        <Checkbox bind:checked={dryRun} disabled={isRunning} />
-        <span>模拟</span>
-      </label>
+      {#each modeOptions as opt}
+        <button
+          class="{c.px} {c.py} {c.text} {c.rounded} border transition-colors {mode === opt.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:border-primary'}"
+          onclick={() => mode = opt.value as any} disabled={isRunning}
+        >{opt.label}</button>
+      {/each}
+    </div>
+    <div class="flex items-center {c.gap} pt-2">
+      <span class="{c.text} font-medium">操作:</span>
+      <button
+        class="{c.px} {c.py} {c.text} {c.rounded} border transition-colors {action === 'move' ? 'bg-blue-500 text-white border-blue-500' : 'bg-background border-border hover:border-blue-500'}"
+        onclick={() => action = 'move'} disabled={isRunning}
+      >移动</button>
+      <button
+        class="{c.px} {c.py} {c.text} {c.rounded} border transition-colors {action === 'copy' ? 'bg-green-500 text-white border-green-500' : 'bg-background border-border hover:border-green-500'}"
+        onclick={() => action = 'copy'} disabled={isRunning}
+      >复制</button>
     </div>
   </div>
 {/snippet}
@@ -285,15 +251,7 @@
   <div class="flex flex-col {c.gap} {size === 'normal' ? 'flex-1 justify-center' : ''}">
     {#if size === 'normal'}
       {#if phase === 'idle' || phase === 'error'}
-        <InteractiveHover text="扫描文件" class="w-full h-12 text-sm" onclick={handleScan} disabled={!canScan}>
-          {#snippet icon()}<Search class="h-4 w-4" />{/snippet}
-        </InteractiveHover>
-      {:else if phase === 'scanning'}
-        <InteractiveHover text="扫描中" class="w-full h-12 text-sm" disabled>
-          {#snippet icon()}<LoaderCircle class="h-4 w-4 animate-spin" />{/snippet}
-        </InteractiveHover>
-      {:else if phase === 'scanned'}
-        <InteractiveHover text="开始迁移" class="w-full h-12 text-sm" onclick={handleMigrate} disabled={!canMigrate}>
+        <InteractiveHover text={action === 'move' ? '开始移动' : '开始复制'} class="w-full h-12 text-sm" onclick={handleMigrate} disabled={!canMigrate}>
           {#snippet icon()}<ArrowRight class="h-4 w-4" />{/snippet}
         </InteractiveHover>
       {:else if phase === 'migrating'}
@@ -311,16 +269,8 @@
     {:else}
       <div class="flex {c.gapSm}">
         {#if phase === 'idle' || phase === 'error'}
-          <Button class="flex-1 {c.button}" onclick={handleScan} disabled={!canScan}>
-            <Search class="{c.icon} mr-1" />扫描
-          </Button>
-        {:else if phase === 'scanning'}
-          <Button class="flex-1 {c.button}" disabled>
-            <LoaderCircle class="{c.icon} mr-1 animate-spin" />扫描中
-          </Button>
-        {:else if phase === 'scanned'}
           <Button class="flex-1 {c.button}" onclick={handleMigrate} disabled={!canMigrate}>
-            <ArrowRight class="{c.icon} mr-1" />迁移
+            <ArrowRight class="{c.icon} mr-1" />{action === 'move' ? '移动' : '复制'}
           </Button>
         {:else if phase === 'migrating'}
           <Button class="flex-1 {c.button}" disabled>
@@ -343,32 +293,42 @@
 {#snippet statsBlock(size: SizeMode)}
   {#if size === 'normal'}
     <div class="space-y-2 flex-1">
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-blue-500/15 to-blue-500/5 rounded-xl border border-blue-500/20">
-        <span class="text-sm text-muted-foreground">文件数</span>
-        <span class="text-2xl font-bold text-blue-600 tabular-nums">{scanResult?.totalFiles ?? '-'}</span>
-      </div>
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-purple-500/15 to-purple-500/5 rounded-xl border border-purple-500/20">
-        <span class="text-sm text-muted-foreground">总大小</span>
-        <span class="text-lg font-bold text-purple-600">{scanResult ? formatFileSize(scanResult.totalSize) : '-'}</span>
-      </div>
       {#if migrateResult}
         <div class="flex items-center justify-between p-3 bg-gradient-to-r from-green-500/15 to-green-500/5 rounded-xl border border-green-500/20">
-          <span class="text-sm text-muted-foreground">已迁移</span>
-          <span class="text-2xl font-bold text-green-600 tabular-nums">{migrateResult.moved}</span>
+          <span class="text-sm text-muted-foreground">成功</span>
+          <span class="text-2xl font-bold text-green-600 tabular-nums">{migrateResult.migrated}</span>
         </div>
+        <div class="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-500/15 to-yellow-500/5 rounded-xl border border-yellow-500/20">
+          <span class="text-sm text-muted-foreground">跳过</span>
+          <span class="text-2xl font-bold text-yellow-600 tabular-nums">{migrateResult.skipped}</span>
+        </div>
+        <div class="flex items-center justify-between p-3 bg-gradient-to-r from-red-500/15 to-red-500/5 rounded-xl border border-red-500/20">
+          <span class="text-sm text-muted-foreground">失败</span>
+          <span class="text-2xl font-bold text-red-600 tabular-nums">{migrateResult.error}</span>
+        </div>
+      {:else}
+        <div class="text-center text-muted-foreground py-4">执行后显示统计</div>
       {/if}
     </div>
   {:else}
-    <div class="grid grid-cols-2 gap-1.5">
-      <div class="text-center p-1.5 bg-blue-500/10 rounded-lg">
-        <div class="text-sm font-bold text-blue-600 tabular-nums">{scanResult?.totalFiles ?? '-'}</div>
-        <div class="text-[10px] text-muted-foreground">文件</div>
+    {#if migrateResult}
+      <div class="grid grid-cols-3 gap-1.5">
+        <div class="text-center p-1.5 bg-green-500/10 rounded-lg">
+          <div class="text-sm font-bold text-green-600 tabular-nums">{migrateResult.migrated}</div>
+          <div class="text-[10px] text-muted-foreground">成功</div>
+        </div>
+        <div class="text-center p-1.5 bg-yellow-500/10 rounded-lg">
+          <div class="text-sm font-bold text-yellow-600 tabular-nums">{migrateResult.skipped}</div>
+          <div class="text-[10px] text-muted-foreground">跳过</div>
+        </div>
+        <div class="text-center p-1.5 bg-red-500/10 rounded-lg">
+          <div class="text-sm font-bold text-red-600 tabular-nums">{migrateResult.error}</div>
+          <div class="text-[10px] text-muted-foreground">失败</div>
+        </div>
       </div>
-      <div class="text-center p-1.5 bg-purple-500/10 rounded-lg">
-        <div class="text-xs font-bold text-purple-600">{scanResult ? formatFileSize(scanResult.totalSize) : '-'}</div>
-        <div class="text-[10px] text-muted-foreground">大小</div>
-      </div>
-    </div>
+    {:else}
+      <div class="text-xs text-muted-foreground text-center">-</div>
+    {/if}
   {/if}
 {/snippet}
 
@@ -381,11 +341,11 @@
         {#if migrateResult.success}
           <CircleCheck class="w-8 h-8 text-green-500 shrink-0" />
           <div class="flex-1">
-            <span class="font-semibold text-green-600">{migrateResult.dryRun ? '模拟' : ''}迁移完成</span>
+            <span class="font-semibold text-green-600">迁移完成</span>
             <div class="flex gap-4 text-sm mt-1">
-              <span class="text-green-600">成功: {migrateResult.moved}</span>
+              <span class="text-green-600">成功: {migrateResult.migrated}</span>
               <span class="text-yellow-600">跳过: {migrateResult.skipped}</span>
-              <span class="text-red-600">失败: {migrateResult.failed}</span>
+              <span class="text-red-600">失败: {migrateResult.error}</span>
             </div>
           </div>
         {:else}
@@ -401,8 +361,8 @@
       {:else}
         <FolderInput class="w-8 h-8 text-muted-foreground/50 shrink-0" />
         <div class="flex-1">
-          <span class="text-muted-foreground">等待扫描</span>
-          <div class="text-xs text-muted-foreground/70 mt-1">扫描完成后可开始迁移</div>
+          <span class="text-muted-foreground">等待执行</span>
+          <div class="text-xs text-muted-foreground/70 mt-1">设置源和目标后点击执行</div>
         </div>
       {/if}
     </div>
@@ -411,7 +371,7 @@
       <div class="flex items-center gap-2 {c.text}">
         {#if migrateResult.success}
           <CircleCheck class="{c.icon} text-green-500" />
-          <span class="text-green-600">成功 {migrateResult.moved}</span>
+          <span class="text-green-600">成功 {migrateResult.migrated}</span>
         {:else}
           <CircleX class="{c.icon} text-red-500" />
           <span class="text-red-600">失败</span>
@@ -423,7 +383,7 @@
         <div class="{c.text} text-muted-foreground">{progress}%</div>
       </div>
     {:else}
-      <div class="{c.text} text-muted-foreground">等待扫描</div>
+      <div class="{c.text} text-muted-foreground">等待执行</div>
     {/if}
   {/if}
 {/snippet}
@@ -458,7 +418,7 @@
 
 <!-- 通用区块渲染器 -->
 {#snippet renderBlockContent(blockId: string, size: SizeMode)}
-  {#if blockId === 'path'}{@render sourcePathBlock(size)}{@render targetPathBlock(size)}{@render optionsBlock(size)}
+  {#if blockId === 'path'}{@render sourcePathBlock(size)}{@render targetPathBlock(size)}
   {:else if blockId === 'source'}{@render sourcePathBlock(size)}
   {:else if blockId === 'target'}{@render targetPathBlock(size)}
   {:else if blockId === 'options'}{@render optionsBlock(size)}
@@ -479,14 +439,14 @@
 
   <NodeWrapper 
     nodeId={id} 
-    title="migratefnode" 
+    title="migratef" 
     icon={FolderInput} 
     status={phase} 
     {borderClass} 
     isFullscreenRender={isFullscreenRender}
     onCompact={() => layoutRenderer?.compact()}
     onResetLayout={() => layoutRenderer?.resetLayout()}
-    nodeType="migratefnode" 
+    nodeType="migratef" 
     currentLayout={layoutRenderer?.getCurrentLayout()}
     currentTabGroups={layoutRenderer?.getCurrentTabGroups()}
     onApplyLayout={(layout, tabGroups) => layoutRenderer?.applyLayout(layout, tabGroups)}
@@ -498,8 +458,9 @@
       <NodeLayoutRenderer
         bind:this={layoutRenderer}
         nodeId={id}
-        nodeType="migratefnode"
+        nodeType="migratef"
         isFullscreen={isFullscreenRender}
+        defaultFullscreenLayout={MIGRATEF_DEFAULT_GRID_LAYOUT}
       >
         {#snippet renderBlock(blockId: string, size: SizeMode)}
           {@render renderBlockContent(blockId, size)}

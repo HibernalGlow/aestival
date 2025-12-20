@@ -489,10 +489,10 @@ export const CRASHU_DEFAULT_GRID_LAYOUT: GridItem[] = [
   { id: 'log', x: 3, y: 4, w: 1, h: 4, minW: 1, minH: 1 }
 ];
 
-// ============ MigrateFNode 节点区块定义 ============
+// ============ MigrateF 节点区块定义 ============
 import { FolderInput, FolderOutput, ArrowRight } from '@lucide/svelte';
 
-export const MIGRATEFNODE_BLOCKS: BlockDefinition[] = [
+export const MIGRATEF_BLOCKS: BlockDefinition[] = [
   {
     id: 'path',
     title: '路径配置',
@@ -568,7 +568,7 @@ export const MIGRATEFNODE_BLOCKS: BlockDefinition[] = [
   }
 ];
 
-export const MIGRATEFNODE_DEFAULT_GRID_LAYOUT: GridItem[] = [
+export const MIGRATEF_DEFAULT_GRID_LAYOUT: GridItem[] = [
   { id: 'source', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
   { id: 'target', x: 2, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
   { id: 'options', x: 0, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
@@ -605,10 +605,10 @@ export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
     blocks: CRASHU_BLOCKS,
     defaultGridLayout: CRASHU_DEFAULT_GRID_LAYOUT
   },
-  migratefnode: {
-    nodeType: 'migratefnode',
-    blocks: MIGRATEFNODE_BLOCKS,
-    defaultGridLayout: MIGRATEFNODE_DEFAULT_GRID_LAYOUT
+  migratef: {
+    nodeType: 'migratef',
+    blocks: MIGRATEF_BLOCKS,
+    defaultGridLayout: MIGRATEF_DEFAULT_GRID_LAYOUT
   }
 };
 

@@ -144,10 +144,10 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
     }
   },
   {
-    type: 'migratefnode',
+    type: 'migratef',
     category: 'tool',
-    label: 'migratefnode',
-    description: '文件迁移：扫描并迁移文件到目标目录，支持模式匹配',
+    label: 'migratef',
+    description: '文件迁移：保持目录结构迁移文件和文件夹',
     icon: 'FolderInput',
     inputs: ['path'],
     outputs: ['path'],
@@ -155,9 +155,8 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
     configSchema: {
       path: { type: 'path', label: '源路径', required: true },
       target_path: { type: 'path', label: '目标路径', required: true },
-      pattern: { type: 'string', label: '匹配模式', default: '*' },
-      recursive: { type: 'boolean', label: '递归扫描', default: true },
-      dry_run: { type: 'boolean', label: '模拟执行', default: true }
+      mode: { type: 'select', label: '迁移模式', default: 'preserve' },
+      action: { type: 'select', label: '操作类型', default: 'move' }
     }
   },
 
