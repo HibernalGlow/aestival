@@ -23,6 +23,7 @@ import { FormatVNode } from '$lib/components/nodes/formatv';
 import { FindzNode } from '$lib/components/nodes/findz';
 import { BandiaNode } from '$lib/components/nodes/bandia';
 import { DissolvefNode } from '$lib/components/nodes/dissolvef';
+import { SleeptNode } from '$lib/components/nodes/sleept';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -224,6 +225,23 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
       archive: { type: 'boolean', label: '单压缩包文件夹', default: true },
       direct: { type: 'boolean', label: '直接解散', default: false },
       preview: { type: 'boolean', label: '预览模式', default: false }
+    }
+  },
+  {
+    type: 'sleept',
+    category: 'tool',
+    label: 'sleept',
+    description: '系统定时器：倒计时/指定时间/网速监控/CPU监控触发休眠关机',
+    icon: 'Clock',
+    inputs: ['any'],
+    outputs: ['any'],
+    component: SleeptNode,
+    configSchema: {
+      timer_mode: { type: 'select', label: '计时模式', default: 'countdown' },
+      power_mode: { type: 'select', label: '电源操作', default: 'sleep' },
+      hours: { type: 'number', label: '小时', default: 0 },
+      minutes: { type: 'number', label: '分钟', default: 30 },
+      dryrun: { type: 'boolean', label: '演练模式', default: true }
     }
   },
 

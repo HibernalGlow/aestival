@@ -86,6 +86,7 @@ import { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT } from '$lib/components/n
 import { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/formatv/blocks';
 import { BANDIA_BLOCKS, BANDIA_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/bandia/blocks';
 import { DISSOLVEF_BLOCKS, DISSOLVEF_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/dissolvef/blocks';
+import { SLEEPT_BLOCKS, SLEEPT_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/sleept/blocks';
 
 // 重新导出供外部使用
 export { FINDZ_BLOCKS, FINDZ_DEFAULT_GRID_LAYOUT };
@@ -98,6 +99,7 @@ export { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT };
 export { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT };
 export { BANDIA_BLOCKS, BANDIA_DEFAULT_GRID_LAYOUT };
 export { DISSOLVEF_BLOCKS, DISSOLVEF_DEFAULT_GRID_LAYOUT };
+export { SLEEPT_BLOCKS, SLEEPT_DEFAULT_GRID_LAYOUT };
 
 // ============ 注册表 ============
 export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
@@ -110,7 +112,8 @@ export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
   migratef: { nodeType: 'migratef', blocks: MIGRATEF_BLOCKS, defaultGridLayout: MIGRATEF_DEFAULT_GRID_LAYOUT },
   formatv: { nodeType: 'formatv', blocks: FORMATV_BLOCKS, defaultGridLayout: FORMATV_DEFAULT_GRID_LAYOUT },
   bandia: { nodeType: 'bandia', blocks: BANDIA_BLOCKS, defaultGridLayout: BANDIA_DEFAULT_GRID_LAYOUT },
-  dissolvef: { nodeType: 'dissolvef', blocks: DISSOLVEF_BLOCKS, defaultGridLayout: DISSOLVEF_DEFAULT_GRID_LAYOUT }
+  dissolvef: { nodeType: 'dissolvef', blocks: DISSOLVEF_BLOCKS, defaultGridLayout: DISSOLVEF_DEFAULT_GRID_LAYOUT },
+  sleept: { nodeType: 'sleept', blocks: SLEEPT_BLOCKS, defaultGridLayout: SLEEPT_DEFAULT_GRID_LAYOUT }
 };
 
 // ============ 工具函数 ============

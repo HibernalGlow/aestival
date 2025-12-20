@@ -21,6 +21,7 @@ _ADAPTER_REGISTRY: Dict[str, str] = {
     "findz": "adapters.findz_adapter.FindzAdapter",
     "bandia": "adapters.bandia_adapter.BandiaAdapter",
     "dissolvef": "adapters.dissolvef_adapter.DissolvefAdapter",
+    "sleept": "adapters.sleept_adapter.SleeptAdapter",
 }
 
 # 适配器实例缓存
