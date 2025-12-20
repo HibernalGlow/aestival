@@ -203,8 +203,20 @@
     usageCount[type] = (usageCount[type] || 0) + 1;
   }
 
-  function openFullscreen(type: string) {
-    fullscreenNodeStore.openByType(type);
+  function openFullscreen(type: string, label: string) {
+    // 先创建节点
+    const nodeId = `node-${nodeIdCounter++}-${Date.now()}`;
+    const node = {
+      id: nodeId,
+      type,
+      position: { x: 300 + Math.random() * 100, y: 200 + Math.random() * 100 },
+      data: { label, status: 'idle' as const }
+    };
+    flowStore.addNode(node);
+    usageCount[type] = (usageCount[type] || 0) + 1;
+    
+    // 再打开全屏
+    fullscreenNodeStore.open(nodeId);
   }
 
   function onDragStart(event: DragEvent, type: string, label: string) {
@@ -367,7 +379,7 @@
                           </button>
                           <button
                             class="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-all"
-                            onclick={() => openFullscreen(nodeDef.type)}
+                            onclick={() => openFullscreen(nodeDef.type, nodeDef.label)}
                             title="全屏打开"
                           >
                             <Maximize2 class="w-3 h-3 text-muted-foreground" />
