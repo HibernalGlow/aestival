@@ -100,6 +100,145 @@
   let files = $state<FileData[]>(savedState?.files ?? []);
   let byExtension = $state<Record<string, number>>(savedState?.byExtension ?? {});
   let copiedPath = $state(false);  // 复制路径状态
+  
+  // 分析区块状态
+  type GroupByField = 'archive' | 'ext' | 'dir';  // 分组字段
+  type SortField = 'name' | 'count' | 'totalSize' | 'avgSize';
+  type SortOrder = 'asc' | 'desc';
+  let analysisGroupBy = $state<GroupByField>('archive');  // 分组方式
+  let analysisSortField = $state<SortField>('avgSize');
+  let analysisSortOrder = $state<SortOrder>('desc');
+  let analysisMinFiles = $state(1);  // 最小文件数过滤
+
+  /** 分组分析数据 */
+  interface GroupAnalysis {
+    key: string;       // 分组键
+    name: string;      // 显示名称
+    fileCount: number;
+    totalSize: number;
+    avgSize: number;
+    avgSizeFormatted: string;
+    totalSizeFormatted: string;
+    subStats: Record<string, number>;  // 子统计（如扩展名分布）
+  }
+
+  /** 分组配置 */
+  const groupByOptions: { field: GroupByField; label: string; icon: typeof Package }[] = [
+    { field: 'archive', label: '压缩包', icon: Package },
+    { field: 'ext', label: '扩展名', icon: File },
+    { field: 'dir', label: '目录', icon: Folder },
+  ];
+
+  /** 格式化文件大小 */
+  function formatSize(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  }
+
+  /** 获取文件的分组键 */
+  function getGroupKey(file: FileData, groupBy: GroupByField): string | null {
+    switch (groupBy) {
+      case 'archive':
+        return file.archive || file.container || null;
+      case 'ext':
+        return file.ext || '(无扩展名)';
+      case 'dir': {
+        // 获取父目录
+        const fullPath = file.container ? `${file.container}//${file.path}` : file.path;
+        const parts = fullPath.split(/[/\\]|\/\//);
+        return parts.length > 1 ? parts.slice(0, -1).join('/') : '(根目录)';
+      }
+    }
+  }
+
+  /** 获取分组显示名称 */
+  function getGroupName(key: string, groupBy: GroupByField): string {
+    switch (groupBy) {
+      case 'archive':
+        return key.split(/[/\\]/).pop() || key;
+      case 'ext':
+        return key.startsWith('(') ? key : `.${key}`;
+      case 'dir':
+        return key.split(/[/\\]|\/\//).pop() || key;
+    }
+  }
+
+  /** 通用分组分析 */
+  function analyzeByGroup(): GroupAnalysis[] {
+    const groupMap = new Map<string, { files: FileData[], totalSize: number }>();
+    
+    for (const file of files) {
+      const key = getGroupKey(file, analysisGroupBy);
+      if (key === null) continue;  // 跳过无法分组的文件
+      
+      if (!groupMap.has(key)) {
+        groupMap.set(key, { files: [], totalSize: 0 });
+      }
+      const data = groupMap.get(key)!;
+      data.files.push(file);
+      data.totalSize += file.size;
+    }
+    
+    const results: GroupAnalysis[] = [];
+    for (const [key, data] of groupMap) {
+      const avgSize = data.files.length > 0 ? data.totalSize / data.files.length : 0;
+      
+      // 子统计：根据分组类型显示不同信息
+      const subStats: Record<string, number> = {};
+      if (analysisGroupBy === 'archive' || analysisGroupBy === 'dir') {
+        // 按扩展名统计
+        for (const f of data.files) {
+          const ext = f.ext || '无';
+          subStats[ext] = (subStats[ext] || 0) + 1;
+        }
+      } else if (analysisGroupBy === 'ext') {
+        // 按压缩包/目录统计
+        for (const f of data.files) {
+          const container = f.archive || f.container || '文件系统';
+          const name = container === '文件系统' ? container : container.split(/[/\\]/).pop() || container;
+          subStats[name] = (subStats[name] || 0) + 1;
+        }
+      }
+      
+      results.push({
+        key,
+        name: getGroupName(key, analysisGroupBy),
+        fileCount: data.files.length,
+        totalSize: data.totalSize,
+        avgSize,
+        avgSizeFormatted: formatSize(avgSize),
+        totalSizeFormatted: formatSize(data.totalSize),
+        subStats,
+      });
+    }
+    
+    // 过滤和排序
+    return results
+      .filter(a => a.fileCount >= analysisMinFiles)
+      .sort((a, b) => {
+        let cmp = 0;
+        switch (analysisSortField) {
+          case 'name': cmp = a.name.localeCompare(b.name); break;
+          case 'count': cmp = a.fileCount - b.fileCount; break;
+          case 'totalSize': cmp = a.totalSize - b.totalSize; break;
+          case 'avgSize': cmp = a.avgSize - b.avgSize; break;
+        }
+        return analysisSortOrder === 'desc' ? -cmp : cmp;
+      });
+  }
+
+  /** 切换排序 */
+  function toggleSort(field: SortField) {
+    if (analysisSortField === field) {
+      analysisSortOrder = analysisSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+      analysisSortField = field;
+      analysisSortOrder = 'desc';
+    }
+  }
   let layoutRenderer = $state<any>(undefined);
   let selectedFile = $state<string | null>(null);
   let advancedMode = $state(false);
@@ -719,6 +858,142 @@
   {/if}
 {/snippet}
 
+<!-- 通用分析区块 -->
+{#snippet analysisBlock(size: SizeMode)}
+  {@const c = getSizeClasses(size)}
+  {@const analysisData = analyzeByGroup()}
+  {@const currentGroupOption = groupByOptions.find(o => o.field === analysisGroupBy)!}
+  
+  {#if size === 'normal'}
+    <div class="h-full flex flex-col overflow-hidden">
+      <!-- 标题栏：分组选择 -->
+      <div class="flex items-center justify-between p-2 border-b bg-muted/30 shrink-0">
+        <div class="flex items-center gap-1">
+          {#each groupByOptions as opt}
+            <button
+              class="px-2 py-1 rounded text-xs flex items-center gap-1 transition-colors {analysisGroupBy === opt.field ? 'bg-primary/20 text-primary' : 'hover:bg-muted text-muted-foreground'}"
+              onclick={() => analysisGroupBy = opt.field}
+            >
+              <svelte:component this={opt.icon} class="w-3 h-3" />
+              {opt.label}
+            </button>
+          {/each}
+        </div>
+        <label class="flex items-center gap-1 text-xs text-muted-foreground">
+          <span>≥</span>
+          <Input 
+            type="number" 
+            bind:value={analysisMinFiles} 
+            min={1} 
+            class="w-10 h-6 text-xs px-1"
+          />
+        </label>
+      </div>
+      
+      <!-- 排序按钮 -->
+      <div class="flex items-center gap-1 p-2 border-b text-xs">
+        <span class="text-muted-foreground mr-1">排序:</span>
+        {#each [
+          { field: 'name' as SortField, label: '名称' },
+          { field: 'count' as SortField, label: '数量' },
+          { field: 'totalSize' as SortField, label: '总大小' },
+          { field: 'avgSize' as SortField, label: '平均' }
+        ] as item}
+          <button
+            class="px-2 py-0.5 rounded flex items-center gap-0.5 transition-colors {analysisSortField === item.field ? 'bg-primary/20 text-primary' : 'hover:bg-muted'}"
+            onclick={() => toggleSort(item.field)}
+          >
+            {item.label}
+            {#if analysisSortField === item.field}
+              {#if analysisSortOrder === 'desc'}
+                <ArrowDown class="w-3 h-3" />
+              {:else}
+                <ArrowUp class="w-3 h-3" />
+              {/if}
+            {/if}
+          </button>
+        {/each}
+      </div>
+      
+      <!-- 分析列表 -->
+      <div class="flex-1 overflow-y-auto p-2">
+        {#if analysisData.length > 0}
+          <div class="space-y-2">
+            {#each analysisData as group}
+              <div class="p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
+                <div class="flex items-start justify-between gap-2 mb-1">
+                  <span class="text-sm font-medium truncate flex-1" title={group.key}>
+                    {group.name}
+                  </span>
+                  <span class="text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-600 rounded shrink-0">
+                    平均 {group.avgSizeFormatted}
+                  </span>
+                </div>
+                <div class="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>{group.fileCount} 文件</span>
+                  <span>总计 {group.totalSizeFormatted}</span>
+                </div>
+                <!-- 子统计 -->
+                {#if Object.keys(group.subStats).length > 0}
+                  <div class="flex flex-wrap gap-1 mt-1">
+                    {#each Object.entries(group.subStats).sort((a, b) => b[1] - a[1]).slice(0, 4) as [label, count]}
+                      <span class="text-[10px] px-1 py-0.5 bg-muted rounded">
+                        {analysisGroupBy === 'ext' ? label : `.${label}`}: {count}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {:else if files.length > 0}
+          <div class="text-center text-muted-foreground py-4">
+            <svelte:component this={currentGroupOption.icon} class="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <div>无匹配的分组数据</div>
+          </div>
+        {:else}
+          <div class="text-center text-muted-foreground py-4">
+            <BarChart3 class="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <div>搜索后显示分析</div>
+          </div>
+        {/if}
+      </div>
+      
+      <!-- 底部统计 -->
+      {#if analysisData.length > 0}
+        <div class="p-2 border-t bg-muted/20 text-xs text-muted-foreground shrink-0">
+          共 {analysisData.length} 个{currentGroupOption.label}
+        </div>
+      {/if}
+    </div>
+  {:else}
+    <!-- 紧凑模式 -->
+    <div class="flex items-center justify-between mb-1">
+      <span class="{c.text} font-semibold flex items-center gap-1">
+        <BarChart3 class="w-3 h-3 text-orange-500" />分析
+      </span>
+      <span class="{c.textSm} text-muted-foreground">{analysisData.length}</span>
+    </div>
+    <div class="{c.maxHeight} overflow-y-auto">
+      {#if analysisData.length > 0}
+        <div class="space-y-0.5">
+          {#each analysisData.slice(0, 5) as group}
+            <div class="flex items-center justify-between text-xs">
+              <span class="truncate flex-1">{group.name}</span>
+              <span class="text-orange-600 shrink-0">{group.avgSizeFormatted}</span>
+            </div>
+          {/each}
+          {#if analysisData.length > 5}
+            <div class="text-[10px] text-muted-foreground">+{analysisData.length - 5} 更多</div>
+          {/if}
+        </div>
+      {:else}
+        <div class="{c.text} text-muted-foreground text-center py-2">-</div>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
+
 <!-- 通用区块渲染器 -->
 {#snippet renderBlockContent(blockId: string, size: SizeMode)}
   {#if blockId === 'path'}{@render pathBlock(size)}
@@ -728,6 +1003,7 @@
   {:else if blockId === 'progress'}{@render progressBlock(size)}
   {:else if blockId === 'log'}{@render logBlock(size)}
   {:else if blockId === 'tree'}{@render treeBlock(size)}
+  {:else if blockId === 'analysis'}{@render analysisBlock(size)}
   {/if}
 {/snippet}
 

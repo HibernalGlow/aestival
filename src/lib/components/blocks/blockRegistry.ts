@@ -705,6 +705,16 @@ export const FINDZ_BLOCKS: BlockDefinition[] = [
     visibleInFullscreen: true
   },
   {
+    id: 'analysis',
+    title: '分组分析',
+    icon: BarChart3,
+    iconClass: 'text-orange-500',
+    colSpan: 2,
+    fullHeight: true,
+    visibleInNormal: false,  // 普通模式不显示，全屏模式显示
+    visibleInFullscreen: true
+  },
+  {
     id: 'log',
     title: '日志',
     icon: Copy,
@@ -722,8 +732,9 @@ export const FINDZ_DEFAULT_GRID_LAYOUT: GridItem[] = [
   { id: 'operation', x: 0, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
   { id: 'stats', x: 2, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
   { id: 'progress', x: 0, y: 4, w: 1, h: 1, minW: 1, minH: 1 },
-  { id: 'tree', x: 0, y: 5, w: 3, h: 4, minW: 1, minH: 2 },
-  { id: 'log', x: 3, y: 4, w: 1, h: 5, minW: 1, minH: 1 }
+  { id: 'tree', x: 0, y: 5, w: 2, h: 4, minW: 1, minH: 2 },
+  { id: 'analysis', x: 2, y: 4, w: 2, h: 5, minW: 1, minH: 2 },
+  { id: 'log', x: 0, y: 9, w: 4, h: 2, minW: 1, minH: 1 }
 ];
 
 // ============ 注册表 ============
