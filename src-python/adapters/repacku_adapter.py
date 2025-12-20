@@ -127,7 +127,17 @@ class RepackuAdapter(BaseAdapter):
         on_log: Optional[Callable[[str], None]] = None
     ) -> RepackuOutput:
         """阶段1：分析目录结构"""
-        path = Path(input_data.path)
+        # 规范化路径，处理 Windows 路径中的特殊字符
+        raw_path = input_data.path
+        try:
+            # 使用 os.path.normpath 规范化路径
+            normalized_path = os.path.normpath(raw_path)
+            path = Path(normalized_path)
+        except Exception as e:
+            return RepackuOutput(
+                success=False,
+                message=f"路径格式错误: {str(e)}"
+            )
         
         if not path.exists():
             return RepackuOutput(
@@ -215,9 +225,21 @@ class RepackuAdapter(BaseAdapter):
                 success=False,
                 message=f"repacku 模块未安装: {str(e)}"
             )
+        except OSError as e:
+            # 捕获路径相关的 OSError，提供更详细的错误信息
+            import traceback
+            if on_log:
+                on_log(f"路径错误: {str(e)}")
+                on_log(f"路径: {input_data.path}")
+            return RepackuOutput(
+                success=False,
+                message=f"路径处理错误: {type(e).__name__}: {str(e)}，路径可能包含特殊字符"
+            )
         except Exception as e:
+            import traceback
             if on_log:
                 on_log(f"分析失败: {str(e)}")
+                on_log(f"详细错误: {traceback.format_exc()}")
             return RepackuOutput(
                 success=False,
                 message=f"分析失败: {type(e).__name__}: {str(e)}"
