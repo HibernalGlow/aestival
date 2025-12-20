@@ -1,9 +1,10 @@
 /**
  * Aestivus - Auto Backup Store
  * 自动备份管理系统
+ * 使用 Python 后端 API 替代 Tauri invoke
  */
 
-import { invoke } from '@tauri-apps/api/core';
+import { getApiBaseUrl } from '$lib/stores/backend';
 
 // ==================== 类型定义 ====================
 
@@ -59,6 +60,32 @@ const DEFAULT_SETTINGS: BackupSettings = {
 	exclusion: DEFAULT_EXCLUSION
 };
 
+// ==================== API 辅助函数 ====================
+
+/** 获取备份 API 基础 URL */
+const getBackupApiUrl = () => `${getApiBaseUrl()}/v1/backup`;
+
+/** 通用 API 请求 */
+async function backupApiRequest<T>(
+	endpoint: string,
+	options: RequestInit = {}
+): Promise<T> {
+	const response = await fetch(`${getBackupApiUrl()}${endpoint}`, {
+		...options,
+		headers: {
+			'Content-Type': 'application/json',
+			...options.headers
+		}
+	});
+
+	if (!response.ok) {
+		const errorText = await response.text();
+		throw new Error(`API 请求失败: ${response.status} - ${errorText}`);
+	}
+
+	return response.json();
+}
+
 // ==================== Store ====================
 
 class AutoBackupStore {
@@ -77,7 +104,7 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 初始化默认备份路径
+	 * 初始化默认备份路径（通过 Python API）
 	 */
 	private async initializeDefaultPath() {
 		if (this.initialized) return;
@@ -86,20 +113,14 @@ class AutoBackupStore {
 		// 如果没有设置备份路径，使用默认路径
 		if (!this.settings.backupPath) {
 			try {
-				const { appDataDir } = await import('@tauri-apps/api/path');
-				const dataDir = await appDataDir();
-				const defaultPath = `${dataDir}backups`;
-
-				// 尝试创建目录
-				try {
-					await invoke('create_directory', { path: defaultPath });
-				} catch {
-					// 目录可能已存在，忽略错误
+				const result = await backupApiRequest<{ success: boolean; path: string }>(
+					'/default-path'
+				);
+				if (result.success && result.path) {
+					this.settings = { ...this.settings, backupPath: result.path };
+					this.saveSettings();
+					console.log('[AutoBackup] 默认备份路径:', result.path);
 				}
-
-				this.settings = { ...this.settings, backupPath: defaultPath };
-				this.saveSettings();
-				console.log('[AutoBackup] 默认备份路径:', defaultPath);
 			} catch (e) {
 				console.error('[AutoBackup] 初始化默认路径失败:', e);
 			}
@@ -303,7 +324,7 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 执行备份
+	 * 执行备份（通过 Python API）
 	 */
 	async performBackup(type: 'auto' | 'manual' = 'manual'): Promise<boolean> {
 		if (this.isBackingUp) {
@@ -330,10 +351,10 @@ class AutoBackupStore {
 			const filename = `aestivus-backup-${type}-${dateStr}.json`;
 			const filepath = `${this.settings.backupPath}/${filename}`;
 
-			// 写入文件
-			await invoke('write_text_file', {
-				path: filepath,
-				content: json
+			// 通过 Python API 写入文件
+			await backupApiRequest('/write-file', {
+				method: 'POST',
+				body: JSON.stringify({ path: filepath, content: json })
 			});
 
 			// 更新最后备份时间
@@ -355,7 +376,7 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 清理旧备份
+	 * 清理旧备份（通过 Python API）
 	 */
 	private async cleanupOldBackups() {
 		if (this.settings.maxBackups <= 0) return;
@@ -370,7 +391,10 @@ class AutoBackupStore {
 
 				for (const backup of toDelete) {
 					try {
-						await invoke('delete_file', { path: backup.path });
+						await backupApiRequest('/delete-file', {
+							method: 'POST',
+							body: JSON.stringify({ path: backup.path })
+						});
 						console.log(`[AutoBackup] 已删除旧备份: ${backup.filename}`);
 					} catch (e) {
 						console.error(`[AutoBackup] 删除旧备份失败: ${backup.filename}`, e);
@@ -383,22 +407,25 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 列出所有备份文件
+	 * 列出所有备份文件（通过 Python API）
 	 */
 	async listBackups(): Promise<BackupInfo[]> {
 		if (!this.settings.backupPath) return [];
 
 		try {
-			const files = await invoke<
+			const files = await backupApiRequest<
 				Array<{
 					name: string;
 					path: string;
 					size: number;
 					modified: number;
 				}>
-			>('list_directory_files', {
-				path: this.settings.backupPath,
-				pattern: 'aestivus-backup-*.json'
+			>('/list-files', {
+				method: 'POST',
+				body: JSON.stringify({
+					path: this.settings.backupPath,
+					pattern: 'aestivus-backup-*.json'
+				})
 			});
 
 			return files.map((f) => ({
@@ -414,12 +441,18 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 从备份恢复
+	 * 从备份恢复（通过 Python API）
 	 */
 	async restoreFromBackup(backupPath: string): Promise<boolean> {
 		try {
-			const content = await invoke<string>('read_text_file', { path: backupPath });
-			const payload = JSON.parse(content) as FullBackupPayload;
+			const result = await backupApiRequest<{ success: boolean; content: string }>(
+				'/read-file',
+				{
+					method: 'POST',
+					body: JSON.stringify({ path: backupPath })
+				}
+			);
+			const payload = JSON.parse(result.content) as FullBackupPayload;
 
 			// 恢复 localStorage 数据
 			if (payload.rawLocalStorage && typeof window !== 'undefined') {
@@ -441,22 +474,16 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 选择备份目录
+	 * 选择备份目录（使用浏览器 prompt 作为临时方案）
 	 */
 	async selectBackupPath(): Promise<string | null> {
-		try {
-			const { open } = await import('@tauri-apps/plugin-dialog');
-			const selected = await open({
-				directory: true,
-				multiple: false,
-				title: '选择备份目录'
-			});
-			if (selected && typeof selected === 'string') {
-				this.updateSettings({ backupPath: selected });
-				return selected;
-			}
-		} catch (e) {
-			console.error('[AutoBackup] 选择目录失败:', e);
+		// 由于不使用 Tauri，这里使用简单的 prompt
+		// 实际项目中可以通过 Python API 实现文件夹选择对话框
+		const currentPath = this.settings.backupPath || '';
+		const newPath = window.prompt('请输入备份目录路径:', currentPath);
+		if (newPath && newPath.trim()) {
+			this.updateSettings({ backupPath: newPath.trim() });
+			return newPath.trim();
 		}
 		return null;
 	}
@@ -469,30 +496,29 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 导出到文件（用户选择位置）
+	 * 导出到文件（下载到浏览器）
 	 */
 	async exportToFile(): Promise<boolean> {
 		try {
-			const { save } = await import('@tauri-apps/plugin-dialog');
 			const date = new Date();
 			const dateStr = date.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-
-			const filepath = await save({
-				defaultPath: `aestivus-backup-manual-${dateStr}.json`,
-				filters: [{ name: 'JSON', extensions: ['json'] }]
-			});
-
-			if (!filepath) return false;
+			const filename = `aestivus-backup-manual-${dateStr}.json`;
 
 			const payload = this.buildFullBackupPayload('manual');
 			const json = JSON.stringify(payload, null, 2);
 
-			await invoke('write_text_file', {
-				path: filepath,
-				content: json
-			});
+			// 使用浏览器下载
+			const blob = new Blob([json], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
 
-			console.log(`[AutoBackup] 导出成功: ${filepath}`);
+			console.log(`[AutoBackup] 导出成功: ${filename}`);
 			return true;
 		} catch (e) {
 			console.error('[AutoBackup] 导出失败:', e);
@@ -501,24 +527,44 @@ class AutoBackupStore {
 	}
 
 	/**
-	 * 从文件导入
+	 * 从文件导入（使用浏览器文件选择）
 	 */
 	async importFromFile(): Promise<boolean> {
-		try {
-			const { open } = await import('@tauri-apps/plugin-dialog');
-			const filepath = await open({
-				multiple: false,
-				filters: [{ name: 'JSON', extensions: ['json'] }],
-				title: '选择备份文件'
-			});
+		return new Promise((resolve) => {
+			const input = document.createElement('input');
+			input.type = 'file';
+			input.accept = '.json';
+			input.onchange = async (e) => {
+				const file = (e.target as HTMLInputElement).files?.[0];
+				if (!file) {
+					resolve(false);
+					return;
+				}
 
-			if (!filepath || typeof filepath !== 'string') return false;
+				try {
+					const content = await file.text();
+					const payload = JSON.parse(content) as FullBackupPayload;
 
-			return this.restoreFromBackup(filepath);
-		} catch (e) {
-			console.error('[AutoBackup] 导入失败:', e);
-			return false;
-		}
+					// 恢复 localStorage 数据
+					if (payload.rawLocalStorage && typeof window !== 'undefined') {
+						for (const [key, value] of Object.entries(payload.rawLocalStorage)) {
+							try {
+								localStorage.setItem(key, value);
+							} catch (err) {
+								console.error(`恢复 localStorage 键失败: ${key}`, err);
+							}
+						}
+					}
+
+					console.log('[AutoBackup] 导入成功');
+					resolve(true);
+				} catch (err) {
+					console.error('[AutoBackup] 导入失败:', err);
+					resolve(false);
+				}
+			};
+			input.click();
+		});
 	}
 
 	/**

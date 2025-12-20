@@ -27,6 +27,7 @@ from api.execution import router as execution_router
 from api.websocket import router as websocket_router
 from api.terminal_ws import router as terminal_router
 from api.files import router as files_router
+from api.backup import router as backup_router
 
 PORT_API = 8009
 server_instance = None
@@ -126,6 +127,7 @@ app.include_router(nodes_router, prefix="/v1")
 app.include_router(execution_router, prefix="/v1")
 app.include_router(websocket_router, prefix="/v1")
 app.include_router(files_router, prefix="/v1")  # 文件服务
+app.include_router(backup_router, prefix="/v1")  # 备份服务
 app.include_router(terminal_router)  # 终端 WebSocket，无前缀
 
 @app.get("/")
