@@ -213,7 +213,7 @@
 <!-- 标题栏容器 -->
 <div class="flex flex-col">
   <!-- 顶部标题栏 -->
-  <div class="h-10 flex items-center select-none" style={toolbarStyle}>
+  <div class="h-10 flex items-center select-none relative" style={toolbarStyle}>
     <!-- 左侧：Logo 和流程名 -->
   <div class="flex items-center gap-2 px-3">
     <span class="text-sm font-bold text-primary">Aestivus</span>
@@ -234,12 +234,12 @@
     {/if}
   </div>
 
-  <!-- 中间：左侧拖拽区域 -->
+  <!-- 中间：拖拽区域 -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="flex-1 h-full cursor-default" onmousedown={startDrag}></div>
 
-  <!-- 居中按钮组 -->
-  <div class="flex items-center gap-0.5">
+  <!-- 居中按钮组 - 使用绝对定位保持居中 -->
+  <div class="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5">
     <!-- Pin 固定按钮 -->
     <Button 
       variant={isPinned ? "secondary" : "ghost"} 
@@ -269,10 +269,6 @@
       <Settings class="w-3.5 h-3.5" />
     </Button>
   </div>
-
-  <!-- 中间：右侧拖拽区域 -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="flex-1 h-full cursor-default" onmousedown={startDrag}></div>
 
   <!-- 右侧：工具按钮 -->
   <div class="flex items-center gap-0.5 px-2">
