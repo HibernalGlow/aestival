@@ -38,7 +38,7 @@
   type Phase = 'idle' | 'migrating' | 'completed' | 'error';
 
   interface MigrateResultData { success: boolean; migrated: number; skipped: number; error: number; total: number; operation_id?: string; }
-  interface MigrateFNodeState { phase: Phase; progress: number; progressText: string; migrateResult: MigrateResultData | null; lastOperationId: string; }
+  interface MigrateFNodeState { phase: Phase; progress: number; progressText: string; migrateResult: MigrateResultData | null; lastOperationId: string; sourcePath: string; targetPath: string; mode: string; action: string; }
 
   // 使用 $derived 确保响应式
   const nodeId = $derived(id);
@@ -67,14 +67,12 @@
 
   let layoutRenderer = $state<any>(undefined);
 
-  // 初始化状态
+  // 初始化标记
+  let initialized = $state(false);
+
+  // 初始化 effect - 只执行一次
   $effect(() => {
-    sourcePath = configPath;
-    targetPath = configTargetPath;
-    mode = configMode;
-    action = configAction;
-    logs = [...dataLogs];
-    hasInputConnection = dataHasInputConnection;
+    if (initialized) return;
     
     if (savedState) {
       phase = savedState.phase ?? 'idle';
@@ -82,7 +80,24 @@
       progressText = savedState.progressText ?? '';
       migrateResult = savedState.migrateResult ?? null;
       lastOperationId = savedState.lastOperationId ?? '';
+      sourcePath = savedState.sourcePath || configPath || '';
+      targetPath = savedState.targetPath || configTargetPath || '';
+      mode = savedState.mode || configMode || 'preserve';
+      action = savedState.action || configAction || 'copy';
+    } else {
+      sourcePath = configPath || '';
+      targetPath = configTargetPath || '';
+      mode = configMode || 'preserve';
+      action = configAction || 'copy';
     }
+    
+    initialized = true;
+  });
+  
+  // 持续同步外部数据
+  $effect(() => {
+    logs = [...dataLogs];
+    hasInputConnection = dataHasInputConnection;
   });
 
   const modeOptions = [
@@ -91,7 +106,10 @@
     { value: 'direct', label: '直接' }
   ];
 
-  function saveState() { setNodeState<MigrateFNodeState>(nodeId, { phase, progress, progressText, migrateResult, lastOperationId }); }
+  function saveState() { 
+    if (!initialized) return;
+    setNodeState<MigrateFNodeState>(nodeId, { phase, progress, progressText, migrateResult, lastOperationId, sourcePath, targetPath, mode, action }); 
+  }
 
   let canMigrate = $derived(phase === 'idle' && (sourcePath.trim() !== '' || hasInputConnection) && targetPath.trim() !== '');
   let isRunning = $derived(phase === 'migrating');

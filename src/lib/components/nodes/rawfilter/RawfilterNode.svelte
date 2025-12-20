@@ -39,7 +39,7 @@
   type Phase = 'idle' | 'scanning' | 'completed' | 'error';
 
   interface FilterResult { totalScanned: number; filtered: number; moved: number; shortcuts: number; }
-  interface RawfilterState { phase: Phase; progress: number; progressText: string; filterResult: FilterResult | null; nameOnlyMode: boolean; createShortcuts: boolean; trashOnly: boolean; }
+  interface RawfilterState { phase: Phase; progress: number; progressText: string; filterResult: FilterResult | null; nameOnlyMode: boolean; createShortcuts: boolean; trashOnly: boolean; path: string; }
 
   // 使用 $derived 确保响应式
   const nodeId = $derived(id);
@@ -65,24 +65,42 @@
 
   let layoutRenderer = $state<any>(undefined);
 
-  // 初始化状态
+  // 初始化标记
+  let initialized = $state(false);
+
+  // 初始化 effect - 只执行一次
   $effect(() => {
-    path = configPath;
-    nameOnlyMode = savedState?.nameOnlyMode ?? configNameOnlyMode;
-    createShortcuts = savedState?.createShortcuts ?? configCreateShortcuts;
-    trashOnly = savedState?.trashOnly ?? configTrashOnly;
-    logs = [...dataLogs];
-    hasInputConnection = dataHasInputConnection;
+    if (initialized) return;
     
     if (savedState) {
       phase = savedState.phase ?? 'idle';
       progress = savedState.progress ?? 0;
       progressText = savedState.progressText ?? '';
       filterResult = savedState.filterResult ?? null;
+      nameOnlyMode = savedState.nameOnlyMode ?? configNameOnlyMode;
+      createShortcuts = savedState.createShortcuts ?? configCreateShortcuts;
+      trashOnly = savedState.trashOnly ?? configTrashOnly;
+      path = savedState.path || configPath || '';
+    } else {
+      path = configPath || '';
+      nameOnlyMode = configNameOnlyMode;
+      createShortcuts = configCreateShortcuts;
+      trashOnly = configTrashOnly;
     }
+    
+    initialized = true;
+  });
+  
+  // 持续同步外部数据
+  $effect(() => {
+    logs = [...dataLogs];
+    hasInputConnection = dataHasInputConnection;
   });
 
-  function saveState() { setNodeState<RawfilterState>(nodeId, { phase, progress, progressText, filterResult, nameOnlyMode, createShortcuts, trashOnly }); }
+  function saveState() { 
+    if (!initialized) return;
+    setNodeState<RawfilterState>(nodeId, { phase, progress, progressText, filterResult, nameOnlyMode, createShortcuts, trashOnly, path }); 
+  }
 
   let canExecute = $derived(phase === 'idle' && (path.trim() !== '' || hasInputConnection));
   let isRunning = $derived(phase === 'scanning');

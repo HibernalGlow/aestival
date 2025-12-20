@@ -63,8 +63,13 @@
   let lastOperationId = $state('');
   let operationHistory = $state<OperationRecord[]>([]);
 
-  // 初始化状态
+  // 初始化标记，防止 $effect 覆盖用户输入
+  let initialized = $state(false);
+
+  // 初始化状态（只执行一次）
   $effect(() => {
+    if (initialized) return;
+    
     scanPath = savedState?.scanPath ?? configPath;
     logs = savedState?.logs ?? [...dataLogs];
     
@@ -84,6 +89,8 @@
       lastOperationId = savedState.lastOperationId ?? '';
       operationHistory = savedState.operationHistory ?? [];
     }
+    
+    initialized = true;
   });
 
   // NodeLayoutRenderer 引用

@@ -65,6 +65,8 @@
     compressionResult: CompressionResultData | null;
     selectedTypes: string[];
     expandedFolders: string[];
+    path: string;
+    deleteAfter: boolean;
   }
 
   // 使用 $derived 确保响应式
@@ -95,12 +97,12 @@
   let compressionResult = $state<CompressionResultData | null>(null);
   let selectedTypes = $state<string[]>([]);
 
-  // 初始化状态
+  // 初始化标记
+  let initialized = $state(false);
+
+  // 初始化 effect - 只执行一次
   $effect(() => {
-    path = configPath;
-    deleteAfter = configDeleteAfter;
-    logs = [...dataLogs];
-    hasInputConnection = dataHasInputConnection;
+    if (initialized) return;
     
     if (savedState) {
       phase = savedState.phase ?? 'idle';
@@ -111,7 +113,20 @@
       compressionResult = savedState.compressionResult ?? null;
       selectedTypes = savedState.selectedTypes ?? [];
       expandedFolders = new Set(savedState.expandedFolders ?? []);
+      path = savedState.path || configPath || '';
+      deleteAfter = savedState.deleteAfter ?? configDeleteAfter;
+    } else {
+      path = configPath || '';
+      deleteAfter = configDeleteAfter;
     }
+    
+    initialized = true;
+  });
+  
+  // 持续同步外部数据
+  $effect(() => {
+    logs = [...dataLogs];
+    hasInputConnection = dataHasInputConnection;
   });
 
   // NodeLayoutRenderer 引用
@@ -125,9 +140,10 @@
   ];
 
   function saveState() {
+    if (!initialized) return;
     setNodeState<RepackuState>(nodeId, {
       phase, progress, progressText, folderTree, analysisResult, compressionResult,
-      selectedTypes, expandedFolders: Array.from(expandedFolders)
+      selectedTypes, expandedFolders: Array.from(expandedFolders), path, deleteAfter
     });
   }
 

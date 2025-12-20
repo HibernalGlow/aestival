@@ -80,6 +80,8 @@
     scanResult: ScanResult | null;
     duplicateCount: number;
     fileListData: FileListData | null;
+    targetPath?: string;
+    logs?: string[];
   }
 
   // 使用 $derived 确保响应式
@@ -105,10 +107,15 @@
   // 选中的文件（用于预览）
   let selectedFile = $state<string | null>(null);
 
-  // 初始化状态
+  // 初始化标记，防止 $effect 覆盖用户输入
+  let initialized = $state(false);
+
+  // 初始化状态（只执行一次）
   $effect(() => {
-    targetPath = configPath;
-    logs = [...dataLogs];
+    if (initialized) return;
+    
+    targetPath = savedState?.targetPath ?? configPath;
+    logs = savedState?.logs ?? [...dataLogs];
     hasInputConnection = dataHasInputConnection;
     
     if (savedState) {
@@ -119,6 +126,14 @@
       duplicateCount = savedState.duplicateCount ?? 0;
       fileListData = savedState.fileListData ?? null;
     }
+    
+    initialized = true;
+  });
+
+  // 同步外部连接状态
+  $effect(() => {
+    if (!initialized) return;
+    hasInputConnection = dataHasInputConnection;
   });
 
   // 获取视频缩略图 URL（使用系统缩略图）
@@ -128,7 +143,7 @@
 
   function saveState() {
     setNodeState<FormatVNodeState>(nodeId, {
-      phase, progress, progressText, scanResult, duplicateCount, fileListData
+      phase, progress, progressText, scanResult, duplicateCount, fileListData, targetPath, logs
     });
   }
 

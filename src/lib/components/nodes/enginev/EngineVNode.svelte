@@ -59,8 +59,13 @@
 
   let layoutRenderer = $state<any>(undefined);
 
-  // 初始化状态
+  // 初始化标记，防止 $effect 覆盖用户输入
+  let initialized = $state(false);
+
+  // 初始化状态（只执行一次）
   $effect(() => {
+    if (initialized) return;
+    
     workshopPath = savedState?.workshopPath ?? configPath;
     logs = savedState?.logs ?? [...dataLogs];
     
@@ -74,6 +79,8 @@
       selectedIds = new Set(savedState.selectedIds ?? []);
       viewMode = savedState.viewMode ?? 'grid';
     }
+    
+    initialized = true;
   });
   
   function saveState() { setNodeState<EngineVState>(nodeId, { phase, logs, workshopPath, wallpapers, filteredWallpapers, stats, filters, renameConfig, selectedIds, viewMode }); }
