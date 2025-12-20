@@ -280,10 +280,31 @@
     } catch (e) { console.error('复制失败:', e); }
   }
 
+  /** 复制所有过滤结果的文件路径 */
+  let copiedAll = $state(false);
+  async function copyAllFilteredPaths() {
+    try {
+      // 获取所有过滤后分组的文件
+      const allFiles: FileData[] = [];
+      for (const group of analysisData) {
+        allFiles.push(...getFilesInGroup(group.key));
+      }
+      const paths = allFiles.map(f => f.container ? `${f.container}//${f.path}` : f.path).join('\n');
+      await navigator.clipboard.writeText(paths);
+      copiedAll = true;
+      setTimeout(() => { copiedAll = false; }, 2000);
+    } catch (e) { console.error('复制失败:', e); }
+  }
+
   // 派生数据
   let analysisData = $derived(analyzeByGroup());
   let currentGroupOption = $derived(groupByOptions.find(o => o.field === groupBy)!);
   let c = $derived(getSizeClasses(size));
+  
+  // 计算过滤后的总文件数
+  let filteredFileCount = $derived(
+    analysisData.reduce((sum, g) => sum + g.fileCount, 0)
+  );
 </script>
 
 
@@ -506,36 +527,99 @@
       {/if}
     </div>
 
-    <!-- 底部统计 -->
+    <!-- 底部统计 + 复制全部 -->
     {#if analysisData.length > 0}
-      <div class="p-2 border-t bg-muted/20 text-xs text-muted-foreground shrink-0">
-        共 {analysisData.length} 个{currentGroupOption.label}
+      <div class="p-2 border-t bg-muted/20 text-xs text-muted-foreground shrink-0 flex items-center justify-between">
+        <span>共 {analysisData.length} 个{currentGroupOption.label}，{filteredFileCount} 文件</span>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          class="h-6 px-2 gap-1"
+          onclick={copyAllFilteredPaths}
+          title="复制所有过滤结果的文件路径"
+        >
+          {#if copiedAll}
+            <Check class="w-3 h-3 text-green-500" />
+            <span class="text-green-600">已复制</span>
+          {:else}
+            <Copy class="w-3 h-3" />
+            <span>复制全部</span>
+          {/if}
+        </Button>
       </div>
     {/if}
   </div>
 {:else}
   <!-- 紧凑模式 -->
-  <div class="flex items-center justify-between mb-1">
-    <span class="{c.text} font-semibold flex items-center gap-1">
-      <BarChart3 class="w-3 h-3 text-orange-500" />分析
-    </span>
-    <span class="{c.textSm} text-muted-foreground">{analysisData.length}</span>
-  </div>
-  <div class="{c.maxHeight} overflow-y-auto">
-    {#if analysisData.length > 0}
-      <div class="space-y-0.5">
-        {#each analysisData.slice(0, 5) as group}
-          <div class="flex items-center justify-between text-xs">
-            <span class="truncate flex-1">{group.name}</span>
-            <span class="text-orange-600 shrink-0">{group.avgSizeFormatted}</span>
-          </div>
+  <div class="h-full flex flex-col">
+    <!-- 标题栏 -->
+    <div class="flex items-center justify-between mb-1">
+      <span class="{c.text} font-semibold flex items-center gap-1">
+        <BarChart3 class="w-3 h-3 text-orange-500" />分析
+      </span>
+      <div class="flex items-center gap-1">
+        <!-- 分组切换 -->
+        {#each groupByOptions as opt}
+          <button
+            class="p-0.5 rounded transition-colors {groupBy === opt.field ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}"
+            onclick={() => groupBy = opt.field}
+            title={opt.label}
+          >
+            <svelte:component this={opt.icon} class="w-3 h-3" />
+          </button>
         {/each}
-        {#if analysisData.length > 5}
-          <div class="text-[10px] text-muted-foreground">+{analysisData.length - 5} 更多</div>
-        {/if}
       </div>
-    {:else}
-      <div class="{c.text} text-muted-foreground text-center py-2">-</div>
+    </div>
+    
+    <!-- 列表 -->
+    <div class="flex-1 overflow-y-auto">
+      {#if analysisData.length > 0}
+        <div class="space-y-0.5">
+          {#each analysisData.slice(0, 8) as group}
+            <div class="group flex items-center justify-between text-xs hover:bg-muted/50 rounded px-1">
+              <span class="truncate flex-1">{group.name}</span>
+              <div class="flex items-center gap-1">
+                <button
+                  class="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-all"
+                  onclick={() => copyGroupPaths(group.key)}
+                  title="复制路径"
+                >
+                  {#if copiedGroupKey === group.key}
+                    <Check class="w-2.5 h-2.5 text-green-500" />
+                  {:else}
+                    <Copy class="w-2.5 h-2.5" />
+                  {/if}
+                </button>
+                <span class="text-orange-600 shrink-0">{group.avgSizeFormatted}</span>
+              </div>
+            </div>
+          {/each}
+          {#if analysisData.length > 8}
+            <div class="text-[10px] text-muted-foreground px-1">+{analysisData.length - 8} 更多</div>
+          {/if}
+        </div>
+      {:else}
+        <div class="{c.text} text-muted-foreground text-center py-2">-</div>
+      {/if}
+    </div>
+    
+    <!-- 底部：复制全部 -->
+    {#if analysisData.length > 0}
+      <div class="pt-1 mt-1 border-t flex items-center justify-between">
+        <span class="text-[10px] text-muted-foreground">{filteredFileCount} 文件</span>
+        <button
+          class="text-[10px] text-primary hover:underline flex items-center gap-0.5"
+          onclick={copyAllFilteredPaths}
+        >
+          {#if copiedAll}
+            <Check class="w-2.5 h-2.5 text-green-500" />
+            <span class="text-green-600">已复制</span>
+          {:else}
+            <Copy class="w-2.5 h-2.5" />
+            <span>复制全部</span>
+          {/if}
+        </button>
+      </div>
     {/if}
   </div>
 {/if}
