@@ -314,7 +314,7 @@
             {/if}
           </Button>
         </Popover.Trigger>
-        <Popover.Content class="w-72 p-3" align="end">
+        <Popover.Content class="w-72 p-3 z-[200]" align="end">
           <div class="space-y-3">
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium">过滤条件</span>
