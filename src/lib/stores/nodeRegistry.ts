@@ -22,6 +22,7 @@ import { MigrateFNode } from '$lib/components/nodes/migratefnode';
 import { FormatVNode } from '$lib/components/nodes/formatv';
 import { FindzNode } from '$lib/components/nodes/findz';
 import { BandiaNode } from '$lib/components/nodes/bandia';
+import { DissolvefNode } from '$lib/components/nodes/dissolvef';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -205,6 +206,24 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
       paths: { type: 'string', label: '压缩包路径', required: false },
       delete_after: { type: 'boolean', label: '解压后删除', default: true },
       use_trash: { type: 'boolean', label: '使用回收站', default: true }
+    }
+  },
+  {
+    type: 'dissolvef',
+    category: 'tool',
+    label: 'dissolvef',
+    description: '文件夹解散：解散嵌套/单媒体/单压缩包文件夹',
+    icon: 'FolderInput',
+    inputs: ['path'],
+    outputs: ['path'],
+    component: DissolvefNode,
+    configSchema: {
+      path: { type: 'path', label: '路径', required: true },
+      nested: { type: 'boolean', label: '嵌套文件夹', default: true },
+      media: { type: 'boolean', label: '单媒体文件夹', default: true },
+      archive: { type: 'boolean', label: '单压缩包文件夹', default: true },
+      direct: { type: 'boolean', label: '直接解散', default: false },
+      preview: { type: 'boolean', label: '预览模式', default: false }
     }
   },
 
