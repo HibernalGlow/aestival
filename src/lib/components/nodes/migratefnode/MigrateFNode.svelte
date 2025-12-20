@@ -19,7 +19,7 @@
   import { 
     Play, LoaderCircle, FolderOpen, Clipboard, FolderInput,
     CircleCheck, CircleX, ArrowRight, FolderOutput,
-    Copy, Check, RotateCcw
+    Copy, Check, RotateCcw, Undo2
   } from '@lucide/svelte';
 
   interface Props {
@@ -44,6 +44,7 @@
     skipped: number;
     error: number;
     total: number;
+    operation_id?: string;
   }
 
   interface MigrateFNodeState {
@@ -51,6 +52,7 @@
     progress: number;
     progressText: string;
     migrateResult: MigrateResultData | null;
+    lastOperationId: string;
   }
 
   // 从 nodeStateStore 恢复状态
@@ -71,6 +73,8 @@
   let progressText = $state(savedState?.progressText ?? '');
 
   let migrateResult = $state<MigrateResultData | null>(savedState?.migrateResult ?? null);
+  let lastOperationId = $state(savedState?.lastOperationId ?? '');
+  let isUndoing = $state(false);
 
   // NodeLayoutRenderer 引用
   let layoutRenderer = $state<any>(undefined);
@@ -83,7 +87,7 @@
 
   function saveState() {
     setNodeState<MigrateFNodeState>(id, {
-      phase, progress, progressText, migrateResult
+      phase, progress, progressText, migrateResult, lastOperationId
     });
   }
 
@@ -145,21 +149,52 @@
 
       if (response.success) {
         phase = 'completed'; progress = 100; progressText = '迁移完成';
+        const opId = response.data?.operation_id ?? '';
         migrateResult = {
           success: true,
           migrated: response.data?.migrated_count ?? 0,
           skipped: response.data?.skipped_count ?? 0,
           error: response.data?.error_count ?? 0,
-          total: response.data?.total_count ?? 0
+          total: response.data?.total_count ?? 0,
+          operation_id: opId
         };
+        if (opId) lastOperationId = opId;
         log(`✅ ${response.message}`);
+        if (opId) log(`🔄 撤销 ID: ${opId}`);
       } else { phase = 'error'; progress = 0; log(`❌ 迁移失败: ${response.message}`); }
     } catch (error) { phase = 'error'; progress = 0; log(`❌ 迁移失败: ${error}`); }
   }
 
   function handleReset() {
     phase = 'idle'; progress = 0; progressText = '';
-    migrateResult = null; logs = [];
+    migrateResult = null; logs = []; lastOperationId = '';
+  }
+
+  // 撤销操作
+  async function handleUndo() {
+    if (!lastOperationId || isUndoing) return;
+    isUndoing = true;
+    log(`🔄 开始撤销操作: ${lastOperationId}`);
+
+    try {
+      const response = await api.executeNode('migratef', {
+        action: 'undo',
+        batch_id: lastOperationId
+      }) as any;
+
+      if (response.success) {
+        log(`✅ ${response.message}`);
+        lastOperationId = '';
+        migrateResult = null;
+        phase = 'idle';
+      } else {
+        log(`❌ 撤销失败: ${response.message}`);
+      }
+    } catch (error) {
+      log(`❌ 撤销失败: ${error}`);
+    } finally {
+      isUndoing = false;
+    }
   }
 
   async function copyLogs() {
@@ -263,9 +298,20 @@
           {#snippet icon()}<Play class="h-4 w-4" />{/snippet}
         </InteractiveHover>
       {/if}
-      <Button variant="ghost" class="h-9" onclick={handleReset} disabled={isRunning}>
-        <RotateCcw class="h-4 w-4 mr-2" />重置
-      </Button>
+      <div class="flex gap-2">
+        <Button variant="ghost" class="flex-1 h-9" onclick={handleReset} disabled={isRunning}>
+          <RotateCcw class="h-4 w-4 mr-2" />重置
+        </Button>
+        {#if lastOperationId}
+          <Button variant="outline" class="flex-1 h-9" onclick={handleUndo} disabled={isUndoing || isRunning}>
+            {#if isUndoing}
+              <LoaderCircle class="h-4 w-4 mr-2 animate-spin" />撤销中
+            {:else}
+              <Undo2 class="h-4 w-4 mr-2" />撤销
+            {/if}
+          </Button>
+        {/if}
+      </div>
     {:else}
       <div class="flex {c.gapSm}">
         {#if phase === 'idle' || phase === 'error'}
@@ -284,6 +330,15 @@
         <Button variant="ghost" size="icon" class="{c.buttonIcon}" onclick={handleReset} disabled={isRunning} title="重置">
           <RotateCcw class={c.icon} />
         </Button>
+        {#if lastOperationId}
+          <Button variant="outline" size="icon" class="{c.buttonIcon}" onclick={handleUndo} disabled={isUndoing || isRunning} title="撤销">
+            {#if isUndoing}
+              <LoaderCircle class="{c.icon} animate-spin" />
+            {:else}
+              <Undo2 class={c.icon} />
+            {/if}
+          </Button>
+        {/if}
       </div>
     {/if}
   </div>

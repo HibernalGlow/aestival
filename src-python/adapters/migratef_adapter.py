@@ -47,8 +47,11 @@ class MigrateFInput(AdapterInput):
     source_paths: List[str] = Field(default_factory=list, description="源路径列表")
     target_path: str = Field(default="", description="目标目录路径")
     mode: str = Field(default="preserve", description="迁移模式: preserve/flat/direct")
-    action: str = Field(default="move", description="操作类型: copy/move")
+    action: str = Field(default="move", description="操作类型: copy/move/undo/history")
     max_workers: int = Field(default=16, description="最大线程数")
+    # 撤销相关参数
+    batch_id: str = Field(default="", description="要撤销的批次 ID")
+    history_limit: int = Field(default=10, description="历史记录数量限制")
 
 
 class MigrateFOutput(AdapterOutput):
@@ -57,6 +60,11 @@ class MigrateFOutput(AdapterOutput):
     skipped_count: int = Field(default=0, description="跳过数量")
     error_count: int = Field(default=0, description="失败数量")
     total_count: int = Field(default=0, description="总数量")
+    # 撤销相关
+    operation_id: str = Field(default="", description="操作 ID（用于撤销）")
+    success_count: int = Field(default=0, description="撤销成功数量")
+    failed_count: int = Field(default=0, description="撤销失败数量")
+    history: List[Dict] = Field(default_factory=list, description="历史记录")
 
 
 class MigrateFAdapter(BaseAdapter):
@@ -79,6 +87,111 @@ class MigrateFAdapter(BaseAdapter):
         }
     
     async def execute(
+        self,
+        input_data: MigrateFInput,
+        on_progress: Optional[Callable[[int, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None
+    ) -> MigrateFOutput:
+        """执行文件迁移或撤销操作"""
+        action = input_data.action.lower()
+        
+        # 撤销操作
+        if action == "undo":
+            return await self._undo(input_data, on_progress, on_log)
+        
+        # 获取历史记录
+        if action == "history":
+            return await self._get_history(input_data, on_progress, on_log)
+        
+        # 迁移操作 (move/copy)
+        return await self._migrate(input_data, on_progress, on_log)
+    
+    async def _undo(
+        self,
+        input_data: MigrateFInput,
+        on_progress: Optional[Callable[[int, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None
+    ) -> MigrateFOutput:
+        """撤销迁移操作"""
+        try:
+            if on_log:
+                on_log("开始撤销操作...")
+            if on_progress:
+                on_progress(30, "执行撤销...")
+            
+            module = self._import_module()
+            MigrationService = module['MigrationService']
+            service = MigrationService()
+            
+            result = service.undo(input_data.batch_id)
+            
+            if on_progress:
+                on_progress(100, "撤销完成")
+            
+            success = result['success_count']
+            failed = result['failed_count']
+            
+            if on_log:
+                on_log(f"✅ 撤销成功: {success}, 失败: {failed}")
+                if result.get('failed_items'):
+                    for item in result['failed_items'][:5]:
+                        if isinstance(item, (list, tuple)) and len(item) >= 3:
+                            src, tgt, err = item[0], item[1], item[2]
+                            on_log(f"  ❌ {err}")
+                        else:
+                            on_log(f"  ❌ {item}")
+            
+            return MigrateFOutput(
+                success=True,
+                message=f"撤销完成: {success} 成功, {failed} 失败",
+                success_count=success,
+                failed_count=failed,
+                data={
+                    'success_count': success,
+                    'failed_count': failed,
+                    'failed_items': result.get('failed_items', [])
+                }
+            )
+            
+        except ImportError as e:
+            return MigrateFOutput(success=False, message=f"migratef 模块未安装: {e}")
+        except Exception as e:
+            if on_log:
+                on_log(f"❌ 撤销失败: {e}")
+            return MigrateFOutput(success=False, message=f"撤销失败: {type(e).__name__}: {e}")
+    
+    async def _get_history(
+        self,
+        input_data: MigrateFInput,
+        on_progress: Optional[Callable[[int, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None
+    ) -> MigrateFOutput:
+        """获取撤销历史"""
+        try:
+            module = self._import_module()
+            MigrationService = module['MigrationService']
+            service = MigrationService()
+            
+            history = service.get_undo_history(input_data.history_limit or 10)
+            
+            if on_log:
+                on_log(f"获取到 {len(history)} 条历史记录")
+            
+            return MigrateFOutput(
+                success=True,
+                message=f"获取到 {len(history)} 条历史记录",
+                history=history,
+                data={'history': history}
+            )
+            
+        except ImportError as e:
+            return MigrateFOutput(success=False, message=f"migratef 模块未安装: {e}")
+        except Exception as e:
+            if on_log:
+                on_log(f"❌ 获取历史失败: {e}")
+            return MigrateFOutput(success=False, message=f"获取历史失败: {type(e).__name__}: {e}")
+    
+    async def _migrate(
         self,
         input_data: MigrateFInput,
         on_progress: Optional[Callable[[int, str], None]] = None,
@@ -150,6 +263,7 @@ class MigrateFAdapter(BaseAdapter):
             skipped = result.get('skipped', 0)
             error = result.get('error', 0)
             total = migrated + skipped + error
+            operation_id = result.get('operation_id', '')
             
             if on_log:
                 on_log(f"{action_text}完成: {migrated} 成功")
@@ -157,6 +271,8 @@ class MigrateFAdapter(BaseAdapter):
                     on_log(f"跳过: {skipped}")
                 if error > 0:
                     on_log(f"错误: {error}")
+                if operation_id:
+                    on_log(f"🔄 撤销 ID: {operation_id}")
             
             return MigrateFOutput(
                 success=True,
@@ -165,12 +281,14 @@ class MigrateFAdapter(BaseAdapter):
                 skipped_count=skipped,
                 error_count=error,
                 total_count=total,
+                operation_id=operation_id,
                 output_path=target_path,
                 data={
                     'migrated_count': migrated,
                     'skipped_count': skipped,
                     'error_count': error,
-                    'total_count': total
+                    'total_count': total,
+                    'operation_id': operation_id
                 }
             )
             
