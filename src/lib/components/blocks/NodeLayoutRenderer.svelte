@@ -346,7 +346,7 @@
 </script>
 
 {#if isFullscreen}
-  <div class="h-full overflow-hidden">
+  <div class="h-full overflow-hidden @container">
     <DashboardGrid
       bind:this={dashboardGrid}
       columns={4}
@@ -408,7 +408,7 @@
     </DashboardGrid>
   </div>
 {:else}
-  <div class="flex-1 flex flex-col overflow-hidden p-2 min-w-0">
+  <div class="flex-1 flex flex-col overflow-hidden p-2 min-w-0 @container">
     <!-- 上部区块：使用 grid 布局，不拉伸 -->
     <div
       class="grid grid-cols-2 gap-2 min-w-0 shrink-0"

@@ -1,0 +1,340 @@
+/**
+ * Container Query 响应式样式
+ * Tailwind v4 原生支持 @container 和 @sm/@md/@lg 等前缀
+ * 
+ * 使用方式：
+ * 1. 容器添加 class="@container" 声明 container context
+ * 2. 子元素使用 @sm:, @md:, @lg: 等前缀
+ * 3. 或使用下面定义的 cq-* 工具类
+ * 
+ * 断点（基于容器宽度）：
+ * - @xs: 320px
+ * - @sm: 384px  
+ * - @md: 448px
+ * - @lg: 512px
+ * - @xl: 576px
+ */
+
+/* ========== 条件显示工具类 ========== */
+
+/* 仅在紧凑模式显示（容器 < 500px） */
+.cq-compact-only {
+  display: block;
+}
+
+@container (min-width: 500px) {
+  .cq-compact-only {
+    display: none;
+  }
+}
+
+/* 仅在宽屏模式显示（容器 >= 500px） */
+.cq-wide-only {
+  display: none;
+}
+
+@container (min-width: 500px) {
+  .cq-wide-only {
+    display: block;
+  }
+}
+
+/* Flex 版本 */
+.cq-compact-only-flex {
+  display: flex;
+}
+
+@container (min-width: 500px) {
+  .cq-compact-only-flex {
+    display: none;
+  }
+}
+
+.cq-wide-only-flex {
+  display: none;
+}
+
+@container (min-width: 500px) {
+  .cq-wide-only-flex {
+    display: flex;
+  }
+}
+
+/* Grid 版本 */
+.cq-compact-only-grid {
+  display: grid;
+}
+
+@container (min-width: 500px) {
+  .cq-compact-only-grid {
+    display: none;
+  }
+}
+
+.cq-wide-only-grid {
+  display: none;
+}
+
+@container (min-width: 500px) {
+  .cq-wide-only-grid {
+    display: grid;
+  }
+}
+
+/* ========== 响应式尺寸工具类 ========== */
+
+/* 输入框 */
+.cq-input {
+  height: 1.75rem;
+  font-size: 0.75rem;
+}
+
+@container (min-width: 500px) {
+  .cq-input {
+    height: 2.5rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* 按钮 */
+.cq-button {
+  height: 1.75rem;
+  font-size: 0.75rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+@container (min-width: 500px) {
+  .cq-button {
+    height: 3rem;
+    font-size: 0.875rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+.cq-button-icon {
+  height: 1.75rem;
+  width: 1.75rem;
+}
+
+@container (min-width: 500px) {
+  .cq-button-icon {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+}
+
+.cq-button-sm {
+  height: 1.5rem;
+  font-size: 0.75rem;
+}
+
+@container (min-width: 500px) {
+  .cq-button-sm {
+    height: 2rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* 图标 */
+.cq-icon {
+  height: 0.75rem;
+  width: 0.75rem;
+}
+
+@container (min-width: 500px) {
+  .cq-icon {
+    height: 1rem;
+    width: 1rem;
+  }
+}
+
+.cq-icon-sm {
+  height: 0.625rem;
+  width: 0.625rem;
+}
+
+@container (min-width: 500px) {
+  .cq-icon-sm {
+    height: 0.75rem;
+    width: 0.75rem;
+  }
+}
+
+.cq-icon-lg {
+  height: 1rem;
+  width: 1rem;
+}
+
+@container (min-width: 500px) {
+  .cq-icon-lg {
+    height: 1.25rem;
+    width: 1.25rem;
+  }
+}
+
+/* 间距 */
+.cq-gap {
+  gap: 0.25rem;
+}
+
+@container (min-width: 500px) {
+  .cq-gap {
+    gap: 0.5rem;
+  }
+}
+
+.cq-gap-sm {
+  gap: 0.125rem;
+}
+
+@container (min-width: 500px) {
+  .cq-gap-sm {
+    gap: 0.25rem;
+  }
+}
+
+.cq-gap-lg {
+  gap: 0.5rem;
+}
+
+@container (min-width: 500px) {
+  .cq-gap-lg {
+    gap: 0.75rem;
+  }
+}
+
+.cq-mb {
+  margin-bottom: 0.5rem;
+}
+
+@container (min-width: 500px) {
+  .cq-mb {
+    margin-bottom: 1rem;
+  }
+}
+
+/* 文字 */
+.cq-text {
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+@container (min-width: 500px) {
+  .cq-text {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+}
+
+.cq-text-sm {
+  font-size: 0.625rem;
+  line-height: 0.875rem;
+}
+
+@container (min-width: 500px) {
+  .cq-text-sm {
+    font-size: 0.75rem;
+    line-height: 1rem;
+  }
+}
+
+.cq-text-lg {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+@container (min-width: 500px) {
+  .cq-text-lg {
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+}
+
+/* 内边距 */
+.cq-padding {
+  padding: 0.375rem;
+}
+
+@container (min-width: 500px) {
+  .cq-padding {
+    padding: 0.5rem;
+  }
+}
+
+.cq-padding-sm {
+  padding: 0.25rem;
+}
+
+@container (min-width: 500px) {
+  .cq-padding-sm {
+    padding: 0.375rem;
+  }
+}
+
+.cq-px {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+@container (min-width: 500px) {
+  .cq-px {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
+.cq-py {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+@container (min-width: 500px) {
+  .cq-py {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+}
+
+/* 圆角 */
+.cq-rounded {
+  border-radius: 0.25rem;
+}
+
+@container (min-width: 500px) {
+  .cq-rounded {
+    border-radius: 0.5rem;
+  }
+}
+
+.cq-rounded-lg {
+  border-radius: 0.5rem;
+}
+
+@container (min-width: 500px) {
+  .cq-rounded-lg {
+    border-radius: 0.75rem;
+  }
+}
+
+/* 高度限制 */
+.cq-max-h {
+  max-height: 10rem;
+}
+
+@container (min-width: 500px) {
+  .cq-max-h {
+    max-height: 20rem;
+  }
+}
+
+.cq-max-h-sm {
+  max-height: 4rem;
+}
+
+@container (min-width: 500px) {
+  .cq-max-h-sm {
+    max-height: 10rem;
+  }
+}

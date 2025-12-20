@@ -2,14 +2,14 @@
   /**
    * AnalysisPanel - 文件分组分析面板
    * 支持按压缩包/扩展名/目录分组，提供多维度过滤和排序
-   * 统一设计：同一套 UI，根据 size 参数调整样式
+   * 
+   * 已迁移到 Container Query 响应式布局
    */
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import * as Popover from '$lib/components/ui/popover';
-  import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
   import {
-    Package, File, Folder, BarChart3, ArrowUp, ArrowDown,
+    Package, File, Folder, ChartNoAxesColumn, ArrowUp, ArrowDown,
     Copy, Check, SlidersHorizontal
   } from '@lucide/svelte';
 
@@ -51,10 +51,9 @@
 
   interface Props {
     files: FileData[];
-    size?: SizeMode;
   }
 
-  let { files, size = 'normal' }: Props = $props();
+  let { files }: Props = $props();
 
   // 分组和排序状态
   type GroupByField = 'archive' | 'ext' | 'dir';
@@ -81,10 +80,6 @@
   // 复制状态
   let copiedGroupKey = $state<string | null>(null);
   let copiedAll = $state(false);
-
-  // 样式类
-  let c = $derived(getSizeClasses(size));
-  let isCompact = $derived(size === 'compact');
 
   /** 分组配置 */
   const groupByOptions: { field: GroupByField; label: string; shortLabel: string; icon: typeof Package }[] = [
@@ -257,16 +252,16 @@
 
 <div class="h-full flex flex-col overflow-hidden">
   <!-- 标题栏：分组选择 + 过滤器 -->
-  <div class="flex items-center justify-between {isCompact ? 'pb-1 mb-1' : 'p-2'} border-b bg-muted/30 shrink-0">
-    <div class="flex items-center {isCompact ? 'gap-0.5' : 'gap-1'}">
+  <div class="flex items-center justify-between pb-1 mb-1 border-b bg-muted/30 shrink-0">
+    <div class="flex items-center gap-0.5">
       {#each groupByOptions as opt}
         <button
-          class="{isCompact ? 'p-1' : 'px-2 py-1'} rounded {isCompact ? 'text-[10px]' : 'text-xs'} flex items-center gap-0.5 transition-colors {groupBy === opt.field ? 'bg-primary/20 text-primary' : 'hover:bg-muted text-muted-foreground'}"
+          class="p-1 rounded text-[10px] flex items-center gap-0.5 transition-colors {groupBy === opt.field ? 'bg-primary/20 text-primary' : 'hover:bg-muted text-muted-foreground'}"
           onclick={() => groupBy = opt.field}
           title={opt.label}
         >
-          <svelte:component this={opt.icon} class={isCompact ? 'w-3 h-3' : 'w-3 h-3'} />
-          {#if !isCompact}<span>{opt.label}</span>{/if}
+          <svelte:component this={opt.icon} class="w-3 h-3" />
+          <span class="cq-wide-only">{opt.label}</span>
         </button>
       {/each}
     </div>
@@ -274,50 +269,50 @@
     <!-- 过滤器弹出框 -->
     <Popover.Root>
       <Popover.Trigger>
-        <button class="{isCompact ? 'p-1' : 'h-7 px-2'} rounded flex items-center gap-1 hover:bg-muted transition-colors {hasActiveFilter ? 'text-primary' : 'text-muted-foreground'}">
-          <SlidersHorizontal class={isCompact ? 'w-3 h-3' : 'w-3 h-3'} />
-          {#if !isCompact}<span class="text-xs">过滤</span>{/if}
+        <button class="p-1 rounded flex items-center gap-1 hover:bg-muted transition-colors {hasActiveFilter ? 'text-primary' : 'text-muted-foreground'}">
+          <SlidersHorizontal class="w-3 h-3" />
+          <span class="cq-wide-only text-xs">过滤</span>
           {#if hasActiveFilter}<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>{/if}
         </button>
       </Popover.Trigger>
-      <Popover.Content class="{isCompact ? 'w-56 p-2' : 'w-72 p-3'} z-[200]" align="end">
-        <div class="{isCompact ? 'space-y-2' : 'space-y-3'}">
+      <Popover.Content class="w-56 p-2 z-[200]" align="end">
+        <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <span class="{isCompact ? 'text-xs' : 'text-sm'} font-medium">过滤条件</span>
-            <Button variant="ghost" size="sm" class="{isCompact ? 'h-5 px-1 text-[10px]' : 'h-6 px-2 text-xs'}" onclick={resetFilter}>重置</Button>
+            <span class="text-xs font-medium">过滤条件</span>
+            <Button variant="ghost" size="sm" class="h-5 px-1 text-[10px]" onclick={resetFilter}>重置</Button>
           </div>
 
           <div class="space-y-1">
-            <label class="{isCompact ? 'text-[10px]' : 'text-xs'} text-muted-foreground">文件数量</label>
+            <span class="text-[10px] text-muted-foreground">文件数量</span>
             <div class="flex items-center gap-1">
-              <Input type="number" placeholder="最小" bind:value={filterInputs.countMin} onchange={updateFilter} class="{isCompact ? 'h-6 text-[10px]' : 'h-7 text-xs'}" />
+              <Input type="number" placeholder="最小" bind:value={filterInputs.countMin} onchange={updateFilter} class="h-6 text-[10px]" />
               <span class="text-muted-foreground">-</span>
-              <Input type="number" placeholder="最大" bind:value={filterInputs.countMax} onchange={updateFilter} class="{isCompact ? 'h-6 text-[10px]' : 'h-7 text-xs'}" />
+              <Input type="number" placeholder="最大" bind:value={filterInputs.countMax} onchange={updateFilter} class="h-6 text-[10px]" />
             </div>
           </div>
 
           <div class="space-y-1">
-            <label class="{isCompact ? 'text-[10px]' : 'text-xs'} text-muted-foreground">平均大小 (KB/MB/GB)</label>
+            <span class="text-[10px] text-muted-foreground">平均大小</span>
             <div class="flex items-center gap-1">
-              <Input placeholder={isCompact ? '100KB' : '如 100KB'} bind:value={filterInputs.avgSizeMin} onchange={updateFilter} class="{isCompact ? 'h-6 text-[10px]' : 'h-7 text-xs'}" />
+              <Input placeholder="100KB" bind:value={filterInputs.avgSizeMin} onchange={updateFilter} class="h-6 text-[10px]" />
               <span class="text-muted-foreground">-</span>
-              <Input placeholder={isCompact ? '5MB' : '如 5MB'} bind:value={filterInputs.avgSizeMax} onchange={updateFilter} class="{isCompact ? 'h-6 text-[10px]' : 'h-7 text-xs'}" />
+              <Input placeholder="5MB" bind:value={filterInputs.avgSizeMax} onchange={updateFilter} class="h-6 text-[10px]" />
             </div>
           </div>
 
           <div class="space-y-1">
-            <label class="{isCompact ? 'text-[10px]' : 'text-xs'} text-muted-foreground">总大小 (KB/MB/GB)</label>
+            <span class="text-[10px] text-muted-foreground">总大小</span>
             <div class="flex items-center gap-1">
-              <Input placeholder={isCompact ? '1MB' : '如 1MB'} bind:value={filterInputs.totalSizeMin} onchange={updateFilter} class="{isCompact ? 'h-6 text-[10px]' : 'h-7 text-xs'}" />
+              <Input placeholder="1MB" bind:value={filterInputs.totalSizeMin} onchange={updateFilter} class="h-6 text-[10px]" />
               <span class="text-muted-foreground">-</span>
-              <Input placeholder={isCompact ? '1GB' : '如 1GB'} bind:value={filterInputs.totalSizeMax} onchange={updateFilter} class="{isCompact ? 'h-6 text-[10px]' : 'h-7 text-xs'}" />
+              <Input placeholder="1GB" bind:value={filterInputs.totalSizeMax} onchange={updateFilter} class="h-6 text-[10px]" />
             </div>
           </div>
 
           <div class="pt-1 border-t flex flex-wrap gap-1">
-            <Button variant="outline" size="sm" class="{isCompact ? 'h-5 px-1 text-[10px]' : 'h-6 px-2 text-xs'}" onclick={() => { filterInputs.avgSizeMax = '100KB'; updateFilter(); }}>&lt;100KB</Button>
-            <Button variant="outline" size="sm" class="{isCompact ? 'h-5 px-1 text-[10px]' : 'h-6 px-2 text-xs'}" onclick={() => { filterInputs.avgSizeMin = '1MB'; updateFilter(); }}>&gt;1MB</Button>
-            <Button variant="outline" size="sm" class="{isCompact ? 'h-5 px-1 text-[10px]' : 'h-6 px-2 text-xs'}" onclick={() => { filterInputs.countMin = '10'; updateFilter(); }}>≥10</Button>
+            <Button variant="outline" size="sm" class="h-5 px-1 text-[10px]" onclick={() => { filterInputs.avgSizeMax = '100KB'; updateFilter(); }}>&lt;100KB</Button>
+            <Button variant="outline" size="sm" class="h-5 px-1 text-[10px]" onclick={() => { filterInputs.avgSizeMin = '1MB'; updateFilter(); }}>&gt;1MB</Button>
+            <Button variant="outline" size="sm" class="h-5 px-1 text-[10px]" onclick={() => { filterInputs.countMin = '10'; updateFilter(); }}>≥10</Button>
           </div>
         </div>
       </Popover.Content>
@@ -325,75 +320,75 @@
   </div>
 
   <!-- 排序按钮 -->
-  <div class="flex items-center {isCompact ? 'gap-0.5 pb-1 mb-1' : 'gap-1 p-2'} border-b {isCompact ? 'text-[10px]' : 'text-xs'} shrink-0">
-    {#if !isCompact}<span class="text-muted-foreground mr-1">排序:</span>{/if}
+  <div class="flex items-center gap-0.5 pb-1 mb-1 border-b text-[10px] shrink-0">
+    <span class="cq-wide-only text-muted-foreground mr-1">排序:</span>
     {#each sortOptions as item}
       <button
-        class="{isCompact ? 'px-1 py-0.5' : 'px-2 py-0.5'} rounded flex items-center gap-0.5 transition-colors {sortField === item.field ? 'bg-primary/20 text-primary' : 'hover:bg-muted'}"
+        class="px-1 py-0.5 rounded flex items-center gap-0.5 transition-colors {sortField === item.field ? 'bg-primary/20 text-primary' : 'hover:bg-muted'}"
         onclick={() => toggleSort(item.field)}
         title={item.label}
       >
-        {isCompact ? item.shortLabel : item.label}
+        <span class="cq-compact-only">{item.shortLabel}</span>
+        <span class="cq-wide-only">{item.label}</span>
         {#if sortField === item.field}
-          {#if sortOrder === 'desc'}<ArrowDown class={isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />{:else}<ArrowUp class={isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />{/if}
+          {#if sortOrder === 'desc'}<ArrowDown class="w-2.5 h-2.5" />{:else}<ArrowUp class="w-2.5 h-2.5" />{/if}
         {/if}
       </button>
     {/each}
   </div>
 
   <!-- 分析列表 -->
-  <div class="flex-1 overflow-y-auto {isCompact ? '' : 'p-2'}">
+  <div class="flex-1 overflow-y-auto">
     {#if analysisData.length > 0}
-      <div class="{isCompact ? 'space-y-0.5' : 'space-y-2'}">
+      <div class="space-y-0.5">
         {#each analysisData as group}
-          <div class="group/item {isCompact ? 'flex items-center justify-between px-1 py-0.5 hover:bg-muted/50 rounded' : 'p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/30'} transition-colors">
-            {#if isCompact}
-              <!-- 紧凑模式：单行 -->
-              <span class="truncate flex-1 text-xs" title={group.key}>{group.name}</span>
+          <!-- 紧凑模式：单行 -->
+          <div class="cq-compact-only group/item flex items-center justify-between px-1 py-0.5 hover:bg-muted/50 rounded transition-colors">
+            <span class="truncate flex-1 text-xs" title={group.key}>{group.name}</span>
+            <div class="flex items-center gap-1 shrink-0">
+              <span class="text-[10px] text-muted-foreground">{group.fileCount}</span>
+              <button class="p-0.5 rounded opacity-0 group-hover/item:opacity-100 hover:bg-muted transition-all" onclick={() => copyGroupPaths(group.key)} title="复制路径">
+                {#if copiedGroupKey === group.key}<Check class="w-2.5 h-2.5 text-green-500" />{:else}<Copy class="w-2.5 h-2.5" />{/if}
+              </button>
+              <span class="text-orange-600 text-[10px]">{group.avgSizeFormatted}</span>
+            </div>
+          </div>
+          <!-- 宽屏模式：多行 -->
+          <div class="cq-wide-only group/item p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-primary/30 transition-colors">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <span class="text-sm font-medium truncate flex-1" title={group.key}>{group.name}</span>
               <div class="flex items-center gap-1 shrink-0">
-                <span class="text-[10px] text-muted-foreground">{group.fileCount}</span>
-                <button class="p-0.5 rounded opacity-0 group-hover/item:opacity-100 hover:bg-muted transition-all" onclick={() => copyGroupPaths(group.key)} title="复制路径">
-                  {#if copiedGroupKey === group.key}<Check class="w-2.5 h-2.5 text-green-500" />{:else}<Copy class="w-2.5 h-2.5" />{/if}
+                <button class="p-1 rounded opacity-0 group-hover/item:opacity-100 hover:bg-muted transition-all" onclick={() => copyGroupPaths(group.key)} title="复制该分组所有文件路径">
+                  {#if copiedGroupKey === group.key}<Check class="w-3 h-3 text-green-500" />{:else}<Copy class="w-3 h-3" />{/if}
                 </button>
-                <span class="text-orange-600 text-[10px]">{group.avgSizeFormatted}</span>
+                <span class="text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-600 rounded">平均 {group.avgSizeFormatted}</span>
               </div>
-            {:else}
-              <!-- 普通模式：多行 -->
-              <div class="flex items-start justify-between gap-2 mb-1">
-                <span class="text-sm font-medium truncate flex-1" title={group.key}>{group.name}</span>
-                <div class="flex items-center gap-1 shrink-0">
-                  <button class="p-1 rounded opacity-0 group-hover/item:opacity-100 hover:bg-muted transition-all" onclick={() => copyGroupPaths(group.key)} title="复制该分组所有文件路径">
-                    {#if copiedGroupKey === group.key}<Check class="w-3 h-3 text-green-500" />{:else}<Copy class="w-3 h-3" />{/if}
-                  </button>
-                  <span class="text-xs px-1.5 py-0.5 bg-orange-500/20 text-orange-600 rounded">平均 {group.avgSizeFormatted}</span>
-                </div>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-muted-foreground">
+              <span>{group.fileCount} 文件</span>
+              <span>总计 {group.totalSizeFormatted}</span>
+            </div>
+            {#if Object.keys(group.subStats).length > 0}
+              <div class="flex flex-wrap gap-1 mt-1">
+                {#each Object.entries(group.subStats).sort((a, b) => b[1] - a[1]).slice(0, 4) as [label, count]}
+                  <span class="text-[10px] px-1 py-0.5 bg-muted rounded">{groupBy === 'ext' ? label : `.${label}`}: {count}</span>
+                {/each}
               </div>
-              <div class="flex items-center gap-3 text-xs text-muted-foreground">
-                <span>{group.fileCount} 文件</span>
-                <span>总计 {group.totalSizeFormatted}</span>
-              </div>
-              {#if Object.keys(group.subStats).length > 0}
-                <div class="flex flex-wrap gap-1 mt-1">
-                  {#each Object.entries(group.subStats).sort((a, b) => b[1] - a[1]).slice(0, 4) as [label, count]}
-                    <span class="text-[10px] px-1 py-0.5 bg-muted rounded">{groupBy === 'ext' ? label : `.${label}`}: {count}</span>
-                  {/each}
-                </div>
-              {/if}
             {/if}
           </div>
         {/each}
       </div>
     {:else if files.length > 0}
-      <div class="text-center text-muted-foreground {isCompact ? 'py-2 text-[10px]' : 'py-4'}">
-        <svelte:component this={currentGroupOption.icon} class="{isCompact ? 'w-6 h-6' : 'w-8 h-8'} mx-auto mb-2 opacity-50" />
+      <div class="text-center text-muted-foreground py-2 text-[10px]">
+        <svelte:component this={currentGroupOption.icon} class="w-6 h-6 mx-auto mb-2 opacity-50" />
         <div>无匹配的分组数据</div>
         {#if hasActiveFilter}
           <button class="text-primary hover:underline mt-1" onclick={resetFilter}>清除过滤</button>
         {/if}
       </div>
     {:else}
-      <div class="text-center text-muted-foreground {isCompact ? 'py-2 text-[10px]' : 'py-4'}">
-        <BarChart3 class="{isCompact ? 'w-6 h-6' : 'w-8 h-8'} mx-auto mb-2 opacity-50" />
+      <div class="text-center text-muted-foreground py-2 text-[10px]">
+        <ChartNoAxesColumn class="w-6 h-6 mx-auto mb-2 opacity-50" />
         <div>搜索后显示分析</div>
       </div>
     {/if}
@@ -401,10 +396,13 @@
 
   <!-- 底部统计 + 复制全部 -->
   {#if analysisData.length > 0}
-    <div class="{isCompact ? 'pt-1 mt-1' : 'p-2'} border-t bg-muted/20 {isCompact ? 'text-[10px]' : 'text-xs'} text-muted-foreground shrink-0 flex items-center justify-between">
-      <span>{analysisData.length}{isCompact ? '组' : '个' + currentGroupOption.label} {filteredFileCount}文件</span>
-      <button class="{isCompact ? '' : 'h-6 px-2'} flex items-center gap-1 text-primary hover:underline" onclick={copyAllFilteredPaths} title="复制所有过滤结果的文件路径">
-        {#if copiedAll}<Check class={isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} /><span class="text-green-600">已复制</span>{:else}<Copy class={isCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} /><span>复制全部</span>{/if}
+    <div class="pt-1 mt-1 border-t bg-muted/20 text-[10px] text-muted-foreground shrink-0 flex items-center justify-between">
+      <span>
+        <span class="cq-compact-only">{analysisData.length}组 {filteredFileCount}文件</span>
+        <span class="cq-wide-only">{analysisData.length}个{currentGroupOption.label} {filteredFileCount}文件</span>
+      </span>
+      <button class="flex items-center gap-1 text-primary hover:underline" onclick={copyAllFilteredPaths} title="复制所有过滤结果的文件路径">
+        {#if copiedAll}<Check class="w-2.5 h-2.5" /><span class="text-green-600">已复制</span>{:else}<Copy class="w-2.5 h-2.5" /><span>复制全部</span>{/if}
       </button>
     </div>
   {/if}
