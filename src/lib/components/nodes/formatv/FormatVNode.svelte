@@ -13,6 +13,7 @@
   import { NodeLayoutRenderer } from '$lib/components/blocks';
   import { FORMATV_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
+  import { getApiV1Url } from '$lib/stores/backend';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
   import NodeWrapper from '../NodeWrapper.svelte';
   import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
@@ -91,8 +92,10 @@
   // 视图模式
   let viewMode = $state<'tree' | 'list'>('tree');
 
-  // API 基础路径
-  const apiBase = 'http://localhost:8765';
+  // 获取视频缩略图 URL（使用系统缩略图）
+  function getThumbnailUrl(filePath: string): string {
+    return `${getApiV1Url()}/file?path=${encodeURIComponent(filePath)}&thumbnail=true`;
+  }
 
   function saveState() {
     setNodeState<FormatVNodeState>(id, {
@@ -117,11 +120,6 @@
   // 获取文件名
   function getFileName(path: string): string {
     return path.split(/[/\\]/).pop() || path;
-  }
-
-  // 获取视频缩略图 URL（使用系统缩略图）
-  function getThumbnailUrl(filePath: string): string {
-    return `${apiBase}/file?path=${encodeURIComponent(filePath)}&thumbnail=true`;
   }
 
   /**
