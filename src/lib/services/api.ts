@@ -143,7 +143,10 @@ export const api = {
   },
 
   // 节点执行 API
-  async executeNode(nodeType: string, config: Record<string, unknown>): Promise<{
+  async executeNode(nodeType: string, config: Record<string, unknown>, options?: {
+    taskId?: string;
+    nodeId?: string;
+  }): Promise<{
     success: boolean;
     message: string;
     data?: unknown;
@@ -154,7 +157,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({
         node_type: nodeType,
-        config
+        config,
+        task_id: options?.taskId,
+        node_id: options?.nodeId
       })
     });
   },

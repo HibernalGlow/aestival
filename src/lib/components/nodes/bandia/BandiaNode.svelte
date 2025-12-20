@@ -2,6 +2,7 @@
   /**
    * BandiaNode - 批量解压节点组件
    * 使用 Bandizip 批量解压压缩包
+   * 支持 WebSocket 实时进度和日志更新
    */
   import { Handle, Position, NodeResizer } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
@@ -13,6 +14,7 @@
   import { BANDIA_DEFAULT_GRID_LAYOUT } from './blocks';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
+  import { getWsBaseUrl } from '$lib/stores/backend';
   import NodeWrapper from '../NodeWrapper.svelte';
   import { 
     Play, LoaderCircle, Clipboard, FileArchive,
@@ -72,6 +74,8 @@
   let archivePaths = $state<string[]>([]);
   let extractResult = $state<ExtractResult | null>(null);
   let layoutRenderer = $state<any>(undefined);
+  // 当前正在处理的文件索引（用于实时显示）
+  let currentFileIndex = $state(-1);
 
   $effect(() => {
     pathsText = configPaths.join('\n');
@@ -143,12 +147,63 @@
     if (paths.length === 0) { log('❌ 没有有效的压缩包路径'); return; }
     archivePaths = paths;
     phase = 'extracting'; progress = 0; progressText = '正在解压...'; extractResult = null;
+    currentFileIndex = -1;
     log(`📦 开始解压 ${paths.length} 个压缩包...`);
+    
+    // 生成任务 ID 用于 WebSocket 连接
+    const taskId = `bandia-${nodeId}-${Date.now()}`;
+    let ws: WebSocket | null = null;
+    
     try {
-      progress = 20;
+      // 建立 WebSocket 连接接收实时进度和日志
+      const wsUrl = `${getWsBaseUrl()}/v1/ws/tasks/${taskId}`;
+      ws = new WebSocket(wsUrl);
+      
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'progress') {
+            progress = msg.progress;
+            progressText = msg.message;
+            // 从进度消息中解析当前文件索引（格式: "解压 X/Y: filename"）
+            const match = msg.message.match(/解压 (\d+)\/(\d+)/);
+            if (match) {
+              currentFileIndex = parseInt(match[1]) - 1;
+            }
+          } else if (msg.type === 'log') {
+            log(msg.message);
+          } else if (msg.type === 'status' && msg.status === 'error') {
+            log(`❌ ${msg.message}`);
+          }
+        } catch (e) {
+          console.error('解析 WebSocket 消息失败:', e);
+        }
+      };
+      
+      ws.onerror = (e) => {
+        console.error('WebSocket 错误:', e);
+      };
+      
+      // 等待 WebSocket 连接建立
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          resolve(); // 超时也继续执行，只是没有实时更新
+        }, 2000);
+        ws!.onopen = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+        ws!.onerror = () => {
+          clearTimeout(timeout);
+          resolve(); // 连接失败也继续执行
+        };
+      });
+      
+      // 发送执行请求，带上 task_id
       const response = await api.executeNode('bandia', {
         action: 'extract', paths, delete_after: deleteAfter, use_trash: useTrash
-      }) as any;
+      }, { taskId, nodeId }) as any;
+      
       if (response.success) {
         phase = 'completed'; progress = 100; progressText = '解压完成';
         extractResult = {
@@ -159,13 +214,25 @@
         };
         log(`✅ ${response.message}`);
         log(`📊 成功: ${extractResult.extracted}, 失败: ${extractResult.failed}`);
-      } else { phase = 'error'; progress = 0; log(`❌ 解压失败: ${response.message}`); }
-    } catch (error) { phase = 'error'; progress = 0; log(`❌ 解压失败: ${error}`); }
+      } else { 
+        phase = 'error'; progress = 0; 
+        log(`❌ 解压失败: ${response.message}`); 
+      }
+    } catch (error) { 
+      phase = 'error'; progress = 0; 
+      log(`❌ 解压失败: ${error}`); 
+    } finally {
+      // 关闭 WebSocket 连接
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    }
   }
 
   function handleReset() {
     phase = 'idle'; progress = 0; progressText = '';
     extractResult = null; archivePaths = []; logs = [];
+    currentFileIndex = -1;
   }
 
   async function copyLogs() {
@@ -258,12 +325,33 @@
   <div class="h-full flex flex-col overflow-hidden">
     <div class="flex items-center justify-between mb-1 shrink-0">
       <span class="cq-text font-semibold flex items-center gap-1"><FileArchive class="cq-icon text-blue-500" />待解压文件</span>
-      <span class="cq-text-sm text-muted-foreground">{archivePaths.length || parsePaths(pathsText).length} 个</span>
+      <span class="cq-text-sm text-muted-foreground">
+        {#if isRunning && currentFileIndex >= 0}
+          {currentFileIndex + 1}/{archivePaths.length}
+        {:else}
+          {archivePaths.length || parsePaths(pathsText).length} 个
+        {/if}
+      </span>
     </div>
     <div class="flex-1 overflow-y-auto cq-padding bg-muted/30 cq-rounded">
       {#if archivePaths.length > 0 || parsePaths(pathsText).length > 0}
         {#each (archivePaths.length > 0 ? archivePaths : parsePaths(pathsText)) as filePath, idx}
-          <div class="cq-text-sm text-muted-foreground truncate py-0.5" title={filePath}>{idx + 1}. {filePath.split(/[/\\]/).pop()}</div>
+          <div 
+            class="cq-text-sm truncate py-0.5 flex items-center gap-1"
+            class:text-muted-foreground={!isRunning || idx > currentFileIndex}
+            class:text-primary={isRunning && idx === currentFileIndex}
+            class:text-green-600={phase === 'completed' || (isRunning && idx < currentFileIndex)}
+            title={filePath}
+          >
+            {#if phase === 'completed' || (isRunning && idx < currentFileIndex)}
+              <CircleCheck class="w-3 h-3 text-green-500 shrink-0" />
+            {:else if isRunning && idx === currentFileIndex}
+              <LoaderCircle class="w-3 h-3 text-primary animate-spin shrink-0" />
+            {:else}
+              <span class="w-3 h-3 shrink-0 text-center">{idx + 1}.</span>
+            {/if}
+            <span class="truncate">{filePath.split(/[/\\]/).pop()}</span>
+          </div>
         {/each}
       {:else}
         <div class="cq-text text-muted-foreground text-center py-3">暂无文件</div>
