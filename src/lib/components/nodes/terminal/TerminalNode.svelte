@@ -8,7 +8,7 @@
   import { Handle, Position } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
   import { onMount, onDestroy } from 'svelte';
-  import NodeWrapper from './NodeWrapper.svelte';
+  import NodeWrapper from '../NodeWrapper.svelte';
   import { 
     Terminal, Trash2, Copy, Check, Wifi, WifiOff, Pause, Play
   } from '@lucide/svelte';

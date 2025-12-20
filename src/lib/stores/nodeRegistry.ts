@@ -10,9 +10,9 @@ import type { NodeDefinition } from '$lib/types';
 export type { NodeDefinition } from '$lib/types';
 
 // 导入所有节点组件
-import InputNode from '$lib/components/nodes/InputNode.svelte';
-import OutputNode from '$lib/components/nodes/OutputNode.svelte';
-import TerminalNode from '$lib/components/nodes/TerminalNode.svelte';
+import { InputNode } from '$lib/components/nodes/input';
+import { OutputNode } from '$lib/components/nodes/output';
+import { TerminalNode } from '$lib/components/nodes/terminal';
 import { RepackuNode } from '$lib/components/nodes/repacku';
 import { RawfilterNode } from '$lib/components/nodes/rawfilter';
 import { CrashuNode } from '$lib/components/nodes/crashu';

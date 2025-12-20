@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Handle, Position } from '@xyflow/svelte';
   import { Terminal } from '@lucide/svelte';
-  import NodeWrapper from './NodeWrapper.svelte';
+  import NodeWrapper from '../NodeWrapper.svelte';
 
   interface Props {
     id: string;
