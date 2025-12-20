@@ -10,16 +10,15 @@
   import { Input } from '$lib/components/ui/input';
   import * as TreeView from '$lib/components/ui/tree-view';
 
-  import { InteractiveHover } from '$lib/components/ui/interactive-hover';
   import { NodeLayoutRenderer } from '$lib/components/blocks';
   import { TRENAME_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
-  import { getNodeState, setN/NodeWrapper.svelte';
-  import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
+  import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
+  import NodeWrapper from '../NodeWrapper.svelte';
   import { 
     LoaderCircle, FolderOpen, Clipboard, FilePenLine, Search, Undo2,
-    Download, Upload, TriangleAlert, Play, RefreshCw,
-    File, Folder, Trash2, Settings2, Check, Copy, RotateCcw
+    Download, Upload, Play, RefreshCw,
+    File, Folder, Check, Copy, RotateCcw
   } from '@lucide/svelte';
   import {
     type TreeNode, type TrenameState, type Phase, type OperationRecord,
@@ -35,45 +34,63 @@
 
   let { id, data = {}, isFullscreenRender = false }: Props = $props();
 
-  // 从 nodeStateStore 恢复状态
-  const savedState = getNodeState<TrenameState>(id);
+  // 使用 $derived 确保响应式
+  const nodeId = $derived(id);
+  const savedState = $derived(getNodeState<TrenameState>(nodeId));
+  const configPath = $derived(data?.config?.path ?? '');
+  const dataLogs = $derived(data?.logs ?? []);
 
   // 状态初始化
-  let phase = $state<Phase>(savedState?.phase ?? 'idle');
-  let logs = $state<string[]>(savedState?.logs ?? (data?.logs ? [...data.logs] : []));
+  let phase = $state<Phase>('idle');
+  let logs = $state<string[]>([]);
   let copied = $state(false);
 
   // 配置
-  let scanPath = $state(savedState?.scanPath ?? data?.config?.path ?? '');
-  let includeHidden = $state(savedState?.includeHidden ?? false);
-  let excludeExts = $state(savedState?.excludeExts ?? DEFAULT_EXCLUDE_EXTS);
-  let maxLines = $state(savedState?.maxLines ?? 1000);
-  let useCompact = $state(savedState?.useCompact ?? true);
-  let basePath = $state(savedState?.basePath ?? '');
-  let dryRun = $state(savedState?.dryRun ?? false);
+  let scanPath = $state('');
+  let includeHidden = $state(false);
+  let excludeExts = $state(DEFAULT_EXCLUDE_EXTS);
+  let maxLines = $state(1000);
+  let useCompact = $state(true);
+  let basePath = $state('');
+  let dryRun = $state(false);
 
   // 数据
-  let treeData = $state<TreeNode[]>(savedState?.treeData ?? []);
-  let segments = $state<string[]>(savedState?.segments ?? []);
-  let currentSegment = $state(savedState?.currentSegment ?? 0);
-  let stats = $state(savedState?.stats ?? { ...DEFAULT_STATS });
-  let conflicts = $state<string[]>(savedState?.conflicts ?? []);
-  let lastOperationId = $state(savedState?.lastOperationId ?? '');
-  let operationHistory = $state<OperationRecord[]>(savedState?.operationHistory ?? []);
+  let treeData = $state<TreeNode[]>([]);
+  let segments = $state<string[]>([]);
+  let currentSegment = $state(0);
+  let stats = $state({ ...DEFAULT_STATS });
+  let conflicts = $state<string[]>([]);
+  let lastOperationId = $state('');
+  let operationHistory = $state<OperationRecord[]>([]);
+
+  // 初始化状态
+  $effect(() => {
+    scanPath = savedState?.scanPath ?? configPath;
+    logs = savedState?.logs ?? [...dataLogs];
+    
+    if (savedState) {
+      phase = savedState.phase ?? 'idle';
+      includeHidden = savedState.includeHidden ?? false;
+      excludeExts = savedState.excludeExts ?? DEFAULT_EXCLUDE_EXTS;
+      maxLines = savedState.maxLines ?? 1000;
+      useCompact = savedState.useCompact ?? true;
+      basePath = savedState.basePath ?? '';
+      dryRun = savedState.dryRun ?? false;
+      treeData = savedState.treeData ?? [];
+      segments = savedState.segments ?? [];
+      currentSegment = savedState.currentSegment ?? 0;
+      stats = savedState.stats ?? { ...DEFAULT_STATS };
+      conflicts = savedState.conflicts ?? [];
+      lastOperationId = savedState.lastOperationId ?? '';
+      operationHistory = savedState.operationHistory ?? [];
+    }
+  });
 
   // NodeLayoutRenderer 引用
-  let layoutRenderer = $state<{ 
-    createTab: (blockIds: string[]) => void;
-    getUsedBlockIdsForTab: () => string[];
-    compact: () => void;
-    resetLayout: () => void;
-    applyLayout: (layout: any[]) => void;
-    getCurrentLayout: () => any[];
-    getCurrentTabGroups: () => any[];
-  } | undefined>(undefined);
+  let layoutRenderer = $state<any>(undefined);
 
   function saveState() {
-    setNodeState<TrenameState>(id, {
+    setNodeState<TrenameState>(nodeId, {
       phase, logs, showTree: true, showOptions: true, showJsonInput: false, jsonInputText: '',
       scanPath, includeHidden, excludeExts, maxLines, useCompact, basePath, dryRun,
       treeData, segments, currentSegment, stats, conflicts, lastOperationId, operationHistory
@@ -252,294 +269,215 @@
 {/snippet}
 
 
-<!-- ========== 区块内容 Snippets（参数化尺寸） ========== -->
+<!-- ========== 区块内容 Snippets（使用 Container Query CSS） ========== -->
 
 <!-- 路径输入区块 -->
-{#snippet pathBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  <div class="flex {c.gap} {c.mb}">
-    <Input bind:value={scanPath} placeholder="输入目录路径..." disabled={isRunning} class="flex-1 {c.input}" />
-    <Button variant="outline" size="icon" class="{c.buttonIcon} shrink-0" onclick={selectFolder} disabled={isRunning}>
-      <FolderOpen class={c.icon} />
+{#snippet pathBlock()}
+  <div class="flex cq-gap cq-mb">
+    <Input bind:value={scanPath} placeholder="输入目录路径..." disabled={isRunning} class="flex-1 cq-input" />
+    <Button variant="outline" size="icon" class="cq-button-icon shrink-0" onclick={selectFolder} disabled={isRunning}>
+      <FolderOpen class="cq-icon" />
     </Button>
-    <Button variant="outline" size="icon" class="{c.buttonIcon} shrink-0" onclick={pastePath} disabled={isRunning}>
-      <Clipboard class={c.icon} />
+    <Button variant="outline" size="icon" class="cq-button-icon shrink-0" onclick={pastePath} disabled={isRunning}>
+      <Clipboard class="cq-icon" />
     </Button>
   </div>
-  {#if size === 'normal'}
-    <div class="flex {c.gap}">
-      <Button variant="outline" class="flex-1 {c.button}" onclick={() => handleScan(false)} disabled={isRunning}>
-        {#if isRunning && phase === 'scanning'}<LoaderCircle class="{c.icon} mr-2 animate-spin" />{:else}<RefreshCw class="{c.icon} mr-2" />{/if}替换扫描
-      </Button>
-      <Button variant="outline" class="flex-1 {c.button}" onclick={() => handleScan(true)} disabled={isRunning}>
-        <Download class="{c.icon} mr-2" />合并扫描
-      </Button>
-    </div>
-  {/if}
+  <div class="cq-wide-only-flex cq-gap">
+    <Button variant="outline" class="flex-1 cq-button" onclick={() => handleScan(false)} disabled={isRunning}>
+      {#if isRunning && phase === 'scanning'}<LoaderCircle class="cq-icon mr-2 animate-spin" />{:else}<RefreshCw class="cq-icon mr-2" />{/if}替换扫描
+    </Button>
+    <Button variant="outline" class="flex-1 cq-button" onclick={() => handleScan(true)} disabled={isRunning}>
+      <Download class="cq-icon mr-2" />合并扫描
+    </Button>
+  </div>
 {/snippet}
 
 <!-- 扫描区块（紧凑模式） -->
-{#snippet scanBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  <div class="flex {c.gapSm}">
-    <Button variant="outline" size="sm" class="flex-1 {c.button}" onclick={() => handleScan(false)} disabled={isRunning}>
-      {#if isRunning && phase === 'scanning'}<LoaderCircle class="{c.iconSm} mr-1 animate-spin" />{/if}替换
+{#snippet scanBlock()}
+  <div class="flex cq-gap">
+    <Button variant="outline" size="sm" class="flex-1 cq-button" onclick={() => handleScan(false)} disabled={isRunning}>
+      {#if isRunning && phase === 'scanning'}<LoaderCircle class="cq-icon-sm mr-1 animate-spin" />{/if}替换
     </Button>
-    <Button variant="outline" size="sm" class="flex-1 {c.button}" onclick={() => handleScan(true)} disabled={isRunning}>合并</Button>
+    <Button variant="outline" size="sm" class="flex-1 cq-button" onclick={() => handleScan(true)} disabled={isRunning}>合并</Button>
   </div>
 {/snippet}
 
 <!-- 操作区块 -->
-{#snippet operationBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  <div class="flex flex-col {c.gap} {size === 'normal' ? 'flex-1 justify-center' : ''}">
-    {#if size === 'normal'}
-      <InteractiveHover text="检测冲突" class="w-full h-10 text-sm" onclick={validate} disabled={isRunning || !segments.length}>
-        {#snippet icon()}<Search class="h-4 w-4" />{/snippet}
-      </InteractiveHover>
-      <InteractiveHover text="执行重命名" class="w-full h-12 text-sm" onclick={handleRename} disabled={isRunning || !canRename}>
-        {#snippet icon()}
-          {#if phase === 'renaming'}<LoaderCircle class="h-4 w-4 animate-spin" />{:else}<Play class="h-4 w-4" />{/if}
-        {/snippet}
-      </InteractiveHover>
-      <!-- 重置按钮常驻 -->
-      <Button variant="ghost" class="h-9" onclick={clear} disabled={isRunning}><RotateCcw class="h-4 w-4 mr-2" />清空</Button>
-    {:else}
-      <!-- 紧凑模式 -->
-      <div class="flex {c.gapSm}">
-        {#if phase === 'idle' || phase === 'error'}
-          <Button class="flex-1 {c.button}" onclick={() => handleScan(false)} disabled={!scanPath.trim()}>
-            <Search class="{c.icon} mr-1" />扫描
-          </Button>
-        {:else if phase === 'scanning'}
-          <Button class="flex-1 {c.button}" disabled><LoaderCircle class="{c.icon} mr-1 animate-spin" />扫描中</Button>
-        {:else if phase === 'ready' || phase === 'completed'}
-          <Button class="flex-1 {c.button}" onclick={handleRename} disabled={!canRename}><Play class="{c.icon} mr-1" />执行</Button>
-        {:else if phase === 'renaming'}
-          <Button class="flex-1 {c.button}" disabled><LoaderCircle class="{c.icon} mr-1 animate-spin" />执行中</Button>
-        {/if}
-        <!-- 重置按钮常驻 -->
-        <Button variant="ghost" size="icon" class="{c.buttonIcon}" onclick={clear} disabled={isRunning} title="清空">
-          <RotateCcw class={c.icon} />
-        </Button>
-      </div>
+{#snippet operationBlock()}
+  <div class="flex flex-col cq-gap h-full">
+    <!-- 状态指示 -->
+    <div class="flex items-center cq-gap cq-padding bg-muted/30 cq-rounded">
+      {#if phase === 'completed'}
+        <Check class="cq-icon text-green-500 shrink-0" />
+        <span class="cq-text text-green-600 font-medium">完成</span>
+      {:else if phase === 'error'}
+        <span class="cq-text text-red-600 font-medium">错误</span>
+      {:else if isRunning}
+        <LoaderCircle class="cq-icon text-primary animate-spin shrink-0" />
+        <span class="cq-text text-muted-foreground">{phase === 'scanning' ? '扫描中' : '执行中'}</span>
+      {:else}
+        <FilePenLine class="cq-icon text-muted-foreground/50 shrink-0" />
+        <span class="cq-text text-muted-foreground">等待扫描</span>
+      {/if}
+    </div>
+    <!-- 主按钮 -->
+    {#if phase === 'idle' || phase === 'error'}
+      <Button class="w-full cq-button flex-1" onclick={() => handleScan(false)} disabled={!scanPath.trim()}>
+        <Search class="cq-icon mr-1" /><span>扫描</span>
+      </Button>
+    {:else if phase === 'scanning'}
+      <Button class="w-full cq-button flex-1" disabled>
+        <LoaderCircle class="cq-icon mr-1 animate-spin" /><span>扫描中</span>
+      </Button>
+    {:else if phase === 'ready' || phase === 'completed'}
+      <Button class="w-full cq-button flex-1" onclick={handleRename} disabled={!canRename}>
+        <Play class="cq-icon mr-1" /><span>执行重命名</span>
+      </Button>
+    {:else if phase === 'renaming'}
+      <Button class="w-full cq-button flex-1" disabled>
+        <LoaderCircle class="cq-icon mr-1 animate-spin" /><span>执行中</span>
+      </Button>
     {/if}
+    <!-- 辅助按钮 -->
+    <div class="flex cq-gap">
+      <Button variant="outline" class="flex-1 cq-button-sm" onclick={validate} disabled={isRunning || !segments.length}>
+        <Search class="cq-icon mr-1" />检测冲突
+      </Button>
+      <Button variant="ghost" class="flex-1 cq-button-sm" onclick={clear} disabled={isRunning}>
+        <RotateCcw class="cq-icon mr-1" />清空
+      </Button>
+    </div>
   </div>
 {/snippet}
 
 <!-- 统计区块 -->
-{#snippet statsBlock(size: SizeMode)}
-  {#if size === 'normal'}
-    <div class="space-y-2 flex-1">
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-muted/60 to-muted/30 rounded-xl border border-border/50">
-        <span class="text-sm text-muted-foreground">总计</span>
-        <span class="text-2xl font-bold tabular-nums">{stats.total}</span>
-      </div>
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-500/15 to-yellow-500/5 rounded-xl border border-yellow-500/20">
-        <span class="text-sm text-muted-foreground">待翻译</span>
-        <span class="text-2xl font-bold text-yellow-600 tabular-nums">{stats.pending}</span>
-      </div>
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-green-500/15 to-green-500/5 rounded-xl border border-green-500/20">
-        <span class="text-sm text-muted-foreground">就绪</span>
-        <span class="text-2xl font-bold text-green-600 tabular-nums">{stats.ready}</span>
-      </div>
-      {#if stats.conflicts > 0}
-        <div class="flex items-center justify-between p-3 bg-gradient-to-r from-red-500/15 to-red-500/5 rounded-xl border border-red-500/20">
-          <span class="text-sm text-muted-foreground">冲突</span>
-          <span class="text-2xl font-bold text-red-600 tabular-nums">{stats.conflicts}</span>
-        </div>
-      {/if}
-    </div>
-  {:else}
-    <div class="grid grid-cols-3 gap-1.5">
-      <div class="text-center p-1.5 bg-muted/40 rounded-lg">
-        <div class="text-sm font-bold tabular-nums">{stats.total}</div>
-        <div class="text-[10px] text-muted-foreground">总计</div>
-      </div>
-      <div class="text-center p-1.5 bg-yellow-500/10 rounded-lg">
-        <div class="text-sm font-bold text-yellow-600 tabular-nums">{stats.pending}</div>
-        <div class="text-[10px] text-muted-foreground">待翻译</div>
-      </div>
-      <div class="text-center p-1.5 bg-green-500/10 rounded-lg">
-        <div class="text-sm font-bold text-green-600 tabular-nums">{stats.ready}</div>
-        <div class="text-[10px] text-muted-foreground">就绪</div>
+{#snippet statsBlock()}
+  <div class="grid grid-cols-3 cq-gap">
+    <div class="cq-stat-card bg-muted/40">
+      <div class="flex flex-col items-center">
+        <span class="cq-stat-value tabular-nums">{stats.total}</span>
+        <span class="cq-stat-label text-muted-foreground">总计</span>
       </div>
     </div>
-  {/if}
+    <div class="cq-stat-card bg-yellow-500/10">
+      <div class="flex flex-col items-center">
+        <span class="cq-stat-value text-yellow-600 tabular-nums">{stats.pending}</span>
+        <span class="cq-stat-label text-muted-foreground">待翻译</span>
+      </div>
+    </div>
+    <div class="cq-stat-card bg-green-500/10">
+      <div class="flex flex-col items-center">
+        <span class="cq-stat-value text-green-600 tabular-nums">{stats.ready}</span>
+        <span class="cq-stat-label text-muted-foreground">就绪</span>
+      </div>
+    </div>
+  </div>
 {/snippet}
 
 <!-- 导入导出区块 -->
-{#snippet importExportBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  {#if size === 'normal'}
-    <div class="h-full flex items-center {c.gap}">
-      <InteractiveHover text="从剪贴板导入" class="flex-1 h-10 text-xs" onclick={importJson} disabled={isRunning}>
-        {#snippet icon()}<Upload class="h-4 w-4" />{/snippet}
-      </InteractiveHover>
-      <InteractiveHover text="复制当前段" class="flex-1 h-10 text-xs" onclick={() => copySegment(currentSegment)} disabled={!segments.length}>
-        {#snippet icon()}
-          {#if copied}<Check class="h-4 w-4 text-green-500" />{:else}<Clipboard class="h-4 w-4" />{/if}
-        {/snippet}
-      </InteractiveHover>
-      <Button variant="outline" class="h-10 w-10 shrink-0" onclick={() => downloadSegment(currentSegment)} disabled={!segments.length}>
-        <Download class="h-4 w-4" />
-      </Button>
-      {#if segments.length > 1}
-        <div class="flex items-center gap-1 text-sm">
-          <span class="text-muted-foreground">段:</span>
-          {#each segments as _, i}
-            <Button variant={currentSegment === i ? 'default' : 'ghost'} size="sm" class="h-7 w-7 p-0"
-              onclick={() => { currentSegment = i; treeData = parseTree(segments[i]); }}>{i + 1}</Button>
-          {/each}
-        </div>
-      {/if}
+{#snippet importExportBlock()}
+  <div class="flex cq-gap flex-wrap">
+    <Button variant="ghost" size="sm" class="cq-button-sm" onclick={importJson} disabled={isRunning}>
+      <Upload class="cq-icon mr-1" />导入
+    </Button>
+    <Button variant="ghost" size="sm" class="cq-button-sm" onclick={() => copySegment(currentSegment)} disabled={!segments.length}>
+      {#if copied}<Check class="cq-icon mr-1 text-green-500" />{:else}<Clipboard class="cq-icon mr-1" />{/if}复制
+    </Button>
+    <Button variant="ghost" size="sm" class="cq-button-sm" onclick={() => downloadSegment(currentSegment)} disabled={!segments.length}>
+      <Download class="cq-icon" />
+    </Button>
+  </div>
+  {#if segments.length > 1}
+    <div class="flex items-center gap-1 cq-text mt-2">
+      <span class="text-muted-foreground">段:</span>
+      {#each segments as _, i}
+        <Button variant={currentSegment === i ? 'default' : 'ghost'} size="sm" class="h-5 w-5 p-0 cq-text"
+          onclick={() => { currentSegment = i; treeData = parseTree(segments[i]); }}>{i + 1}</Button>
+      {/each}
     </div>
-  {:else}
-    <div class="flex {c.gapSm} flex-wrap">
-      <Button variant="ghost" size="sm" class="h-6 {c.text} px-2" onclick={importJson} disabled={isRunning}>
-        <Upload class="{c.iconSm} mr-1" />导入
-      </Button>
-      <Button variant="ghost" size="sm" class="h-6 {c.text} px-2" onclick={() => copySegment(currentSegment)} disabled={!segments.length}>
-        {#if copied}<Check class="{c.iconSm} mr-1 text-green-500" />{:else}<Clipboard class="{c.iconSm} mr-1" />{/if}复制
-      </Button>
-      <Button variant="ghost" size="sm" class="h-6 w-6 p-0" onclick={() => downloadSegment(currentSegment)} disabled={!segments.length}>
-        <Download class={c.iconSm} />
-      </Button>
-    </div>
-    {#if segments.length > 1}
-      <div class="flex items-center gap-1 {c.text} mt-2">
-        <span class="text-muted-foreground">段:</span>
-        {#each segments as _, i}
-          <Button variant={currentSegment === i ? 'default' : 'ghost'} size="sm" class="h-5 w-5 p-0 {c.text}"
-            onclick={() => { currentSegment = i; treeData = parseTree(segments[i]); }}>{i + 1}</Button>
-        {/each}
-      </div>
-    {/if}
   {/if}
 {/snippet}
 
 <!-- 高级选项区块 -->
-{#snippet optionsBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  {#if size === 'normal'}
-    <div class={c.space}>
-      <div class="flex flex-wrap {c.gap}">
-        <label class="flex items-center gap-2"><Checkbox bind:checked={includeHidden} /><span class={c.text}>包含隐藏文件</span></label>
-        <label class="flex items-center gap-2"><Checkbox bind:checked={dryRun} /><span class={c.text}>模拟执行</span></label>
-        <label class="flex items-center gap-2"><Checkbox bind:checked={useCompact} /><span class={c.text}>紧凑格式</span></label>
-      </div>
-      <div class="flex {c.gap}">
-        <label class="flex items-center gap-2 flex-1">
-          <span class="{c.text} text-muted-foreground whitespace-nowrap">排除扩展名:</span>
-          <Input bind:value={excludeExts} class="h-9 flex-1" placeholder=".json,.txt" />
-        </label>
-        <label class="flex items-center gap-2">
-          <span class="{c.text} text-muted-foreground whitespace-nowrap">分段行数:</span>
-          <Input type="number" bind:value={maxLines} class="h-9 w-24" min={50} max={5000} step={100} />
-        </label>
-      </div>
-    </div>
-  {:else}
-    <div class="flex flex-wrap {c.gap} {c.text} mb-2">
-      <label class="flex items-center gap-1"><Checkbox bind:checked={includeHidden} class="h-3 w-3" /><span>隐藏文件</span></label>
-      <label class="flex items-center gap-1"><Checkbox bind:checked={dryRun} class="h-3 w-3" /><span>模拟执行</span></label>
-      <label class="flex items-center gap-1"><Checkbox bind:checked={useCompact} class="h-3 w-3" /><span>紧凑格式</span></label>
-    </div>
-    <div class="flex {c.gap} {c.text}">
-      <label class="flex items-center gap-1 flex-1 min-w-0">
-        <span class="text-muted-foreground whitespace-nowrap">排除:</span>
-        <Input bind:value={excludeExts} class="h-6 {c.text} flex-1 min-w-0" placeholder=".json,.txt" />
-      </label>
-      <label class="flex items-center gap-1">
-        <span class="text-muted-foreground whitespace-nowrap">分段:</span>
-        <Input type="number" bind:value={maxLines} class="h-6 {c.text} w-16" min={50} max={5000} step={100} />
-      </label>
-    </div>
-  {/if}
+{#snippet optionsBlock()}
+  <div class="flex flex-wrap cq-gap cq-text mb-2">
+    <label class="flex items-center gap-1"><Checkbox bind:checked={includeHidden} class="h-3 w-3" /><span>隐藏文件</span></label>
+    <label class="flex items-center gap-1"><Checkbox bind:checked={dryRun} class="h-3 w-3" /><span>模拟执行</span></label>
+    <label class="flex items-center gap-1"><Checkbox bind:checked={useCompact} class="h-3 w-3" /><span>紧凑格式</span></label>
+  </div>
+  <div class="flex cq-gap cq-text">
+    <label class="flex items-center gap-1 flex-1 min-w-0">
+      <span class="text-muted-foreground whitespace-nowrap">排除:</span>
+      <Input bind:value={excludeExts} class="cq-input flex-1 min-w-0" placeholder=".json,.txt" />
+    </label>
+    <label class="flex items-center gap-1">
+      <span class="text-muted-foreground whitespace-nowrap">分段:</span>
+      <Input type="number" bind:value={maxLines} class="cq-input w-16" min={50} max={5000} step={100} />
+    </label>
+  </div>
 {/snippet}
 
 <!-- 文件树区块 -->
-{#snippet treeBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  {#if size === 'normal'}
-    <div class="h-full flex flex-col overflow-hidden">
-      <div class="flex items-center justify-between p-2 border-b bg-muted/30 shrink-0">
-        <span class="font-semibold flex items-center gap-2"><Folder class="w-5 h-5 text-yellow-500" />文件树</span>
-        <span class="text-sm text-muted-foreground">{stats.total} 项</span>
-      </div>
-      <div class="flex-1 overflow-y-auto p-2">
-        {#if treeData.length > 0}
-          <TreeView.Root class="text-sm">{#each treeData as node}{@render renderTreeNode(node)}{/each}</TreeView.Root>
-        {:else}<div class="text-center text-muted-foreground py-8">扫描后显示文件树</div>{/if}
-      </div>
-    </div>
-  {:else}
-    <div class="flex items-center justify-between mb-2">
-      <span class="{c.text} font-semibold flex items-center gap-1"><Folder class="w-3 h-3 text-yellow-500" />文件树</span>
-      <div class="flex items-center gap-2 {c.textSm}">
+{#snippet treeBlock()}
+  <div class="h-full flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between mb-1 shrink-0">
+      <span class="cq-text font-semibold flex items-center gap-1">
+        <Folder class="cq-icon text-yellow-500" />文件树
+      </span>
+      <div class="flex items-center cq-gap cq-text-sm">
         <span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>{stats.pending}</span>
         <span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>{stats.ready}</span>
       </div>
     </div>
-    <div class="{c.maxHeight} overflow-y-auto">
+    <div class="flex-1 overflow-y-auto cq-padding">
       {#if treeData.length > 0}
         <TreeView.Root class="text-xs">{#each treeData as node}{@render renderTreeNode(node)}{/each}</TreeView.Root>
-      {:else}<div class="{c.text} text-muted-foreground text-center py-3">扫描后显示</div>{/if}
+      {:else}<div class="cq-text text-muted-foreground text-center py-3">扫描后显示</div>{/if}
     </div>
-  {/if}
+  </div>
 {/snippet}
 
 <!-- 日志区块 -->
-{#snippet logBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  {#if size === 'normal'}
-    <div class="h-full flex flex-col">
-      <div class="flex items-center justify-between mb-2 shrink-0">
-        <span class="font-semibold text-sm">日志</span>
-        <Button variant="ghost" size="icon" class="h-6 w-6" onclick={copyLogs}>
-          {#if copied}<Check class="h-3 w-3 text-green-500" />{:else}<Copy class="h-3 w-3" />{/if}
-        </Button>
-      </div>
-      <div class="flex-1 overflow-y-auto bg-muted/30 rounded-xl p-2 font-mono text-xs space-y-1 mb-3" style="max-height: 120px;">
-        {#if logs.length > 0}{#each logs.slice(-12) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}
-        {:else}<div class="text-muted-foreground text-center py-4">暂无日志</div>{/if}
-      </div>
-      <div class="flex items-center gap-2 mb-2 shrink-0"><Undo2 class="w-4 h-4" /><span class="font-semibold text-sm">操作历史</span></div>
-      <div class="flex-1 overflow-y-auto">
-        {#if operationHistory.length > 0}
-          {#each operationHistory as op}
-            <div class="flex items-center justify-between p-2 bg-muted/30 rounded-lg mb-1 text-xs">
-              <span>{op.time} - {op.count}项</span>
-              {#if op.canUndo}<Button variant="ghost" size="sm" class="h-6 px-2 text-xs" onclick={() => handleUndo(op.id)}>撤销</Button>
-              {:else}<span class="text-muted-foreground">已撤销</span>{/if}
-            </div>
-          {/each}
-        {:else}<div class="text-xs text-muted-foreground text-center py-2">暂无记录</div>{/if}
-      </div>
-    </div>
-  {:else}
-    <div class="flex items-center justify-between mb-1">
-      <span class="{c.text} font-semibold">日志</span>
+{#snippet logBlock()}
+  <div class="h-full flex flex-col">
+    <div class="flex items-center justify-between mb-1 shrink-0">
+      <span class="cq-text font-semibold">日志</span>
       <Button variant="ghost" size="icon" class="h-5 w-5" onclick={copyLogs}>
-        {#if copied}<Check class="{c.iconSm} text-green-500" />{:else}<Copy class={c.iconSm} />{/if}
+        {#if copied}<Check class="w-3 h-3 text-green-500" />{:else}<Copy class="w-3 h-3" />{/if}
       </Button>
     </div>
-    <div class="bg-muted/30 {c.rounded} {c.paddingSm} font-mono {c.textSm} {c.maxHeightSm} overflow-y-auto {c.spaceSm}">
-      {#each logs.slice(-4) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}
+    <div class="flex-1 overflow-y-auto bg-muted/30 cq-rounded cq-padding font-mono cq-text-sm space-y-0.5 mb-2" style="max-height: 80px;">
+      {#if logs.length > 0}
+        {#each logs.slice(-8) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}
+      {:else}
+        <div class="text-muted-foreground text-center py-2">暂无日志</div>
+      {/if}
     </div>
-  {/if}
+    <div class="flex items-center gap-2 mb-1 shrink-0"><Undo2 class="cq-icon" /><span class="cq-text font-semibold">操作历史</span></div>
+    <div class="flex-1 overflow-y-auto">
+      {#if operationHistory.length > 0}
+        {#each operationHistory as op}
+          <div class="flex items-center justify-between cq-padding bg-muted/30 cq-rounded mb-1 cq-text-sm">
+            <span>{op.time} - {op.count}项</span>
+            {#if op.canUndo}<Button variant="ghost" size="sm" class="h-5 px-2 cq-text-sm" onclick={() => handleUndo(op.id)}>撤销</Button>
+            {:else}<span class="text-muted-foreground">已撤销</span>{/if}
+          </div>
+        {/each}
+      {:else}<div class="cq-text-sm text-muted-foreground text-center py-2">暂无记录</div>{/if}
+    </div>
+  </div>
 {/snippet}
 
 <!-- 通用区块渲染器 -->
-{#snippet renderBlockContent(blockId: string, size: SizeMode)}
-  {#if blockId === 'path'}{@render pathBlock(size)}
-  {:else if blockId === 'scan'}{@render scanBlock(size)}
-  {:else if blockId === 'operation'}{@render operationBlock(size)}
-  {:else if blockId === 'stats'}{@render statsBlock(size)}
-  {:else if blockId === 'importExport'}{@render importExportBlock(size)}
-  {:else if blockId === 'options'}{@render optionsBlock(size)}
-  {:else if blockId === 'tree'}{@render treeBlock(size)}
-  {:else if blockId === 'log'}{@render logBlock(size)}
+{#snippet renderBlockContent(blockId: string)}
+  {#if blockId === 'path'}{@render pathBlock()}
+  {:else if blockId === 'scan'}{@render scanBlock()}
+  {:else if blockId === 'operation'}{@render operationBlock()}
+  {:else if blockId === 'stats'}{@render statsBlock()}
+  {:else if blockId === 'importExport'}{@render importExportBlock()}
+  {:else if blockId === 'options'}{@render optionsBlock()}
+  {:else if blockId === 'tree'}{@render treeBlock()}
+  {:else if blockId === 'log'}{@render logBlock()}
   {/if}
 {/snippet}
 
@@ -552,7 +490,7 @@
   {/if}
 
   <NodeWrapper 
-    nodeId={id} 
+    nodeId={nodeId} 
     title="trename" 
     icon={FilePenLine} 
     status={phase} 
@@ -571,13 +509,13 @@
     {#snippet children()}
       <NodeLayoutRenderer
         bind:this={layoutRenderer}
-        nodeId={id}
+        nodeId={nodeId}
         nodeType="trename"
         isFullscreen={isFullscreenRender}
         defaultFullscreenLayout={TRENAME_DEFAULT_GRID_LAYOUT}
       >
-        {#snippet renderBlock(blockId: string, size: SizeMode)}
-          {@render renderBlockContent(blockId, size)}
+        {#snippet renderBlock(blockId: string)}
+          {@render renderBlockContent(blockId)}
         {/snippet}
       </NodeLayoutRenderer>
     {/snippet}
