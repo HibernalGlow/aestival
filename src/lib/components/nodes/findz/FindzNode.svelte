@@ -79,12 +79,12 @@
   let copiedLogs = $state(false);
   let copiedPath = $state(false);
 
-  // 初始化状态
+  // 初始化标记
+  let initialized = $state(false);
+
+  // 初始化 effect - 只执行一次
   $effect(() => {
-    targetPath = configPath;
-    whereClause = configWhere;
-    logs = [...dataLogs];
-    hasInputConnection = dataHasInputConnection;
+    if (initialized) return;
     
     if (savedState) {
       phase = savedState.phase ?? 'idle';
@@ -92,11 +92,25 @@
       searchResult = savedState.searchResult ?? null;
       files = savedState.files ?? [];
       byExtension = savedState.byExtension ?? {};
+      targetPath = savedState.targetPath || configPath || '';
+      whereClause = savedState.whereClause || configWhere || '';
+    } else {
+      targetPath = configPath || '';
+      whereClause = configWhere || '';
     }
+    
+    initialized = true;
+  });
+  
+  // 持续同步外部数据
+  $effect(() => {
+    logs = [...dataLogs];
+    hasInputConnection = dataHasInputConnection;
   });
 
   function saveState() {
-    setNodeState<FindzNodeState>(nodeId, { phase, progress, searchResult, files, byExtension });
+    if (!initialized) return;
+    setNodeState<FindzNodeState>(nodeId, { phase, progress, searchResult, files, byExtension, targetPath, whereClause });
   }
 
   let canExecute = $derived(phase === 'idle' && (targetPath.trim() !== '' || hasInputConnection));

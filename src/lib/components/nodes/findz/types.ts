@@ -32,6 +32,8 @@ export interface FindzNodeState {
   searchResult: SearchResult | null;
   files: FileData[];
   byExtension: Record<string, number>;
+  targetPath: string;
+  whereClause: string;
 }
 
 /** 分组分析数据 */
