@@ -84,6 +84,7 @@ import { RAWFILTER_BLOCKS, RAWFILTER_DEFAULT_GRID_LAYOUT } from '$lib/components
 import { CRASHU_BLOCKS, CRASHU_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/crashu/blocks';
 import { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/migratefnode/blocks';
 import { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/formatv/blocks';
+import { BANDIA_BLOCKS, BANDIA_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/bandia/blocks';
 
 // 重新导出供外部使用
 export { FINDZ_BLOCKS, FINDZ_DEFAULT_GRID_LAYOUT };
@@ -94,6 +95,7 @@ export { RAWFILTER_BLOCKS, RAWFILTER_DEFAULT_GRID_LAYOUT };
 export { CRASHU_BLOCKS, CRASHU_DEFAULT_GRID_LAYOUT };
 export { MIGRATEF_BLOCKS, MIGRATEF_DEFAULT_GRID_LAYOUT };
 export { FORMATV_BLOCKS, FORMATV_DEFAULT_GRID_LAYOUT };
+export { BANDIA_BLOCKS, BANDIA_DEFAULT_GRID_LAYOUT };
 
 // ============ 注册表 ============
 export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
@@ -104,7 +106,8 @@ export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
   rawfilter: { nodeType: 'rawfilter', blocks: RAWFILTER_BLOCKS, defaultGridLayout: RAWFILTER_DEFAULT_GRID_LAYOUT },
   crashu: { nodeType: 'crashu', blocks: CRASHU_BLOCKS, defaultGridLayout: CRASHU_DEFAULT_GRID_LAYOUT },
   migratef: { nodeType: 'migratef', blocks: MIGRATEF_BLOCKS, defaultGridLayout: MIGRATEF_DEFAULT_GRID_LAYOUT },
-  formatv: { nodeType: 'formatv', blocks: FORMATV_BLOCKS, defaultGridLayout: FORMATV_DEFAULT_GRID_LAYOUT }
+  formatv: { nodeType: 'formatv', blocks: FORMATV_BLOCKS, defaultGridLayout: FORMATV_DEFAULT_GRID_LAYOUT },
+  bandia: { nodeType: 'bandia', blocks: BANDIA_BLOCKS, defaultGridLayout: BANDIA_DEFAULT_GRID_LAYOUT }
 };
 
 // ============ 工具函数 ============

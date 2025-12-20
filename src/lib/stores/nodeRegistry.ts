@@ -21,6 +21,7 @@ import { EngineVNode } from '$lib/components/nodes/enginev';
 import { MigrateFNode } from '$lib/components/nodes/migratefnode';
 import { FormatVNode } from '$lib/components/nodes/formatv';
 import { FindzNode } from '$lib/components/nodes/findz';
+import { BandiaNode } from '$lib/components/nodes/bandia';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -189,6 +190,21 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
       path: { type: 'path', label: '搜索路径', required: true },
       where: { type: 'string', label: 'WHERE 过滤', default: '1' },
       action: { type: 'select', label: '操作类型', default: 'search' }
+    }
+  },
+  {
+    type: 'bandia',
+    category: 'tool',
+    label: 'bandia',
+    description: '批量解压：使用 Bandizip 批量解压压缩包',
+    icon: 'FileArchive',
+    inputs: ['path'],
+    outputs: ['path'],
+    component: BandiaNode,
+    configSchema: {
+      paths: { type: 'string', label: '压缩包路径', required: false },
+      delete_after: { type: 'boolean', label: '解压后删除', default: true },
+      use_trash: { type: 'boolean', label: '使用回收站', default: true }
     }
   },
 

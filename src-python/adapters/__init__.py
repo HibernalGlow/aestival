@@ -19,6 +19,7 @@ _ADAPTER_REGISTRY: Dict[str, str] = {
     "migratef": "adapters.migratef_adapter.MigrateFAdapter",
     "formatv": "adapters.formatv_adapter.FormatVAdapter",
     "findz": "adapters.findz_adapter.FindzAdapter",
+    "bandia": "adapters.bandia_adapter.BandiaAdapter",
 }
 
 # 适配器实例缓存
