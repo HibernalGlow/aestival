@@ -8,22 +8,19 @@
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { Input } from '$lib/components/ui/input';
   import { Progress } from '$lib/components/ui/progress';
-  import { Badge } from '$lib/components/ui/badge';
 
-  import { InteractiveHover } from '$lib/components/ui/interactive-hover';
   import { NodeLayoutRenderer } from '$lib/components/blocks';
   import { REPACKU_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
   import NodeWrapper from '../NodeWrapper.svelte';
-  import { getSizeClasses, type SizeMode } from '$lib/utils/sizeUtils';
   import type { FolderNode, CompressionStats } from '$lib/types/repacku';
   import { getModeColorClass, getModeName, countCompressionModes } from './utils';
   import { 
     Play, LoaderCircle, FolderOpen, Clipboard, Package,
     CircleCheck, CircleX, FileArchive, Search, FolderTree,
     Trash2, Copy, Check, Folder, Image, FileText, Video, Music, 
-    ChevronRight, ChevronDown, RefreshCw, RotateCcw
+    ChevronRight, ChevronDown, RotateCcw
   } from '@lucide/svelte';
 
   interface Props {
@@ -70,39 +67,55 @@
     expandedFolders: string[];
   }
 
-  // 从 nodeStateStore 恢复状态
-  const savedState = getNodeState<RepackuState>(id);
+  // 使用 $derived 确保响应式
+  const nodeId = $derived(id);
+  const savedState = $derived(getNodeState<RepackuState>(nodeId));
+  const configPath = $derived(data?.config?.path ?? '');
+  const configDeleteAfter = $derived(data?.config?.delete_after ?? false);
+  const dataLogs = $derived(data?.logs ?? []);
+  const dataHasInputConnection = $derived(data?.hasInputConnection ?? false);
 
   // 状态初始化
-  let path = $state(data?.config?.path ?? '');
-  let deleteAfter = $state(data?.config?.delete_after ?? false);
-  let phase = $state<Phase>(savedState?.phase ?? 'idle');
-  let logs = $state<string[]>(data?.logs ? [...data.logs] : []);
-  let hasInputConnection = $state(data?.hasInputConnection ?? false);
+  let path = $state('');
+  let deleteAfter = $state(false);
+  let phase = $state<Phase>('idle');
+  let logs = $state<string[]>([]);
+  let hasInputConnection = $state(false);
   let copied = $state(false);
 
-  let progress = $state(savedState?.progress ?? 0);
-  let progressText = $state(savedState?.progressText ?? '');
+  let progress = $state(0);
+  let progressText = $state('');
 
   // 文件树数据
-  let folderTree = $state<FolderNode | null>(savedState?.folderTree ?? null);
+  let folderTree = $state<FolderNode | null>(null);
   let stats = $state<CompressionStats>({ total: 0, entire: 0, selective: 0, skip: 0 });
-  let expandedFolders = $state<Set<string>>(new Set(savedState?.expandedFolders ?? []));
+  let expandedFolders = $state<Set<string>>(new Set());
 
-  let analysisResult = $state<AnalysisResult | null>(savedState?.analysisResult ?? null);
-  let compressionResult = $state<CompressionResultData | null>(savedState?.compressionResult ?? null);
-  let selectedTypes = $state<string[]>(savedState?.selectedTypes ?? []);
+  let analysisResult = $state<AnalysisResult | null>(null);
+  let compressionResult = $state<CompressionResultData | null>(null);
+  let selectedTypes = $state<string[]>([]);
+
+  // 初始化状态
+  $effect(() => {
+    path = configPath;
+    deleteAfter = configDeleteAfter;
+    logs = [...dataLogs];
+    hasInputConnection = dataHasInputConnection;
+    
+    if (savedState) {
+      phase = savedState.phase ?? 'idle';
+      progress = savedState.progress ?? 0;
+      progressText = savedState.progressText ?? '';
+      folderTree = savedState.folderTree ?? null;
+      analysisResult = savedState.analysisResult ?? null;
+      compressionResult = savedState.compressionResult ?? null;
+      selectedTypes = savedState.selectedTypes ?? [];
+      expandedFolders = new Set(savedState.expandedFolders ?? []);
+    }
+  });
 
   // NodeLayoutRenderer 引用
-  let layoutRenderer = $state<{ 
-    createTab: (blockIds: string[]) => void;
-    getUsedBlockIdsForTab: () => string[];
-    compact: () => void;
-    resetLayout: () => void;
-    applyLayout: (layout: any[]) => void;
-    getCurrentLayout: () => any[];
-    getCurrentTabGroups: () => any[];
-  } | undefined>(undefined);
+  let layoutRenderer = $state<any>(undefined);
 
   const typeOptions = [
     { value: 'image', label: '图片' },
@@ -112,7 +125,7 @@
   ];
 
   function saveState() {
-    setNodeState<RepackuState>(id, {
+    setNodeState<RepackuState>(nodeId, {
       phase, progress, progressText, folderTree, analysisResult, compressionResult,
       selectedTypes, expandedFolders: Array.from(expandedFolders)
     });
@@ -283,281 +296,207 @@
 {/snippet}
 
 
-<!-- ========== 区块内容 Snippets（参数化尺寸） ========== -->
+<!-- ========== 区块内容 Snippets（使用 Container Query CSS） ========== -->
 
 <!-- 路径输入区块 -->
-{#snippet pathBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
+{#snippet pathBlock()}
   {#if !hasInputConnection}
-    <div class="flex {c.gap} {c.mb}">
-      <Input bind:value={path} placeholder="输入或选择文件夹路径..." disabled={isRunning} class="flex-1 {c.input}" />
-      <Button variant="outline" size="icon" class="{c.buttonIcon} shrink-0" onclick={selectFolder} disabled={isRunning}>
-        <FolderOpen class={c.icon} />
+    <div class="flex cq-gap cq-mb">
+      <Input bind:value={path} placeholder="输入或选择文件夹路径..." disabled={isRunning} class="flex-1 cq-input" />
+      <Button variant="outline" size="icon" class="cq-button-icon shrink-0" onclick={selectFolder} disabled={isRunning}>
+        <FolderOpen class="cq-icon" />
       </Button>
-      <Button variant="outline" size="icon" class="{c.buttonIcon} shrink-0" onclick={pasteFromClipboard} disabled={isRunning}>
-        <Clipboard class={c.icon} />
+      <Button variant="outline" size="icon" class="cq-button-icon shrink-0" onclick={pasteFromClipboard} disabled={isRunning}>
+        <Clipboard class="cq-icon" />
       </Button>
     </div>
   {:else}
-    <div class="text-muted-foreground {c.padding} bg-muted {c.rounded} flex items-center {c.gap} {c.mb} {c.text}">
+    <div class="text-muted-foreground cq-padding bg-muted cq-rounded flex items-center cq-gap cq-mb cq-text">
       <span>←</span><span>输入来自上游节点</span>
     </div>
   {/if}
 {/snippet}
 
 <!-- 类型过滤区块 -->
-{#snippet typesBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  <div class="flex flex-wrap {c.gap}">
+{#snippet typesBlock()}
+  <div class="flex flex-wrap cq-gap">
     {#each typeOptions as option}
       <button
-        class="{c.px} {c.py} {c.text} {c.rounded} border transition-colors {selectedTypes.includes(option.value) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:border-primary'}"
+        class="cq-px cq-py cq-text cq-rounded border transition-colors {selectedTypes.includes(option.value) ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:border-primary'}"
         onclick={() => toggleType(option.value)} disabled={isRunning}
       >{option.label}</button>
     {/each}
   </div>
-  {#if size === 'normal'}
-    <label class="flex items-center {c.gap} mt-auto pt-3 border-t cursor-pointer">
-      <Checkbox id="delete-after-fs-{id}" bind:checked={deleteAfter} disabled={isRunning} />
-      <span class="{c.text} flex items-center gap-1"><Trash2 class={c.icon} />压缩后删除源文件</span>
-    </label>
-  {/if}
+  <label class="cq-wide-only-flex items-center cq-gap mt-auto pt-3 border-t cursor-pointer">
+    <Checkbox id="delete-after-fs-{nodeId}" bind:checked={deleteAfter} disabled={isRunning} />
+    <span class="cq-text flex items-center gap-1"><Trash2 class="cq-icon" />压缩后删除源文件</span>
+  </label>
 {/snippet}
 
 <!-- 操作区块 -->
-{#snippet operationBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  <div class="flex flex-col {c.gap} {size === 'normal' ? 'flex-1 justify-center' : ''}">
-    {#if size === 'normal'}
-      <!-- 全屏模式：使用 InteractiveHover 按钮 -->
-      {#if phase === 'idle' || phase === 'error'}
-        <InteractiveHover text="扫描分析" class="w-full h-12 text-sm" onclick={handleAnalyze} disabled={!canAnalyze}>
-          {#snippet icon()}<Search class="h-4 w-4" />{/snippet}
-        </InteractiveHover>
-      {:else if phase === 'analyzing'}
-        <InteractiveHover text="分析中" class="w-full h-12 text-sm" disabled>
-          {#snippet icon()}<LoaderCircle class="h-4 w-4 animate-spin" />{/snippet}
-        </InteractiveHover>
-      {:else if phase === 'analyzed'}
-        <InteractiveHover text="开始压缩" class="w-full h-12 text-sm" onclick={handleCompress} disabled={!canCompress}>
-          {#snippet icon()}<FileArchive class="h-4 w-4" />{/snippet}
-        </InteractiveHover>
-      {:else if phase === 'compressing'}
-        <InteractiveHover text="压缩中" class="w-full h-12 text-sm" disabled>
-          {#snippet icon()}<LoaderCircle class="h-4 w-4 animate-spin" />{/snippet}
-        </InteractiveHover>
-      {:else if phase === 'completed'}
-        <InteractiveHover text="重新开始" class="w-full h-12 text-sm" onclick={handleReset}>
-          {#snippet icon()}<Play class="h-4 w-4" />{/snippet}
-        </InteractiveHover>
-      {/if}
-      <!-- 重置按钮常驻 -->
-      <Button variant="ghost" class="h-9" onclick={handleReset} disabled={isRunning}>
-        <RotateCcw class="h-4 w-4 mr-2" />重置
-      </Button>
-    {:else}
-      <!-- 紧凑模式 -->
-      <div class="flex {c.gapSm}">
-        {#if phase === 'idle' || phase === 'error'}
-          <Button class="flex-1 {c.button}" onclick={handleAnalyze} disabled={!canAnalyze}>
-            <Search class="{c.icon} mr-1" />扫描
-          </Button>
-        {:else if phase === 'analyzing'}
-          <Button class="flex-1 {c.button}" disabled>
-            <LoaderCircle class="{c.icon} mr-1 animate-spin" />分析中
-          </Button>
-        {:else if phase === 'analyzed'}
-          <Button class="flex-1 {c.button}" onclick={handleCompress} disabled={!canCompress}>
-            <FileArchive class="{c.icon} mr-1" />压缩
-          </Button>
-        {:else if phase === 'compressing'}
-          <Button class="flex-1 {c.button}" disabled>
-            <LoaderCircle class="{c.icon} mr-1 animate-spin" />压缩中
-          </Button>
-        {:else if phase === 'completed'}
-          <Button class="flex-1 {c.button}" variant="outline" onclick={handleReset}>
-            <Play class="{c.icon} mr-1" />重新
-          </Button>
+{#snippet operationBlock()}
+  <div class="flex flex-col cq-gap h-full">
+    <!-- 状态指示 -->
+    <div class="flex items-center cq-gap cq-padding bg-muted/30 cq-rounded">
+      {#if compressionResult}
+        {#if compressionResult.success}
+          <CircleCheck class="cq-icon text-green-500 shrink-0" />
+          <span class="cq-text text-green-600 font-medium">完成</span>
+          <span class="cq-text-sm text-muted-foreground ml-auto">{compressionResult.compressed} 成功</span>
+        {:else}
+          <CircleX class="cq-icon text-red-500 shrink-0" />
+          <span class="cq-text text-red-600 font-medium">失败</span>
         {/if}
-        <!-- 重置按钮常驻 -->
-        <Button variant="ghost" size="icon" class="{c.buttonIcon}" onclick={handleReset} disabled={isRunning} title="重置">
-          <RotateCcw class={c.icon} />
-        </Button>
+      {:else if isRunning}
+        <LoaderCircle class="cq-icon text-primary animate-spin shrink-0" />
+        <div class="flex-1"><Progress value={progress} class="h-1.5" /></div>
+        <span class="cq-text-sm text-muted-foreground">{progress}%</span>
+      {:else}
+        <Package class="cq-icon text-muted-foreground/50 shrink-0" />
+        <span class="cq-text text-muted-foreground">等待扫描</span>
+      {/if}
+    </div>
+    <!-- 主按钮 -->
+    {#if phase === 'idle' || phase === 'error'}
+      <Button class="w-full cq-button flex-1" onclick={handleAnalyze} disabled={!canAnalyze}>
+        <Search class="cq-icon mr-1" /><span>扫描分析</span>
+      </Button>
+    {:else if phase === 'analyzing'}
+      <Button class="w-full cq-button flex-1" disabled>
+        <LoaderCircle class="cq-icon mr-1 animate-spin" /><span>分析中</span>
+      </Button>
+    {:else if phase === 'analyzed'}
+      <Button class="w-full cq-button flex-1" onclick={handleCompress} disabled={!canCompress}>
+        <FileArchive class="cq-icon mr-1" /><span>开始压缩</span>
+      </Button>
+    {:else if phase === 'compressing'}
+      <Button class="w-full cq-button flex-1" disabled>
+        <LoaderCircle class="cq-icon mr-1 animate-spin" /><span>压缩中</span>
+      </Button>
+    {:else if phase === 'completed'}
+      <Button class="w-full cq-button flex-1" onclick={handleReset}>
+        <Play class="cq-icon mr-1" /><span>重新开始</span>
+      </Button>
+    {/if}
+    <!-- 辅助按钮 -->
+    <div class="flex cq-gap">
+      <Button variant="ghost" class="flex-1 cq-button-sm" onclick={handleReset} disabled={isRunning}>
+        <RotateCcw class="cq-icon mr-1" />重置
+      </Button>
+      <!-- 紧凑模式下的删除选项 -->
+      <label class="cq-compact-only-flex items-center gap-2 cursor-pointer">
+        <Checkbox id="delete-after-compact-{nodeId}" bind:checked={deleteAfter} disabled={isRunning} class="h-3 w-3" />
+        <span class="cq-text-sm flex items-center gap-1"><Trash2 class="cq-icon-sm text-orange-500" />删除源</span>
+      </label>
+    </div>
+  </div>
+{/snippet}
+
+<!-- 统计区块 -->
+{#snippet statsBlock()}
+  <div class="grid grid-cols-3 cq-gap">
+    <div class="cq-stat-card bg-green-500/10">
+      <div class="flex flex-col items-center">
+        <span class="cq-stat-value text-green-600 tabular-nums">{analysisResult?.entireCount ?? '-'}</span>
+        <span class="cq-stat-label text-muted-foreground">整体</span>
+      </div>
+    </div>
+    <div class="cq-stat-card bg-yellow-500/10">
+      <div class="flex flex-col items-center">
+        <span class="cq-stat-value text-yellow-600 tabular-nums">{analysisResult?.selectiveCount ?? '-'}</span>
+        <span class="cq-stat-label text-muted-foreground">选择</span>
+      </div>
+    </div>
+    <div class="cq-stat-card bg-muted/40">
+      <div class="flex flex-col items-center">
+        <span class="cq-stat-value text-gray-500 tabular-nums">{analysisResult?.skipCount ?? '-'}</span>
+        <span class="cq-stat-label text-muted-foreground">跳过</span>
+      </div>
+    </div>
+  </div>
+{/snippet}
+
+<!-- 进度/状态区块 -->
+{#snippet progressBlock()}
+  <div class="h-full flex items-center cq-gap">
+    {#if compressionResult}
+      {#if compressionResult.success}
+        <CircleCheck class="cq-icon-lg text-green-500 shrink-0" />
+        <div class="flex-1">
+          <span class="font-semibold text-green-600 cq-text">压缩完成</span>
+          <div class="flex cq-gap cq-text-sm mt-1">
+            <span class="text-green-600">成功: {compressionResult.compressed}</span>
+            <span class="text-red-600">失败: {compressionResult.failed}</span>
+          </div>
+        </div>
+      {:else}
+        <CircleX class="cq-icon-lg text-red-500 shrink-0" />
+        <span class="font-semibold text-red-600 cq-text">压缩失败</span>
+      {/if}
+    {:else if isRunning}
+      <LoaderCircle class="cq-icon-lg text-primary animate-spin shrink-0" />
+      <div class="flex-1">
+        <div class="flex justify-between cq-text-sm mb-1"><span>{progressText}</span><span>{progress}%</span></div>
+        <Progress value={progress} class="h-2" />
+      </div>
+    {:else}
+      <Package class="cq-icon-lg text-muted-foreground/50 shrink-0" />
+      <div class="flex-1">
+        <span class="text-muted-foreground cq-text">等待扫描</span>
+        <div class="cq-text-sm text-muted-foreground/70 mt-1">扫描完成后可开始压缩</div>
       </div>
     {/if}
   </div>
 {/snippet}
 
-<!-- 统计区块 -->
-{#snippet statsBlock(size: SizeMode)}
-  {#if size === 'normal'}
-    <div class="space-y-2 flex-1">
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-green-500/15 to-green-500/5 rounded-xl border border-green-500/20">
-        <span class="text-sm text-muted-foreground">整体</span>
-        <span class="text-2xl font-bold text-green-600 tabular-nums">{analysisResult?.entireCount ?? '-'}</span>
-      </div>
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-500/15 to-yellow-500/5 rounded-xl border border-yellow-500/20">
-        <span class="text-sm text-muted-foreground">选择性</span>
-        <span class="text-2xl font-bold text-yellow-600 tabular-nums">{analysisResult?.selectiveCount ?? '-'}</span>
-      </div>
-      <div class="flex items-center justify-between p-3 bg-gradient-to-r from-muted/60 to-muted/30 rounded-xl border border-border/50">
-        <span class="text-sm text-muted-foreground">跳过</span>
-        <span class="text-2xl font-bold text-gray-500 tabular-nums">{analysisResult?.skipCount ?? '-'}</span>
-      </div>
-    </div>
-  {:else}
-    <div class="grid grid-cols-3 gap-1.5">
-      <div class="text-center p-1.5 bg-green-500/10 rounded-lg">
-        <div class="text-sm font-bold text-green-600 tabular-nums">{analysisResult?.entireCount ?? '-'}</div>
-        <div class="text-[10px] text-muted-foreground">整体</div>
-      </div>
-      <div class="text-center p-1.5 bg-yellow-500/10 rounded-lg">
-        <div class="text-sm font-bold text-yellow-600 tabular-nums">{analysisResult?.selectiveCount ?? '-'}</div>
-        <div class="text-[10px] text-muted-foreground">选择</div>
-      </div>
-      <div class="text-center p-1.5 bg-muted/40 rounded-lg">
-        <div class="text-sm font-bold text-gray-500 tabular-nums">{analysisResult?.skipCount ?? '-'}</div>
-        <div class="text-[10px] text-muted-foreground">跳过</div>
-      </div>
-    </div>
-  {/if}
-{/snippet}
-
-<!-- 进度/状态区块 -->
-{#snippet progressBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  {#if size === 'normal'}
-    <div class="h-full flex items-center gap-3">
-      {#if compressionResult}
-        {#if compressionResult.success}
-          <CircleCheck class="w-8 h-8 text-green-500 shrink-0" />
-          <div class="flex-1">
-            <span class="font-semibold text-green-600">压缩完成</span>
-            <div class="flex gap-4 text-sm mt-1">
-              <span class="text-green-600">成功: {compressionResult.compressed}</span>
-              <span class="text-red-600">失败: {compressionResult.failed}</span>
-            </div>
-          </div>
-        {:else}
-          <CircleX class="w-8 h-8 text-red-500 shrink-0" />
-          <span class="font-semibold text-red-600">压缩失败</span>
-        {/if}
-      {:else if isRunning}
-        <LoaderCircle class="w-8 h-8 text-primary animate-spin shrink-0" />
-        <div class="flex-1">
-          <div class="flex justify-between text-sm mb-1"><span>{progressText}</span><span>{progress}%</span></div>
-          <Progress value={progress} class="h-2" />
-        </div>
-      {:else}
-        <Package class="w-8 h-8 text-muted-foreground/50 shrink-0" />
-        <div class="flex-1">
-          <span class="text-muted-foreground">等待扫描</span>
-          <div class="text-xs text-muted-foreground/70 mt-1">扫描完成后可开始压缩</div>
-        </div>
-      {/if}
-    </div>
-  {:else}
-    {#if compressionResult}
-      <div class="flex items-center gap-2 {c.text}">
-        {#if compressionResult.success}
-          <CircleCheck class="{c.icon} text-green-500" />
-          <span class="text-green-600">成功 {compressionResult.compressed}</span>
-        {:else}
-          <CircleX class="{c.icon} text-red-500" />
-          <span class="text-red-600">失败</span>
-        {/if}
-      </div>
-    {:else if isRunning}
-      <div class={c.spaceSm}>
-        <Progress value={progress} class="h-1.5" />
-        <div class="{c.text} text-muted-foreground">{progress}%</div>
-      </div>
-    {:else}
-      <label class="flex items-center gap-2 cursor-pointer {c.text}">
-        <Checkbox id="delete-after-{id}" bind:checked={deleteAfter} disabled={isRunning} class="h-3 w-3" />
-        <span class="flex items-center gap-1"><Trash2 class="{c.iconSm} text-orange-500" />删除源</span>
-      </label>
-    {/if}
-  {/if}
-{/snippet}
-
 <!-- 文件树区块 -->
-{#snippet treeBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  {#if size === 'normal'}
-    <div class="h-full flex flex-col overflow-hidden">
-      <div class="flex items-center justify-between p-2 border-b bg-muted/30 shrink-0">
-        <div class="flex items-center gap-2">
-          <FolderTree class="w-5 h-5 text-yellow-500" />
-          <span class="font-semibold">文件夹结构</span>
-          {#if stats.total > 0}<Badge variant="secondary">{stats.total} 个</Badge>{/if}
-        </div>
-        <div class="flex gap-2 text-xs">
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span>{stats.entire}</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-500"></span>{stats.selective}</span>
-          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-400"></span>{stats.skip}</span>
-        </div>
-      </div>
-      <div class="flex-1 overflow-y-auto p-2">
-        {#if folderTree}{@render renderFolderNode(folderTree)}
-        {:else}<div class="text-center text-muted-foreground py-8">扫描后显示文件夹结构</div>{/if}
-      </div>
-    </div>
-  {:else}
-    <div class="flex items-center justify-between mb-2">
-      <span class="{c.text} font-semibold flex items-center gap-1">
-        <FolderTree class="w-3 h-3 text-yellow-500" />文件树
+{#snippet treeBlock()}
+  <div class="h-full flex flex-col overflow-hidden">
+    <div class="flex items-center justify-between mb-1 shrink-0">
+      <span class="cq-text font-semibold flex items-center gap-1">
+        <FolderTree class="cq-icon text-yellow-500" />文件树
       </span>
-      <div class="flex items-center gap-2 {c.textSm}">
+      <div class="flex items-center cq-gap cq-text-sm">
         <span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>{stats.entire}</span>
         <span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>{stats.selective}</span>
         <span class="flex items-center gap-0.5"><span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>{stats.skip}</span>
       </div>
     </div>
-    <div class="{c.maxHeight} overflow-y-auto">
+    <div class="flex-1 overflow-y-auto cq-padding">
       {#if folderTree}{@render renderFolderNode(folderTree)}
-      {:else}<div class="{c.text} text-muted-foreground text-center py-3">扫描后显示</div>{/if}
+      {:else}<div class="cq-text text-muted-foreground text-center py-3">扫描后显示</div>{/if}
     </div>
-  {/if}
+  </div>
 {/snippet}
 
 <!-- 日志区块 -->
-{#snippet logBlock(size: SizeMode)}
-  {@const c = getSizeClasses(size)}
-  {#if size === 'normal'}
-    <div class="h-full flex flex-col">
-      <div class="flex items-center justify-between mb-2 shrink-0">
-        <span class="font-semibold text-sm">日志</span>
-        <Button variant="ghost" size="icon" class="h-6 w-6" onclick={copyLogs}>
-          {#if copied}<Check class="h-3 w-3 text-green-500" />{:else}<Copy class="h-3 w-3" />{/if}
-        </Button>
-      </div>
-      <div class="flex-1 overflow-y-auto bg-muted/30 rounded-xl p-2 font-mono text-xs space-y-1">
-        {#if logs.length > 0}{#each logs.slice(-15) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}{:else}<div class="text-muted-foreground text-center py-4">暂无日志</div>{/if}
-      </div>
-    </div>
-  {:else}
-    <div class="flex items-center justify-between mb-1">
-      <span class="{c.text} font-semibold">日志</span>
+{#snippet logBlock()}
+  <div class="h-full flex flex-col">
+    <div class="flex items-center justify-between mb-1 shrink-0">
+      <span class="cq-text font-semibold">日志</span>
       <Button variant="ghost" size="icon" class="h-5 w-5" onclick={copyLogs}>
-        {#if copied}<Check class="{c.iconSm} text-green-500" />{:else}<Copy class={c.iconSm} />{/if}
+        {#if copied}<Check class="w-3 h-3 text-green-500" />{:else}<Copy class="w-3 h-3" />{/if}
       </Button>
     </div>
-    <div class="bg-muted/30 {c.rounded} {c.paddingSm} font-mono {c.textSm} {c.maxHeightSm} overflow-y-auto {c.spaceSm}">
-      {#each logs.slice(-4) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}
+    <div class="flex-1 overflow-y-auto bg-muted/30 cq-rounded cq-padding font-mono cq-text-sm space-y-0.5">
+      {#if logs.length > 0}
+        {#each logs.slice(-10) as logItem}<div class="text-muted-foreground break-all">{logItem}</div>{/each}
+      {:else}
+        <div class="text-muted-foreground text-center py-2">暂无日志</div>
+      {/if}
     </div>
-  {/if}
+  </div>
 {/snippet}
 
 <!-- 通用区块渲染器 -->
-{#snippet renderBlockContent(blockId: string, size: SizeMode)}
-  {#if blockId === 'path'}{@render pathBlock(size)}{@render typesBlock(size)}
-  {:else if blockId === 'types'}{@render typesBlock(size)}
-  {:else if blockId === 'operation'}{@render operationBlock(size)}
-  {:else if blockId === 'stats'}{@render statsBlock(size)}
-  {:else if blockId === 'progress'}{@render progressBlock(size)}
-  {:else if blockId === 'tree'}{@render treeBlock(size)}
-  {:else if blockId === 'log'}{@render logBlock(size)}
+{#snippet renderBlockContent(blockId: string)}
+  {#if blockId === 'path'}{@render pathBlock()}{@render typesBlock()}
+  {:else if blockId === 'types'}{@render typesBlock()}
+  {:else if blockId === 'operation'}{@render operationBlock()}
+  {:else if blockId === 'stats'}{@render statsBlock()}
+  {:else if blockId === 'progress'}{@render progressBlock()}
+  {:else if blockId === 'tree'}{@render treeBlock()}
+  {:else if blockId === 'log'}{@render logBlock()}
   {/if}
 {/snippet}
 
@@ -570,7 +509,7 @@
   {/if}
 
   <NodeWrapper 
-    nodeId={id} 
+    nodeId={nodeId} 
     title="repacku" 
     icon={Package} 
     status={phase} 
@@ -589,13 +528,13 @@
     {#snippet children()}
       <NodeLayoutRenderer
         bind:this={layoutRenderer}
-        nodeId={id}
+        nodeId={nodeId}
         nodeType="repacku"
         isFullscreen={isFullscreenRender}
         defaultFullscreenLayout={REPACKU_DEFAULT_GRID_LAYOUT}
       >
-        {#snippet renderBlock(blockId: string, size: SizeMode)}
-          {@render renderBlockContent(blockId, size)}
+        {#snippet renderBlock(blockId: string)}
+          {@render renderBlockContent(blockId)}
         {/snippet}
       </NodeLayoutRenderer>
     {/snippet}
