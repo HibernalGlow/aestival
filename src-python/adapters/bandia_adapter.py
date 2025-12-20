@@ -16,9 +16,9 @@ import time
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
-from .base import BaseAdapter, AdapterInput, AdapterOutput
+from .base import BaseAdapter, AdapterOutput
 
 
 # Bandizip 可执行文件名
@@ -68,8 +68,8 @@ def find_bz_executable() -> Optional[Path]:
     return None
 
 
-class BandiaInput(AdapterInput):
-    """bandia 输入参数"""
+class BandiaInput(BaseModel):
+    """bandia 输入参数（不继承 AdapterInput，因为使用 paths 而非 path）"""
     action: str = Field(default="extract", description="操作类型: extract")
     paths: List[str] = Field(default_factory=list, description="压缩包路径列表")
     delete_after: bool = Field(default=True, description="解压成功后删除源文件")
