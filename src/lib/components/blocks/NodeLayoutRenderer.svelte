@@ -388,6 +388,27 @@
     updateGridLayout(nodeType, mode, layout);
   }
 
+  /** 处理区块高度变化（节点模式下） */
+  function handleHeightChange(blockId: string, delta: number) {
+    const layout = [...currentLayout];
+    const itemIndex = layout.findIndex(item => item.id === blockId);
+    if (itemIndex === -1) return;
+    
+    const item = layout[itemIndex];
+    const newH = Math.max(1, Math.min(4, item.h + delta));
+    if (newH === item.h) return;
+    
+    layout[itemIndex] = { ...item, h: newH };
+    updateGridLayout(nodeType, mode, layout);
+  }
+
+  /** 根据高度值计算 CSS 高度样式 */
+  function getHeightStyle(h: number): string {
+    // h=1 表示自动高度，h>1 表示固定高度（每单位约 80px）
+    if (h <= 1) return '';
+    return `min-height: ${h * 80}px;`;
+  }
+
   export function getConfig(): NodeConfig {
     return nodeConfig;
   }
@@ -485,22 +506,29 @@
         {:else if !isHiddenByTab}
           {@const blockDef = getBlockDefinition(nodeType, gridItem.id)}
           {#if blockDef}
-            <BlockCard
-              id={gridItem.id}
-              title={blockDef.title}
-              icon={blockDef.icon as any}
-              iconClass={blockDef.iconClass}
-              collapsible={blockDef.collapsible}
-              defaultExpanded={blockDef.defaultExpanded ?? true}
+            <div 
               class={colSpan === 2 ? "col-span-2" : ""}
-              {editMode}
-              currentW={gridItem.w}
-              onWidthChange={(delta) => handleWidthChange(gridItem.id, delta)}
+              style={getHeightStyle(gridItem.h)}
             >
-              {#snippet children()}
-                {@render renderBlock(gridItem.id)}
-              {/snippet}
-            </BlockCard>
+              <BlockCard
+                id={gridItem.id}
+                title={blockDef.title}
+                icon={blockDef.icon as any}
+                iconClass={blockDef.iconClass}
+                collapsible={blockDef.collapsible}
+                defaultExpanded={blockDef.defaultExpanded ?? true}
+                fullHeight={gridItem.h > 1}
+                {editMode}
+                currentW={gridItem.w}
+                currentH={gridItem.h}
+                onWidthChange={(delta) => handleWidthChange(gridItem.id, delta)}
+                onHeightChange={(delta) => handleHeightChange(gridItem.id, delta)}
+              >
+                {#snippet children()}
+                  {@render renderBlock(gridItem.id)}
+                {/snippet}
+              </BlockCard>
+            </div>
           {/if}
         {/if}
       {/each}
@@ -540,7 +568,9 @@
               fullHeight={true}
               {editMode}
               currentW={lastItem.w}
+              currentH={lastItem.h}
               onWidthChange={(delta) => handleWidthChange(lastItem.id, delta)}
+              onHeightChange={(delta) => handleHeightChange(lastItem.id, delta)}
             >
               {#snippet children()}
                 {@render renderBlock(lastItem.id)}

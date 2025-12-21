@@ -59,8 +59,12 @@
     editMode?: boolean;
     /** 当前宽度（grid 列数） */
     currentW?: number;
+    /** 当前高度（grid 行数，用于节点模式） */
+    currentH?: number;
     /** 宽度变化回调 */
     onWidthChange?: (delta: number) => void;
+    /** 高度变化回调 */
+    onHeightChange?: (delta: number) => void;
   }
 
   let {
@@ -88,7 +92,9 @@
     magicGradientOpacity = 0.8,
     editMode = false,
     currentW = 1,
+    currentH = 1,
     onWidthChange,
+    onHeightChange,
   }: Props = $props();
 
   // isFullscreen 自动启用 fullHeight
@@ -227,26 +233,55 @@
       
       <!-- 尺寸编辑按钮（节点模式下） -->
       {#if editMode && onWidthChange}
-        <div class="flex items-center gap-0.5 ml-1">
-          <button
-            type="button"
-            class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
-            onclick={() => onWidthChange(-1)}
-            disabled={currentW <= 1}
-            title="减小宽度"
-          >
-            <Minus class="w-3 h-3" />
-          </button>
-          <span class="text-xs text-muted-foreground min-w-[1.5rem] text-center">{currentW}</span>
-          <button
-            type="button"
-            class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
-            onclick={() => onWidthChange(1)}
-            disabled={currentW >= 2}
-            title="增大宽度"
-          >
-            <Plus class="w-3 h-3" />
-          </button>
+        <div class="flex items-center gap-1.5 ml-1">
+          <!-- 宽度调整 -->
+          <div class="flex items-center gap-0.5">
+            <span class="text-xs text-muted-foreground/60">W</span>
+            <button
+              type="button"
+              class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+              onclick={() => onWidthChange(-1)}
+              disabled={currentW <= 1}
+              title="减小宽度"
+            >
+              <Minus class="w-3 h-3" />
+            </button>
+            <span class="text-xs text-muted-foreground min-w-[1rem] text-center">{currentW}</span>
+            <button
+              type="button"
+              class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+              onclick={() => onWidthChange(1)}
+              disabled={currentW >= 2}
+              title="增大宽度"
+            >
+              <Plus class="w-3 h-3" />
+            </button>
+          </div>
+          <!-- 高度调整 -->
+          {#if onHeightChange}
+            <div class="flex items-center gap-0.5">
+              <span class="text-xs text-muted-foreground/60">H</span>
+              <button
+                type="button"
+                class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                onclick={() => onHeightChange(-1)}
+                disabled={currentH <= 1}
+                title="减小高度"
+              >
+                <Minus class="w-3 h-3" />
+              </button>
+              <span class="text-xs text-muted-foreground min-w-[1rem] text-center">{currentH}</span>
+              <button
+                type="button"
+                class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+                onclick={() => onHeightChange(1)}
+                disabled={currentH >= 4}
+                title="增大高度"
+              >
+                <Plus class="w-3 h-3" />
+              </button>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
