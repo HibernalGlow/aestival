@@ -17,7 +17,7 @@ export const LINKU_BLOCKS: BlockDefinition[] = [
 export const LINKU_DEFAULT_GRID_LAYOUT: GridItem[] = [
   { id: 'source', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
   { id: 'target', x: 0, y: 2, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'operation', x: 2, y: 0, w: 1, h: 4, minW: 1, minH: 2 },
-  { id: 'links', x: 0, y: 4, w: 2, h: 3, minW: 1, minH: 2 },
-  { id: 'log', x: 2, y: 4, w: 1, h: 3, minW: 1, minH: 1 }
+  { id: 'operation', x: 0, y: 4, w: 2, h: 2, minW: 1, minH: 1 },
+  { id: 'links', x: 0, y: 6, w: 2, h: 3, minW: 1, minH: 2 },
+  { id: 'log', x: 0, y: 9, w: 2, h: 2, minW: 1, minH: 1 }
 ];

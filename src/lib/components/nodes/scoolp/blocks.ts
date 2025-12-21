@@ -16,8 +16,8 @@ export const SCOOLP_BLOCKS: BlockDefinition[] = [
 
 export const SCOOLP_DEFAULT_GRID_LAYOUT: GridItem[] = [
   { id: 'packages', x: 0, y: 0, w: 2, h: 3, minW: 1, minH: 2 },
-  { id: 'buckets', x: 2, y: 0, w: 1, h: 3, minW: 1, minH: 2 },
-  { id: 'operation', x: 3, y: 0, w: 1, h: 3, minW: 1, minH: 2 },
-  { id: 'status', x: 0, y: 3, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'log', x: 2, y: 3, w: 2, h: 2, minW: 1, minH: 1 }
+  { id: 'buckets', x: 0, y: 3, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'operation', x: 1, y: 3, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'status', x: 0, y: 5, w: 2, h: 2, minW: 1, minH: 1 },
+  { id: 'log', x: 0, y: 7, w: 2, h: 2, minW: 1, minH: 1 }
 ];

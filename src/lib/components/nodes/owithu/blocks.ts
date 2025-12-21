@@ -16,8 +16,8 @@ export const OWITHU_BLOCKS: BlockDefinition[] = [
 
 export const OWITHU_DEFAULT_GRID_LAYOUT: GridItem[] = [
   { id: 'source', x: 0, y: 0, w: 2, h: 2, minW: 1, minH: 1 },
-  { id: 'options', x: 2, y: 0, w: 1, h: 2, minW: 1, minH: 1 },
-  { id: 'entries', x: 0, y: 2, w: 2, h: 3, minW: 1, minH: 2 },
-  { id: 'operation', x: 2, y: 2, w: 1, h: 3, minW: 1, minH: 1 },
-  { id: 'log', x: 0, y: 5, w: 3, h: 2, minW: 1, minH: 1 }
+  { id: 'options', x: 0, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'operation', x: 1, y: 2, w: 1, h: 2, minW: 1, minH: 1 },
+  { id: 'entries', x: 0, y: 4, w: 2, h: 3, minW: 1, minH: 2 },
+  { id: 'log', x: 0, y: 7, w: 2, h: 2, minW: 1, minH: 1 }
 ];
