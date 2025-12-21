@@ -384,12 +384,12 @@
   .dashboard-grid {
     width: 100%;
     flex: 1;
-    overflow: auto;
+    overflow: hidden;
   }
 
   :global(.grid-stack > .grid-stack-item > .grid-stack-item-content) {
     background: transparent;
-    overflow: auto;
+    overflow: hidden;
     /* 使用绝对定位 + inset 实现居中 */
     position: absolute;
     top: 4px;

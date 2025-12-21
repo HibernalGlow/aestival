@@ -409,13 +409,13 @@
 /* 节点模式下（容器 < 500px）限制区块最大高度 */
 .block-card {
   max-height: 800px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 @container (min-width: 500px) {
   .block-card {
     max-height: none;
-    overflow: visible;
+    overflow: hidden;
   }
 }
 
@@ -428,5 +428,6 @@
 @container (min-width: 500px) {
   .tab-group-card {
     max-height: none;
+    overflow: hidden;
   }
 }
