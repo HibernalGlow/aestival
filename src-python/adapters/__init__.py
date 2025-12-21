@@ -22,6 +22,11 @@ _ADAPTER_REGISTRY: Dict[str, str] = {
     "bandia": "adapters.bandia_adapter.BandiaAdapter",
     "dissolvef": "adapters.dissolvef_adapter.DissolvefAdapter",
     "sleept": "adapters.sleept_adapter.SleeptAdapter",
+    # EnvU 工具适配器
+    "owithu": "adapters.owithu_adapter.OwithuAdapter",
+    "linku": "adapters.linku_adapter.LinkuAdapter",
+    "scoolp": "adapters.scoolp_adapter.ScoolpAdapter",
+    "reinstallp": "adapters.reinstallp_adapter.ReinstallpAdapter",
 }
 
 # 适配器实例缓存

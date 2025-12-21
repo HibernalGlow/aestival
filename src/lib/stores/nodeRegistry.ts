@@ -24,6 +24,10 @@ import { FindzNode } from '$lib/components/nodes/findz';
 import { BandiaNode } from '$lib/components/nodes/bandia';
 import { DissolvefNode } from '$lib/components/nodes/dissolvef';
 import { SleeptNode } from '$lib/components/nodes/sleept';
+import { OwithuNode } from '$lib/components/nodes/owithu';
+import { LinkuNode } from '$lib/components/nodes/linku';
+import { ScoolpNode } from '$lib/components/nodes/scoolp';
+import { ReinstallpNode } from '$lib/components/nodes/reinstallp';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -242,6 +246,65 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
       hours: { type: 'number', label: '小时', default: 0 },
       minutes: { type: 'number', label: '分钟', default: 30 },
       dryrun: { type: 'boolean', label: '演练模式', default: true }
+    }
+  },
+  {
+    type: 'owithu',
+    category: 'tool',
+    label: 'owithu',
+    description: 'Windows 右键菜单注册：从 TOML 配置注册/注销上下文菜单项',
+    icon: 'MousePointer',
+    inputs: ['path'],
+    outputs: ['path'],
+    component: OwithuNode,
+    configSchema: {
+      path: { type: 'path', label: 'TOML 配置路径', required: true },
+      action: { type: 'select', label: '操作', default: 'preview' },
+      hive: { type: 'string', label: '注册表位置', default: '' }
+    }
+  },
+  {
+    type: 'linku',
+    category: 'tool',
+    label: 'linku',
+    description: '软链接管理：创建、移动、恢复软链接',
+    icon: 'Link',
+    inputs: ['path'],
+    outputs: ['path'],
+    component: LinkuNode,
+    configSchema: {
+      path: { type: 'path', label: '源路径', required: true },
+      target: { type: 'path', label: '目标路径', required: false },
+      action: { type: 'select', label: '操作', default: 'info' }
+    }
+  },
+  {
+    type: 'scoolp',
+    category: 'tool',
+    label: 'scoolp',
+    description: 'Scoop 包管理：安装包、清理缓存、同步 buckets',
+    icon: 'Package',
+    inputs: ['any'],
+    outputs: ['any'],
+    component: ScoolpNode,
+    configSchema: {
+      action: { type: 'select', label: '操作', default: 'status' },
+      packages: { type: 'array', label: '包列表', default: [] },
+      buckets: { type: 'array', label: 'Buckets', default: [] }
+    }
+  },
+  {
+    type: 'reinstallp',
+    category: 'tool',
+    label: 'reinstallp',
+    description: 'Python 包重装：扫描并重新安装 pyproject.toml 项目',
+    icon: 'Download',
+    inputs: ['path'],
+    outputs: ['path'],
+    component: ReinstallpNode,
+    configSchema: {
+      path: { type: 'path', label: '扫描路径', required: true },
+      use_system: { type: 'boolean', label: '系统安装', default: true }
     }
   },
 
