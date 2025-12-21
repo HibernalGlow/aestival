@@ -777,6 +777,62 @@ class AutoBackupStore {
 	}
 
 	/**
+	 * 获取已迁移到数据库的 localStorage 键名列表
+	 * 这些键已经不再需要，可以安全清理
+	 */
+	getMigratedLocalStorageKeys(): string[] {
+		// 已迁移到 SQLite 数据库的 localStorage 键
+		const migratedKeys = [
+			'aestival-node-layouts',      // 节点布局配置
+			'aestival-layout-presets',    // 布局预设
+			'aestival-default-preset',    // 默认预设配置
+		];
+		
+		if (typeof window === 'undefined' || !window.localStorage) return [];
+		
+		// 返回实际存在的已迁移键
+		return migratedKeys.filter(key => localStorage.getItem(key) !== null);
+	}
+
+	/**
+	 * 分析已迁移的 localStorage 数据
+	 * 返回每个键的大小信息
+	 */
+	analyzeMigratedStorage(): Array<{ key: string; size: number; lines: number }> {
+		const keys = this.getMigratedLocalStorageKeys();
+		return keys.map(key => {
+			const value = localStorage.getItem(key) || '';
+			return {
+				key,
+				size: new Blob([value]).size,
+				lines: this.countLines(value)
+			};
+		});
+	}
+
+	/**
+	 * 清理已迁移到数据库的 localStorage 数据
+	 * @returns 清理的键数量
+	 */
+	cleanupMigratedStorage(): number {
+		const keys = this.getMigratedLocalStorageKeys();
+		let count = 0;
+		
+		for (const key of keys) {
+			try {
+				localStorage.removeItem(key);
+				count++;
+				console.log(`[AutoBackup] 已清理迁移数据: ${key}`);
+			} catch (e) {
+				console.error(`[AutoBackup] 清理失败: ${key}`, e);
+			}
+		}
+		
+		console.log(`[AutoBackup] 共清理 ${count} 个已迁移的 localStorage 键`);
+		return count;
+	}
+
+	/**
 	 * 销毁
 	 */
 	destroy() {

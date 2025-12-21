@@ -26,7 +26,8 @@
 		X,
 		Search,
 		ChevronRight,
-		ChevronDown
+		ChevronDown,
+		Database
 	} from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -44,6 +45,9 @@
 	let showAnalysis = $state(false);
 	let analysisData = $state<ReturnType<typeof autoBackupStore.analyzeLocalStorage>>([]);
 	let expandedKeys = $state<Set<string>>(new Set()); // 展开的主键;
+
+	// 已迁移数据分析
+	let migratedData = $state<ReturnType<typeof autoBackupStore.analyzeMigratedStorage>>([]);
 
 	// 间隔选项
 	const intervalOptions = [
@@ -181,6 +185,25 @@
 		showAnalysis = true;
 	}
 
+	// 分析已迁移的数据
+	function analyzeMigratedData() {
+		migratedData = autoBackupStore.analyzeMigratedStorage();
+	}
+
+	// 清理已迁移的 localStorage 数据
+	function cleanupMigratedStorage() {
+		if (!confirm('确定要清理已迁移到数据库的 localStorage 数据吗？\n这些数据已经保存在数据库中，清理后可以释放浏览器存储空间。')) {
+			return;
+		}
+		const count = autoBackupStore.cleanupMigratedStorage();
+		if (count > 0) {
+			showSuccessToast(`已清理 ${count} 个旧数据项`);
+			migratedData = [];
+		} else {
+			showInfoToast('没有需要清理的数据');
+		}
+	}
+
 	onMount(() => {
 		if (settings.backupPath) {
 			loadBackups();
@@ -262,6 +285,58 @@
 				onCheckedChange={(checked) =>
 					autoBackupStore.updateSettings({ includeAllLocalStorage: checked })}
 			/>
+		</div>
+
+		<!-- 包含数据库存储 -->
+		<div class="flex items-center justify-between">
+			<div>
+				<Label for="include-db-storage">包含数据库存储</Label>
+				<p class="text-xs text-muted-foreground">包含布局配置、预设等数据库数据</p>
+			</div>
+			<Switch
+				id="include-db-storage"
+				checked={settings.includeDatabaseStorage}
+				onCheckedChange={(checked) =>
+					autoBackupStore.updateSettings({ includeDatabaseStorage: checked })}
+			/>
+		</div>
+
+		<!-- 清理已迁移数据 -->
+		<div class="space-y-2 rounded-lg border p-3">
+			<div class="flex items-center justify-between">
+				<div>
+					<Label class="flex items-center gap-2">
+						<Database class="h-4 w-4" />
+						清理旧数据
+					</Label>
+					<p class="text-xs text-muted-foreground">清理已迁移到数据库的 localStorage 数据</p>
+				</div>
+				<Button variant="outline" size="sm" onclick={analyzeMigratedData}>
+					<Search class="mr-1 h-3 w-3" />
+					检查
+				</Button>
+			</div>
+			{#if migratedData.length > 0}
+				<div class="space-y-1 text-sm">
+					{#each migratedData as item}
+						<div class="flex items-center justify-between text-xs p-1.5 rounded bg-muted/50">
+							<span class="truncate" title={item.key}>{item.key}</span>
+							<span class="text-muted-foreground shrink-0">{formatSize(item.size)}</span>
+						</div>
+					{/each}
+					<div class="flex items-center justify-between pt-2">
+						<span class="text-xs text-muted-foreground">
+							共 {migratedData.length} 项，{formatSize(migratedData.reduce((sum, i) => sum + i.size, 0))}
+						</span>
+						<Button variant="destructive" size="sm" onclick={cleanupMigratedStorage}>
+							<Trash2 class="mr-1 h-3 w-3" />
+							清理
+						</Button>
+					</div>
+				</div>
+			{:else if migratedData.length === 0}
+				<p class="text-xs text-muted-foreground">点击"检查"按钮查看可清理的数据</p>
+			{/if}
 		</div>
 
 		<!-- 排除配置 -->
