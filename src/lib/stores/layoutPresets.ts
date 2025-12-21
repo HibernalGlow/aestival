@@ -142,13 +142,54 @@ function loadUserPresets(): LayoutPreset[] {
   }
 }
 
+/** 估算数据大小（字节） */
+function estimateSize(data: unknown): number {
+  return JSON.stringify(data).length * 2; // UTF-16
+}
+
+/** 清理旧预设，保留最近的 N 个 */
+function cleanupOldPresets(presets: LayoutPreset[], maxCount: number = 20): LayoutPreset[] {
+  if (presets.length <= maxCount) return presets;
+  
+  // 按创建时间排序，保留最新的
+  const sorted = [...presets].sort((a, b) => b.createdAt - a.createdAt);
+  const removed = sorted.slice(maxCount);
+  
+  if (removed.length > 0) {
+    console.log(`[layoutPresets] 清理 ${removed.length} 个旧预设:`, removed.map(p => p.name));
+  }
+  
+  return sorted.slice(0, maxCount);
+}
+
 /** 保存用户预设到 localStorage */
 function saveUserPresets(presets: LayoutPreset[]): void {
   if (typeof window === 'undefined') return;
+  
   try {
     localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
   } catch (e) {
-    console.warn('[layoutPresets] Failed to save:', e);
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      console.warn('[layoutPresets] localStorage 配额已满，尝试清理...');
+      
+      // 清理旧预设
+      const cleaned = cleanupOldPresets(presets, 10);
+      
+      try {
+        localStorage.setItem(PRESETS_KEY, JSON.stringify(cleaned));
+        console.log('[layoutPresets] 清理后保存成功');
+      } catch (e2) {
+        console.error('[layoutPresets] 清理后仍无法保存，只保留最新 5 个');
+        const minimal = cleanupOldPresets(presets, 5);
+        try {
+          localStorage.setItem(PRESETS_KEY, JSON.stringify(minimal));
+        } catch {
+          console.error('[layoutPresets] 无法保存预设');
+        }
+      }
+    } else {
+      console.warn('[layoutPresets] Failed to save:', e);
+    }
   }
 }
 
@@ -339,4 +380,37 @@ export function getDefaultPreset(nodeType: string, mode?: PresetMode): LayoutPre
   // 返回第一个内置预设作为默认
   const builtinPreset = BUILTIN_PRESETS.find(p => p.nodeType === nodeType);
   return builtinPreset || null;
+}
+
+// ============ 存储管理 ============
+
+/** 获取用户预设数量和大小 */
+export function getPresetsInfo(): { count: number; sizeKB: number } {
+  const presets = loadUserPresets();
+  const size = estimateSize(presets);
+  return {
+    count: presets.length,
+    sizeKB: Math.round(size / 1024)
+  };
+}
+
+/** 清理所有用户预设 */
+export function clearAllUserPresets(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(PRESETS_KEY);
+  console.log('[layoutPresets] 已清理所有用户预设');
+}
+
+/** 清理指定节点类型的用户预设 */
+export function clearPresetsForNodeType(nodeType: string): number {
+  const presets = loadUserPresets();
+  const filtered = presets.filter(p => p.nodeType !== nodeType);
+  const removed = presets.length - filtered.length;
+  
+  if (removed > 0) {
+    saveUserPresets(filtered);
+    console.log(`[layoutPresets] 清理了 ${removed} 个 ${nodeType} 预设`);
+  }
+  
+  return removed;
 }

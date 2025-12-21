@@ -241,13 +241,132 @@ function loadFromStorage(): NodeConfigMap {
   }
 }
 
+/** 估算 localStorage 使用量 */
+function getStorageUsage(): { used: number; total: number; percent: number } {
+  if (typeof window === 'undefined') return { used: 0, total: 5 * 1024 * 1024, percent: 0 };
+  
+  let used = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key) {
+      const value = localStorage.getItem(key);
+      if (value) {
+        used += key.length + value.length;
+      }
+    }
+  }
+  // localStorage 通常限制为 5MB
+  const total = 5 * 1024 * 1024;
+  return { used: used * 2, total, percent: (used * 2 / total) * 100 }; // UTF-16 每字符 2 字节
+}
+
+/** 清理旧的/不常用的配置 */
+function cleanupOldConfigs(configs: NodeConfigMap, targetSize: number): NodeConfigMap {
+  if (configs.size <= 1) return configs;
+  
+  // 按更新时间排序，保留最近使用的
+  const sorted = [...configs.entries()].sort((a, b) => b[1].updatedAt - a[1].updatedAt);
+  
+  const result = new Map<string, NodeConfig>();
+  let currentSize = 0;
+  
+  for (const [key, value] of sorted) {
+    const itemSize = JSON.stringify({ [key]: value }).length * 2;
+    if (currentSize + itemSize <= targetSize || result.size === 0) {
+      result.set(key, value);
+      currentSize += itemSize;
+    } else {
+      console.log(`[nodeLayoutStore] 清理旧配置: ${key}`);
+    }
+  }
+  
+  return result;
+}
+
+/** 压缩配置数据（移除不必要的精度和空值） */
+function compressConfig(config: NodeConfig): NodeConfig {
+  const compressLayout = (layout: GridItem[]): GridItem[] => 
+    layout.map(item => ({
+      id: item.id,
+      x: item.x,
+      y: item.y,
+      w: item.w,
+      h: item.h,
+      ...(item.minW !== undefined && { minW: item.minW }),
+      ...(item.minH !== undefined && { minH: item.minH }),
+      ...(item.maxW !== undefined && { maxW: item.maxW }),
+      ...(item.maxH !== undefined && { maxH: item.maxH })
+    }));
+
+  const compressModeState = (state: ModeLayoutState): ModeLayoutState => ({
+    gridLayout: compressLayout(state.gridLayout),
+    sizeOverrides: Object.keys(state.sizeOverrides).length > 0 ? state.sizeOverrides : {},
+    tabGroups: state.tabGroups.length > 0 ? state.tabGroups : []
+  });
+
+  return {
+    nodeType: config.nodeType,
+    fullscreen: compressModeState(config.fullscreen),
+    normal: compressModeState(config.normal),
+    updatedAt: config.updatedAt
+  };
+}
+
 function saveToStorage(configs: NodeConfigMap): void {
   if (typeof window === 'undefined') return;
+  
+  // 压缩所有配置
+  const compressedConfigs = new Map<string, NodeConfig>();
+  for (const [key, value] of configs) {
+    compressedConfigs.set(key, compressConfig(value));
+  }
+  
+  const data = JSON.stringify(Object.fromEntries(compressedConfigs));
+  
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(Object.fromEntries(configs)));
+    localStorage.setItem(STORAGE_KEY, data);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.warn('[nodeLayoutStore] localStorage 配额已满');
+      console.warn('[nodeLayoutStore] localStorage 配额已满，尝试清理...');
+      
+      // 获取当前使用量
+      const usage = getStorageUsage();
+      console.log(`[nodeLayoutStore] 当前使用: ${(usage.used / 1024).toFixed(1)}KB (${usage.percent.toFixed(1)}%)`);
+      
+      // 清理其他可能的旧数据
+      const keysToCheck = ['aestival-layout-presets', 'aestival-default-preset'];
+      for (const key of keysToCheck) {
+        const item = localStorage.getItem(key);
+        if (item && item.length > 100000) { // 超过 100KB 的预设数据
+          console.log(`[nodeLayoutStore] 清理大型数据: ${key} (${(item.length / 1024).toFixed(1)}KB)`);
+          // 不直接删除，而是尝试压缩
+        }
+      }
+      
+      // 清理旧配置，目标大小为 500KB
+      const cleanedConfigs = cleanupOldConfigs(compressedConfigs, 500 * 1024);
+      const cleanedData = JSON.stringify(Object.fromEntries(cleanedConfigs));
+      
+      try {
+        localStorage.setItem(STORAGE_KEY, cleanedData);
+        console.log('[nodeLayoutStore] 清理后保存成功');
+        
+        // 更新内存中的状态
+        if (cleanedConfigs.size < compressedConfigs.size) {
+          nodeLayoutStore.setState(() => cleanedConfigs);
+        }
+      } catch (e2) {
+        console.error('[nodeLayoutStore] 清理后仍无法保存，尝试最小化保存');
+        // 最后手段：只保留最新的一个配置
+        const latest = [...compressedConfigs.entries()].sort((a, b) => b[1].updatedAt - a[1].updatedAt)[0];
+        if (latest) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ [latest[0]]: latest[1] }));
+          } catch {
+            console.error('[nodeLayoutStore] 无法保存任何配置');
+          }
+        }
+      }
     } else {
       console.warn('[nodeLayoutStore] 保存失败:', e);
     }
@@ -699,6 +818,45 @@ export function isTabGroupPrimary(nodeType: string, blockId: string, mode: Layou
 
 /** 导出 LayoutMode 类型供外部使用 */
 export type { LayoutMode };
+
+// ============ 存储管理 ============
+
+/** 获取存储使用情况 */
+export function getStorageInfo(): { used: number; total: number; percent: number; nodeCount: number } {
+  const usage = getStorageUsage();
+  return {
+    ...usage,
+    nodeCount: nodeLayoutStore.state.size
+  };
+}
+
+/** 清理所有节点布局配置 */
+export function clearAllNodeConfigs(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(STORAGE_KEY);
+  nodeLayoutStore.setState(() => new Map());
+  console.log('[nodeLayoutStore] 已清理所有节点配置');
+}
+
+/** 清理指定时间之前的配置 */
+export function clearOldConfigs(beforeTimestamp: number): number {
+  hydrateFromStorage();
+  let count = 0;
+  
+  nodeLayoutStore.setState((prev) => {
+    const next = new Map(prev);
+    for (const [key, config] of prev) {
+      if (config.updatedAt < beforeTimestamp) {
+        next.delete(key);
+        count++;
+      }
+    }
+    return next;
+  });
+  
+  console.log(`[nodeLayoutStore] 清理了 ${count} 个旧配置`);
+  return count;
+}
 
 // ============ 订阅 ============
 
