@@ -7,24 +7,38 @@
   import { Input } from '$lib/components/ui/input';
   import { AnimatedDropdown } from '$lib/components/ui/animated-dropdown';
   import { nodeBlockRegistry } from '$lib/components/blocks/blockRegistry';
-  import { LayoutGrid, Eye, EyeOff, Package, FilePenLine, Search } from '@lucide/svelte';
-
-  // 节点类型图标映射
-  const nodeIcons: Record<string, typeof Package> = {
-    repacku: Package,
-    trename: FilePenLine
-  };
+  import { NODE_REGISTRY } from '$lib/stores/nodeRegistry';
+  import { LayoutGrid, Eye, EyeOff, Search } from '@lucide/svelte';
+  import * as icons from '@lucide/svelte';
 
   // 获取所有节点类型
   const nodeTypes = Object.keys(nodeBlockRegistry);
   
+  // 从 NODE_REGISTRY 获取节点信息
+  function getNodeInfo(nodeType: string) {
+    const entry = NODE_REGISTRY.find(e => e.type === nodeType);
+    return {
+      label: entry?.label || nodeType,
+      iconName: entry?.icon || 'LayoutGrid',
+      description: entry?.description || ''
+    };
+  }
+  
+  // 动态获取图标组件
+  function getIconComponent(iconName: string) {
+    return (icons as Record<string, any>)[iconName] || LayoutGrid;
+  }
+  
   // 构建下拉菜单项
-  const dropdownItems = nodeTypes.map(nodeType => ({
-    id: nodeType,
-    name: nodeType,
-    icon: nodeIcons[nodeType] || LayoutGrid,
-    badge: nodeBlockRegistry[nodeType]?.blocks.length || 0
-  }));
+  const dropdownItems = nodeTypes.map(nodeType => {
+    const info = getNodeInfo(nodeType);
+    return {
+      id: nodeType,
+      name: info.label,
+      icon: getIconComponent(info.iconName),
+      badge: nodeBlockRegistry[nodeType]?.blocks.length || 0
+    };
+  });
   
   // 当前选中的节点
   let activeNode = $state<string>(nodeTypes[0] || 'repacku');
