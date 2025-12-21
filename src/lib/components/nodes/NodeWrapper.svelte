@@ -18,6 +18,7 @@
     RotateCcw,
     Layout,
     Layers,
+    Pencil,
   } from "@lucide/svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { LayoutPresetSelector } from "$lib/components/ui/dashboard-grid";
@@ -26,8 +27,10 @@
   import { flowStore } from "$lib/stores";
   import { fullscreenNodeStore } from "$lib/stores/fullscreenNode.svelte";
   import { settingsManager } from "$lib/settings/settingsManager";
-  import { onMount } from "svelte";
+  import { onMount, setContext } from "svelte";
+  import { writable } from "svelte/store";
   import type { Snippet } from "svelte";
+  import { BLOCK_EDIT_MODE_KEY, type BlockEditModeContext } from "./blockEditContext";
 
   // 获取面板设置（透明度和模糊）
   let panelSettings = $state(settingsManager.getSettings().panels);
@@ -168,6 +171,25 @@
   let pinned = $state(false);
   let showLayoutBar = $state(false);  // 布局预设栏展开状态
   let showTabConfig = $state(false);  // Tab 配置面板展开状态
+  
+  // 区块尺寸编辑模式（使用 writable store 以便通过 context 响应式传递）
+  const blockEditModeStore = writable(false);
+  let blockEditModeInternal = $state(false);
+  
+  // 同步 store 和本地状态
+  blockEditModeStore.subscribe(v => { blockEditModeInternal = v; });
+
+  // 切换区块编辑模式
+  function toggleBlockEditMode() {
+    blockEditModeStore.update(v => !v);
+  }
+
+  // 通过 context 暴露编辑模式状态（供 NodeLayoutRenderer 使用）
+  // 注意：isFullscreen 在组件生命周期内不会改变，所以直接使用 prop 值是安全的
+  setContext<BlockEditModeContext>(BLOCK_EDIT_MODE_KEY, {
+    editMode: blockEditModeStore,
+    get isFullscreen() { return isFullscreenRender; }
+  });
 
   // 检测是否在全屏模式（原节点需要变淡）
   let isNodeInFullscreen = $derived(
@@ -272,6 +294,17 @@
     <div class="flex items-center gap-0.5 ml-2">
       {#if headerExtra}
         {@render headerExtra()}
+      {/if}
+
+      <!-- 区块尺寸编辑按钮（仅节点模式） -->
+      {#if !isFullscreenRender && nodeType}
+        <button
+          class="p-1 rounded hover:bg-muted transition-colors {blockEditModeInternal ? 'text-primary' : 'text-muted-foreground'}"
+          onclick={toggleBlockEditMode}
+          title={blockEditModeInternal ? '退出编辑' : '编辑区块尺寸'}
+        >
+          <Pencil class="w-3.5 h-3.5" />
+        </button>
       {/if}
 
       <!-- 创建 Tab 区块按钮（两种模式都支持） -->

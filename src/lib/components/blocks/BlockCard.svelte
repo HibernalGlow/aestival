@@ -4,11 +4,11 @@
    * 支持普通模式（Bento Grid）和全屏模式（GridStack）
    * 特性：鼠标跟随聚光灯、悬停动画、精致阴影、暗色模式优化
    */
-  import { ChevronDown, ChevronRight, ArrowRight } from '@lucide/svelte';
+  import { ChevronDown, ChevronRight, ArrowRight, Plus, Minus } from '@lucide/svelte';
   import { slide } from 'svelte/transition';
   import { settingsManager } from '$lib/settings/settingsManager';
   import { onMount } from 'svelte';
-  import type { Snippet, Component } from 'svelte';
+  import type { Snippet } from 'svelte';
 
   interface Props {
     /** 区块 ID（用于布局持久化等场景） */
@@ -55,6 +55,12 @@
     magicGradientColor?: string;
     /** Magic Card：渐变透明度 */
     magicGradientOpacity?: number;
+    /** 是否启用尺寸编辑模式（节点模式下） */
+    editMode?: boolean;
+    /** 当前宽度（grid 列数） */
+    currentW?: number;
+    /** 宽度变化回调 */
+    onWidthChange?: (delta: number) => void;
   }
 
   let {
@@ -79,7 +85,10 @@
     bentoHover = false,
     magicGradientSize,
     magicGradientColor = "hsl(var(--primary) / 0.4)",
-    magicGradientOpacity = 0.8
+    magicGradientOpacity = 0.8,
+    editMode = false,
+    currentW = 1,
+    onWidthChange,
   }: Props = $props();
 
   // isFullscreen 自动启用 fullHeight
@@ -213,6 +222,31 @@
       {#if headerExtra}
         <div class="flex items-center gap-1">
           {@render headerExtra()}
+        </div>
+      {/if}
+      
+      <!-- 尺寸编辑按钮（节点模式下） -->
+      {#if editMode && onWidthChange}
+        <div class="flex items-center gap-0.5 ml-1">
+          <button
+            type="button"
+            class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+            onclick={() => onWidthChange(-1)}
+            disabled={currentW <= 1}
+            title="减小宽度"
+          >
+            <Minus class="w-3 h-3" />
+          </button>
+          <span class="text-xs text-muted-foreground min-w-[1.5rem] text-center">{currentW}</span>
+          <button
+            type="button"
+            class="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed"
+            onclick={() => onWidthChange(1)}
+            disabled={currentW >= 2}
+            title="增大宽度"
+          >
+            <Plus class="w-3 h-3" />
+          </button>
         </div>
       {/if}
     </div>

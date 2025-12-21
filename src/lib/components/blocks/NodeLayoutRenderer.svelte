@@ -30,7 +30,12 @@
     type LayoutMode,
   } from "$lib/stores/nodeLayoutStore";
   // 已迁移到 Container Query CSS，不再需要 SizeMode
-  import { onMount, tick } from "svelte";
+  import { onMount, tick, getContext } from "svelte";
+  
+  // 从 NodeWrapper 获取编辑模式 context
+  import { BLOCK_EDIT_MODE_KEY, type BlockEditModeContext } from "$lib/components/nodes/blockEditContext";
+  
+  const blockEditContext = getContext<BlockEditModeContext | undefined>(BLOCK_EDIT_MODE_KEY);
 
   interface Props {
     nodeId: string;
@@ -40,6 +45,8 @@
     defaultNormalLayout?: GridItem[];
     renderBlock: Snippet<[blockId: string]>;
     onConfigChange?: (config: NodeConfig) => void;
+    /** 是否启用区块尺寸编辑模式（节点模式下） */
+    editMode?: boolean;
   }
 
   let {
@@ -50,7 +57,24 @@
     defaultNormalLayout = [],
     renderBlock,
     onConfigChange,
+    editMode: editModeProp = false,
   }: Props = $props();
+
+  // 从 context store 获取编辑模式，否则使用 prop
+  let editModeFromContext = $state(false);
+  
+  // 订阅 context store
+  $effect(() => {
+    if (blockEditContext?.editMode) {
+      const unsubscribe = blockEditContext.editMode.subscribe(v => {
+        editModeFromContext = v;
+      });
+      return unsubscribe;
+    }
+  });
+  
+  // 最终编辑模式：优先使用 context，否则使用 prop
+  let editMode = $derived(editModeFromContext || editModeProp);
 
   let mode = $derived(isFullscreen ? "fullscreen" : "normal") as "fullscreen" | "normal";
 
@@ -350,6 +374,20 @@
     return tabGroups;
   }
 
+  /** 处理区块宽度变化（节点模式下） */
+  function handleWidthChange(blockId: string, delta: number) {
+    const layout = [...currentLayout];
+    const itemIndex = layout.findIndex(item => item.id === blockId);
+    if (itemIndex === -1) return;
+    
+    const item = layout[itemIndex];
+    const newW = Math.max(1, Math.min(2, item.w + delta));
+    if (newW === item.w) return;
+    
+    layout[itemIndex] = { ...item, w: newW };
+    updateGridLayout(nodeType, mode, layout);
+  }
+
   export function getConfig(): NodeConfig {
     return nodeConfig;
   }
@@ -455,6 +493,9 @@
               collapsible={blockDef.collapsible}
               defaultExpanded={blockDef.defaultExpanded ?? true}
               class={colSpan === 2 ? "col-span-2" : ""}
+              {editMode}
+              currentW={gridItem.w}
+              onWidthChange={(delta) => handleWidthChange(gridItem.id, delta)}
             >
               {#snippet children()}
                 {@render renderBlock(gridItem.id)}
@@ -497,6 +538,9 @@
               collapsible={blockDef.collapsible}
               defaultExpanded={blockDef.defaultExpanded ?? true}
               fullHeight={true}
+              {editMode}
+              currentW={lastItem.w}
+              onWidthChange={(delta) => handleWidthChange(lastItem.id, delta)}
             >
               {#snippet children()}
                 {@render renderBlock(lastItem.id)}
