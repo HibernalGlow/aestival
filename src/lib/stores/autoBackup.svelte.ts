@@ -24,6 +24,7 @@ export interface BackupSettings {
 	backupPath: string; // 备份目录路径
 	lastBackupTime: number | null; // 上次备份时间戳
 	includeAllLocalStorage: boolean; // 是否包含所有 localStorage 数据
+	includeDatabaseStorage: boolean; // 是否包含数据库存储数据（布局、预设等）
 	exclusion: BackupExclusionSettings; // 排除配置
 }
 
@@ -60,6 +61,7 @@ const DEFAULT_SETTINGS: BackupSettings = {
 	backupPath: '',
 	lastBackupTime: null,
 	includeAllLocalStorage: true,
+	includeDatabaseStorage: true, // 默认包含数据库存储
 	exclusion: DEFAULT_EXCLUSION
 };
 
@@ -459,19 +461,21 @@ class AutoBackupStore {
 			rawLocalStorage: this.settings.includeAllLocalStorage ? this.collectAllLocalStorage() : {}
 		};
 
-		// 获取数据库存储数据
-		try {
-			const dbData = await storageClient.exportAllStorage();
-			if (dbData) {
-				payload.databaseStorage = dbData;
-				console.log('[AutoBackup] 已包含数据库存储数据:', {
-					layouts: Object.keys(dbData.layouts).length,
-					presets: dbData.presets.length,
-					defaults: Object.keys(dbData.defaults).length
-				});
+		// 根据设置决定是否获取数据库存储数据
+		if (this.settings.includeDatabaseStorage) {
+			try {
+				const dbData = await storageClient.exportAllStorage();
+				if (dbData) {
+					payload.databaseStorage = dbData;
+					console.log('[AutoBackup] 已包含数据库存储数据:', {
+						layouts: Object.keys(dbData.layouts).length,
+						presets: dbData.presets.length,
+						defaults: Object.keys(dbData.defaults).length
+					});
+				}
+			} catch (e) {
+				console.error('[AutoBackup] 获取数据库存储数据失败:', e);
 			}
-		} catch (e) {
-			console.error('[AutoBackup] 获取数据库存储数据失败:', e);
 		}
 
 		return payload;
@@ -596,8 +600,10 @@ class AutoBackupStore {
 
 	/**
 	 * 从备份恢复（通过 Python API）
+	 * @param backupPath 备份文件路径
+	 * @param restoreDatabaseStorage 是否恢复数据库存储数据，默认 true
 	 */
-	async restoreFromBackup(backupPath: string): Promise<boolean> {
+	async restoreFromBackup(backupPath: string, restoreDatabaseStorage: boolean = true): Promise<boolean> {
 		try {
 			const result = await backupApiRequest<{ success: boolean; content: string }>(
 				'/read-file',
@@ -619,8 +625,8 @@ class AutoBackupStore {
 				}
 			}
 
-			// 恢复数据库存储数据（布局、预设、默认配置）
-			if (payload.databaseStorage) {
+			// 根据参数决定是否恢复数据库存储数据（布局、预设、默认配置）
+			if (restoreDatabaseStorage && payload.databaseStorage) {
 				try {
 					const importResult = await storageClient.importAllStorage(payload.databaseStorage, true);
 					if (importResult) {
@@ -698,8 +704,9 @@ class AutoBackupStore {
 
 	/**
 	 * 从文件导入（使用浏览器文件选择）
+	 * @param restoreDatabaseStorage 是否恢复数据库存储数据，默认 true
 	 */
-	async importFromFile(): Promise<boolean> {
+	async importFromFile(restoreDatabaseStorage: boolean = true): Promise<boolean> {
 		return new Promise((resolve) => {
 			const input = document.createElement('input');
 			input.type = 'file';
@@ -726,8 +733,8 @@ class AutoBackupStore {
 						}
 					}
 
-					// 恢复数据库存储数据
-					if (payload.databaseStorage) {
+					// 根据参数决定是否恢复数据库存储数据
+					if (restoreDatabaseStorage && payload.databaseStorage) {
 						try {
 							const importResult = await storageClient.importAllStorage(payload.databaseStorage, true);
 							if (importResult) {
