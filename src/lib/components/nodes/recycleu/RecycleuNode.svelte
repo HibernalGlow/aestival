@@ -13,6 +13,7 @@
 
   import { NodeLayoutRenderer } from '$lib/components/blocks';
   import { RECYCLEU_DEFAULT_GRID_LAYOUT } from './blocks';
+  import { CircularProgressBar } from '$lib/components/ui/circular-progress-bar';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
   import { getWsBaseUrl } from '$lib/stores/backend';
@@ -279,30 +280,25 @@
   <div class="flex flex-col cq-gap h-full">
     <!-- 圆形倒计时进度 -->
     <div class="flex-1 flex flex-col items-center justify-center">
-      <div class="relative w-24 h-24">
-        <!-- 背景圆 -->
-        <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" class="text-muted/30" />
-          <!-- 倒计时圆环：从满圆减少到单点 -->
-          <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" 
-            class={phase === 'completed' ? 'text-green-500' : phase === 'error' ? 'text-red-500' : 'text-primary'}
-            stroke-dasharray={`${countdownProgress * 2.83} 283`}
-            stroke-linecap="round" />
-        </svg>
-        <!-- 中心文字 -->
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          {#if isRunning}
-            <span class="text-lg font-mono font-bold">{remainingSeconds}s</span>
-            <span class="cq-text-sm text-muted-foreground">{cleanCount}次</span>
-          {:else if phase === 'completed'}
-            <CircleCheck class="w-8 h-8 text-green-500" />
-          {:else if phase === 'error'}
-            <CircleX class="w-8 h-8 text-red-500" />
-          {:else}
-            <Trash2 class="w-8 h-8 text-muted-foreground/50" />
-          {/if}
-        </div>
-      </div>
+      <CircularProgressBar
+        max={100}
+        min={0}
+        value={countdownProgress}
+        gaugePrimaryColor={phase === 'completed' ? 'rgb(34 197 94)' : phase === 'error' ? 'rgb(239 68 68)' : 'hsl(var(--primary))'}
+        gaugeSecondaryColor="hsl(var(--muted))"
+        class="size-24"
+      >
+        {#if isRunning}
+          <span class="text-lg font-mono font-bold">{remainingSeconds}s</span>
+          <span class="cq-text-sm text-muted-foreground">{cleanCount}次</span>
+        {:else if phase === 'completed'}
+          <CircleCheck class="w-8 h-8 text-green-500" />
+        {:else if phase === 'error'}
+          <CircleX class="w-8 h-8 text-red-500" />
+        {:else}
+          <Trash2 class="w-8 h-8 text-muted-foreground/50" />
+        {/if}
+      </CircularProgressBar>
       <span class="cq-text text-muted-foreground mt-2">{progressText || '等待启动'}</span>
     </div>
     
