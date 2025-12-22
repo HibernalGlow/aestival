@@ -65,7 +65,7 @@ class MoveaAdapter(BaseAdapter):
     _file_ops_module = None
     _config_module = None
     
-    def _import_modules(self) -> Dict:
+    def _import_module(self) -> Dict:
         """导入 movea 源码模块"""
         if MoveaAdapter._scanner_module is not None:
             return {
@@ -101,7 +101,7 @@ class MoveaAdapter(BaseAdapter):
         """执行 movea 操作"""
         action = input_data.action
         
-        modules = self._import_modules()
+        modules = self._import_module()
         
         if action == "scan":
             return await self._scan_directory(input_data, modules, on_progress, on_log)

@@ -31,6 +31,7 @@ _ADAPTER_REGISTRY: Dict[str, str] = {
     "encodeb": "adapters.encodeb_adapter.EncodebAdapter",
     "kavvka": "adapters.kavvka_adapter.KavvkaAdapter",
     "linedup": "adapters.linedup_adapter.LinedupAdapter",
+    "movea": "adapters.movea_adapter.MoveaAdapter",
 }
 
 # 适配器实例缓存
