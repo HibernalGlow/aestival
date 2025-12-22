@@ -123,12 +123,20 @@
     return modeState.gridLayout.length > 0;
   }
 
+  /** 修复布局数据：过滤掉没有有效 id 的项 */
+  function fixLayoutIds(layout: GridItem[]): GridItem[] {
+    return layout.filter(item => item.id && typeof item.id === 'string');
+  }
+
   /** 检查并添加缺失的区块到布局中 */
   function ensureAllBlocksInLayout(layout: GridItem[], modeType: 'normal' | 'fullscreen'): GridItem[] {
-    const blockLayout = getNodeBlockLayout(nodeType);
-    if (!blockLayout) return layout;
+    // 先过滤掉无效的布局项
+    const validLayout = fixLayoutIds(layout);
     
-    const existingIds = new Set(layout.map(item => item.id));
+    const blockLayout = getNodeBlockLayout(nodeType);
+    if (!blockLayout) return validLayout;
+    
+    const existingIds = new Set(validLayout.map(item => item.id));
     const visibleBlocks = blockLayout.blocks.filter(b => 
       modeType === 'normal' 
         ? b.visibleInNormal !== false && !b.isTabContainer
@@ -138,10 +146,12 @@
     // 找出缺失的区块
     const missingBlocks = visibleBlocks.filter(b => !existingIds.has(b.id));
     
-    if (missingBlocks.length === 0) return layout;
+    if (missingBlocks.length === 0) return validLayout;
     
     // 计算新区块的位置（放在最下面）
-    const maxY = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+    const maxY = validLayout.length > 0 
+      ? validLayout.reduce((max, item) => Math.max(max, item.y + item.h), 0)
+      : 0;
     
     const newItems: GridItem[] = missingBlocks.map((b, idx) => ({
       id: b.id,
@@ -154,7 +164,7 @@
     }));
     
     console.log(`[NodeLayoutRenderer] 添加缺失区块到 ${nodeType}:`, missingBlocks.map(b => b.id));
-    return [...layout, ...newItems];
+    return [...validLayout, ...newItems];
   }
 
   function initNodeConfig(): NodeConfig {
