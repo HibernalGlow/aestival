@@ -2,16 +2,12 @@
 kavvka 适配器
 Czkawka 辅助工具 - 处理图片文件夹并生成路径
 
-功能：
-- 查找画师文件夹（包含[]标记的文件夹）
-- 移动同级文件夹到 #compare 文件夹
-- 生成 Czkawka 路径字符串
+直接调用 kavvka 源码包的核心函数
 """
 
-import shutil
-from datetime import datetime
+import sys
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +16,7 @@ from .base import BaseAdapter, AdapterOutput
 
 class KavvkaInput(BaseModel):
     """kavvka 输入参数"""
-    action: str = Field(default="process", description="操作类型: process, find_artist, scan")
+    action: str = Field(default="process", description="操作类型: process, scan")
     paths: List[str] = Field(default_factory=list, description="源路径列表")
     force: bool = Field(default=False, description="强制移动，不询问确认")
     keywords: List[str] = Field(default_factory=list, description="扫描关键词列表")
@@ -35,7 +31,7 @@ class KavvkaOutput(AdapterOutput):
 
 class KavvkaAdapter(BaseAdapter):
     """
-    kavvka 适配器
+    kavvka 适配器 - 直接调用源码包
     
     功能：Czkawka 辅助工具
     """
@@ -49,89 +45,43 @@ class KavvkaAdapter(BaseAdapter):
     input_schema = KavvkaInput
     output_schema = KavvkaOutput
     
+    _kavvka_module = None
+    
     def _import_module(self) -> Dict:
-        """无需导入外部模块"""
-        return {}
-    
-    def _is_artist_folder(self, path: Path) -> bool:
-        """判断是否为画师文件夹（包含[]标记）- 仅用于过滤同级文件夹"""
-        return '[' in path.name and ']' in path.name
-    
-    def _get_target_folder(self, path: Path) -> Optional[Path]:
-        """
-        获取目标文件夹（用于创建 #compare）
+        """导入 kavvka 源码模块"""
+        if KavvkaAdapter._kavvka_module is not None:
+            return {"kavvka": KavvkaAdapter._kavvka_module}
         
-        直接使用输入路径作为目标文件夹，不再强制查找 [] 标记的文件夹
-        """
-        # 如果是压缩包，使用其所在目录
-        if path.is_file() and path.suffix.lower() in ['.zip', '.7z', '.rar']:
-            return path.parent
+        # 添加源码路径
+        kavvka_src = Path(__file__).parent.parent.parent.parent / "ImageAll" / "Kavvka" / "src"
+        if str(kavvka_src) not in sys.path:
+            sys.path.insert(0, str(kavvka_src))
         
-        # 如果是目录，直接使用
-        if path.is_dir():
-            return path
-        
-        return None
-    
-    def _get_siblings_to_move(self, path: Path, target_folder: Path) -> List[Path]:
-        """获取需要移动的同级文件夹"""
-        siblings = []
-        parent_dir = target_folder.parent
-        
-        if not parent_dir.is_dir():
-            return siblings
-        
-        for entry in parent_dir.iterdir():
-            if (entry.is_dir() and 
-                entry.resolve() != target_folder.resolve() and 
-                entry.name != "#compare" and 
-                not self._is_artist_folder(entry)):  # 跳过画师文件夹
-                siblings.append(entry)
-        
-        return siblings
-    
-    def _create_compare_folder(self, artist_folder: Path) -> Path:
-        """创建比较文件夹"""
-        compare_folder = artist_folder / "#compare"
-        compare_folder.mkdir(exist_ok=True)
-        return compare_folder
-    
-    def _move_folders(
-        self, 
-        folders: List[Path], 
-        compare_folder: Path,
-        on_log: Optional[Callable[[str], None]] = None
-    ) -> List[Dict]:
-        """移动文件夹到比较文件夹"""
-        moved = []
-        
-        for folder in folders:
+        try:
+            # 导入源码模块（避免执行 CLI 初始化代码）
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(
+                "kavvka_main", 
+                kavvka_src / "kavvka" / "__main__.py"
+            )
+            kavvka = importlib.util.module_from_spec(spec)
+            
+            # 临时禁用 parse_args 避免命令行解析
+            import argparse
+            original_parse = argparse.ArgumentParser.parse_args
+            argparse.ArgumentParser.parse_args = lambda self, args=None, namespace=None: argparse.Namespace(
+                config=None, workers=2, force_update=False
+            )
+            
             try:
-                target = compare_folder / folder.name
-                
-                # 如果目标已存在，添加时间戳
-                if target.exists():
-                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                    target = compare_folder / f"{folder.name}_{timestamp}"
-                
-                shutil.move(str(folder), str(target))
-                moved.append({
-                    "source": str(folder),
-                    "target": str(target),
-                    "success": True
-                })
-                if on_log:
-                    on_log(f"✅ 移动: {folder.name} -> #compare")
-            except Exception as e:
-                moved.append({
-                    "source": str(folder),
-                    "error": str(e),
-                    "success": False
-                })
-                if on_log:
-                    on_log(f"❌ 移动失败 {folder.name}: {e}")
-        
-        return moved
+                spec.loader.exec_module(kavvka)
+            finally:
+                argparse.ArgumentParser.parse_args = original_parse
+            
+            KavvkaAdapter._kavvka_module = kavvka
+            return {"kavvka": kavvka}
+        except Exception as e:
+            raise ImportError(f"无法导入 kavvka 模块: {e}")
     
     async def execute(
         self,
@@ -144,8 +94,6 @@ class KavvkaAdapter(BaseAdapter):
         
         if action == "process":
             return await self._process(input_data, on_progress, on_log)
-        elif action == "find_artist":
-            return await self._find_artist(input_data, on_progress, on_log)
         elif action == "scan":
             return await self._scan_keywords(input_data, on_progress, on_log)
         else:
@@ -164,6 +112,9 @@ class KavvkaAdapter(BaseAdapter):
         if not input_data.paths:
             return KavvkaOutput(success=False, message="请提供路径")
         
+        modules = self._import_module()
+        kavvka = modules["kavvka"]
+        
         all_combined_paths: List[str] = []
         results: List[Dict] = []
         success_count = 0
@@ -180,36 +131,52 @@ class KavvkaAdapter(BaseAdapter):
                     on_log(f"❌ 路径不存在: {path}")
                 continue
             
-            # 获取目标文件夹
-            target_folder = self._get_target_folder(path)
-            if not target_folder:
+            if not path.is_dir():
                 if on_log:
-                    on_log(f"❌ 无效路径: {path}")
+                    on_log(f"❌ 不是目录: {path}")
                 continue
             
             if on_log:
-                on_log(f"📁 目标文件夹: {target_folder.name}")
+                on_log(f"📁 处理: {path.name}")
             
-            # 创建比较文件夹
-            compare_folder = self._create_compare_folder(target_folder)
+            # 使用源码函数创建比较文件夹（在同级目录）
+            compare_folder = path.parent / "#compare"
+            compare_folder.mkdir(exist_ok=True)
             
-            # 获取并移动同级文件夹
-            siblings = self._get_siblings_to_move(path, target_folder)
+            if on_log:
+                on_log(f"📂 比较文件夹: {compare_folder}")
+            
+            # 获取同级文件夹（排除自身、#compare、画师文件夹）
+            siblings = []
+            for entry in path.parent.iterdir():
+                if (entry.is_dir() and 
+                    entry.resolve() != path.resolve() and 
+                    entry.name != "#compare" and 
+                    not ('[' in entry.name and ']' in entry.name)):
+                    siblings.append(entry)
+            
+            # 移动同级文件夹
             moved = []
             if siblings:
                 if on_log:
                     on_log(f"📦 发现 {len(siblings)} 个同级文件夹")
-                moved = self._move_folders(siblings, compare_folder, on_log)
+                
+                move_result = kavvka.move_folders_to_compare(
+                    siblings, path, compare_folder, force=True
+                )
+                moved = move_result.get("moved_folders", [])
+                
+                for m in moved:
+                    if on_log:
+                        on_log(f"✅ 移动: {Path(m.get('source', '')).name} -> #compare")
             
-            # 生成 Czkawka 路径
-            input_path = str(path).replace('\\', '/')
-            compare_path = str(compare_folder).replace('\\', '/')
-            combined_path = f"{input_path};{compare_path}"
+            # 使用源码函数生成路径
+            paths_data = kavvka.generate_czkawka_paths(path, compare_folder)
+            combined_path = paths_data["combined_path"]
             all_combined_paths.append(combined_path)
             
             results.append({
                 "path": str(path),
-                "target_folder": str(target_folder),
                 "compare_folder": str(compare_folder),
                 "moved_folders": moved,
                 "combined_path": combined_path
@@ -230,39 +197,6 @@ class KavvkaAdapter(BaseAdapter):
             data={"all_combined_paths": all_combined_paths, "results": results}
         )
     
-    async def _find_artist(
-        self,
-        input_data: KavvkaInput,
-        on_progress: Optional[Callable[[int, str], None]] = None,
-        on_log: Optional[Callable[[str], None]] = None
-    ) -> KavvkaOutput:
-        """仅查找目标文件夹，不移动"""
-        if not input_data.paths:
-            return KavvkaOutput(success=False, message="请提供路径")
-        
-        results: List[Dict] = []
-        
-        for path_str in input_data.paths:
-            path = Path(path_str)
-            if not path.exists():
-                continue
-            
-            target_folder = self._get_target_folder(path)
-            if target_folder:
-                results.append({
-                    "path": str(path),
-                    "target_folder": str(target_folder)
-                })
-                if on_log:
-                    on_log(f"✅ {path.name} -> {target_folder.name}")
-        
-        return KavvkaOutput(
-            success=len(results) > 0,
-            message=f"找到 {len(results)} 个目标文件夹",
-            results=results,
-            data={"results": results}
-        )
-
     async def _scan_keywords(
         self,
         input_data: KavvkaInput,
@@ -275,6 +209,9 @@ class KavvkaAdapter(BaseAdapter):
         
         if not input_data.keywords:
             return KavvkaOutput(success=False, message="请提供关键词")
+        
+        modules = self._import_module()
+        kavvka = modules["kavvka"]
         
         results: List[Dict] = []
         matched_paths: List[str] = []
@@ -302,17 +239,18 @@ class KavvkaAdapter(BaseAdapter):
             if on_log:
                 on_log(f"📁 扫描目录: {root_path}")
             
-            # 递归扫描
-            found_in_path = []
-            self._scan_directory(root_path, keywords, max_depth, 0, found_in_path, on_log)
+            # 使用源码的扫描函数
+            found = kavvka.scan_for_keywords(root_path, keywords, max_depth)
             
-            for folder_path in found_in_path:
+            for folder_path in found:
                 matched_paths.append(str(folder_path))
                 results.append({
                     "path": str(folder_path),
                     "name": folder_path.name,
                     "root": str(root_path)
                 })
+                if on_log:
+                    on_log(f"  🎯 匹配: {folder_path.name}")
         
         if on_progress:
             on_progress(100, "扫描完成")
@@ -327,42 +265,3 @@ class KavvkaAdapter(BaseAdapter):
             results=results,
             data={"matched_paths": matched_paths, "results": results}
         )
-    
-    def _scan_directory(
-        self,
-        path: Path,
-        keywords: List[str],
-        max_depth: int,
-        current_depth: int,
-        found: List[Path],
-        on_log: Optional[Callable[[str], None]] = None
-    ) -> None:
-        """递归扫描目录查找关键词"""
-        if current_depth > max_depth:
-            return
-        
-        try:
-            for entry in path.iterdir():
-                if not entry.is_dir():
-                    continue
-                
-                # 跳过隐藏文件夹和特殊文件夹
-                if entry.name.startswith('.') or entry.name.startswith('#'):
-                    continue
-                
-                # 检查是否匹配关键词
-                folder_name = entry.name.lower()
-                for keyword in keywords:
-                    if keyword.lower() in folder_name:
-                        found.append(entry)
-                        if on_log:
-                            on_log(f"  🎯 匹配: {entry.name} (关键词: {keyword})")
-                        break
-                
-                # 继续递归
-                self._scan_directory(entry, keywords, max_depth, current_depth + 1, found, on_log)
-        except PermissionError:
-            pass  # 忽略权限错误
-        except Exception as e:
-            if on_log:
-                on_log(f"  ⚠️ 扫描错误: {e}")
