@@ -187,9 +187,10 @@
         needsUpdate = true;
       }
     } else {
-      // 检查是否有缺失的区块
-      const updatedNormal = ensureAllBlocksInLayout(config.normal.gridLayout, 'normal');
-      if (updatedNormal.length > config.normal.gridLayout.length) {
+      // 先过滤无效项，再检查是否有缺失的区块
+      const validNormal = fixLayoutIds(config.normal.gridLayout);
+      const updatedNormal = ensureAllBlocksInLayout(validNormal, 'normal');
+      if (updatedNormal.length > validNormal.length || validNormal.length < config.normal.gridLayout.length) {
         updateGridLayout(nodeType, "normal", updatedNormal);
         needsUpdate = true;
       }
@@ -200,9 +201,10 @@
       updateGridLayout(nodeType, "fullscreen", defaultFullscreenLayout);
       needsUpdate = true;
     } else if (hasSavedLayout(config.fullscreen)) {
-      // 检查是否有缺失的区块
-      const updatedFullscreen = ensureAllBlocksInLayout(config.fullscreen.gridLayout, 'fullscreen');
-      if (updatedFullscreen.length > config.fullscreen.gridLayout.length) {
+      // 先过滤无效项，再检查是否有缺失的区块
+      const validFullscreen = fixLayoutIds(config.fullscreen.gridLayout);
+      const updatedFullscreen = ensureAllBlocksInLayout(validFullscreen, 'fullscreen');
+      if (updatedFullscreen.length > validFullscreen.length || validFullscreen.length < config.fullscreen.gridLayout.length) {
         updateGridLayout(nodeType, "fullscreen", updatedFullscreen);
         needsUpdate = true;
       }
@@ -238,10 +240,16 @@
       if (defaultLayout.length > 0)
         updateGridLayout(nodeType, currentMode, defaultLayout);
     } else {
+      // 先过滤无效项
+      const validLayout = fixLayoutIds(config[currentMode].gridLayout);
       // 检查是否有缺失的区块并添加
-      const updatedLayout = ensureAllBlocksInLayout(config[currentMode].gridLayout, currentMode);
-      if (updatedLayout.length > config[currentMode].gridLayout.length) {
+      const updatedLayout = ensureAllBlocksInLayout(validLayout, currentMode);
+      // 只有当有新区块被添加时才更新
+      if (updatedLayout.length > validLayout.length) {
         updateGridLayout(nodeType, currentMode, updatedLayout);
+      } else if (validLayout.length < config[currentMode].gridLayout.length) {
+        // 如果有无效项被过滤掉了，也需要更新
+        updateGridLayout(nodeType, currentMode, validLayout);
       }
     }
   });
@@ -261,10 +269,17 @@
     return unsubscribe;
   });
 
-  // 过滤掉无效的布局项（没有 id 的项）
-  let currentLayout = $derived(
-    nodeConfig[mode].gridLayout.filter(item => item.id && typeof item.id === 'string')
-  );
+  // 过滤掉无效的布局项（没有 id 的项），并确保有默认布局
+  let currentLayout = $derived.by(() => {
+    const rawLayout = nodeConfig[mode].gridLayout;
+    const validLayout = rawLayout.filter(item => item.id && typeof item.id === 'string');
+    
+    // 如果过滤后为空，使用默认布局
+    if (validLayout.length === 0) {
+      return mode === 'fullscreen' ? defaultFullscreenLayout : generateNormalLayout();
+    }
+    return validLayout;
+  });
   
   // 节点模式下按 y, x 排序的布局（确保 CSS Grid 正确排列）
   let sortedNormalLayout = $derived(
