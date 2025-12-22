@@ -70,6 +70,9 @@ let isProcessingQueue = false;
 
 const getApiBase = () => getApiV1Url();
 
+/** 导出 API 基础 URL（供 sendBeacon 使用） */
+export { getApiBase };
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${getApiBase()}${path}`, {
     headers: {

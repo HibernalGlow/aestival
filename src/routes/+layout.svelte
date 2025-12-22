@@ -4,7 +4,7 @@
 	import ThemeImportDialog from '$lib/components/layout/ThemeImportDialog.svelte';
 	import SettingsOverlay from '$lib/components/settings/SettingsOverlay.svelte';
 	import { initBackend, listenBackendReady, backendReady } from '$lib/stores/backend';
-	import { hydrateFromBackend } from '$lib/stores/nodeLayoutStore';
+	import { hydrateFromBackend, flushPendingSaves } from '$lib/stores/nodeLayoutStore';
 	import { initPresets } from '$lib/stores/layoutPresets';
 	
 	let { children } = $props();
@@ -24,6 +24,16 @@
 				unsubscribe();
 			}
 		});
+		
+		// 页面卸载前保存所有待保存的布局配置
+		const handleBeforeUnload = () => {
+			flushPendingSaves();
+		};
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		
+		return () => {
+			window.removeEventListener('beforeunload', handleBeforeUnload);
+		};
 	});
 </script>
 

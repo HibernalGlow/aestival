@@ -8,7 +8,7 @@
   import type { Snippet, Component } from 'svelte';
   import type { TabGroup } from '$lib/stores/nodeLayoutStore';
   import { getBlockDefinition } from './blockRegistry';
-  import { X, GripVertical, Ungroup } from '@lucide/svelte';
+  import { X, GripVertical, Ungroup, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from '@lucide/svelte';
   import { flip } from 'svelte/animate';
   import { dndzone } from 'svelte-dnd-action';
   import { settingsManager } from '$lib/settings/settingsManager';
@@ -33,6 +33,16 @@
     /** 渲染区块内容 */
     renderContent: Snippet<[string]>;
     class?: string;
+    /** 是否启用区块尺寸编辑模式（节点模式下） */
+    sizeEditMode?: boolean;
+    /** 当前宽度（节点模式下） */
+    currentW?: number;
+    /** 当前高度（节点模式下） */
+    currentH?: number;
+    /** 宽度变化回调 */
+    onWidthChange?: (delta: number) => void;
+    /** 高度变化回调 */
+    onHeightChange?: (delta: number) => void;
   }
 
   let { 
@@ -44,7 +54,12 @@
     onRemoveBlock,
     onReorder,
     renderContent, 
-    class: className = '' 
+    class: className = '',
+    sizeEditMode = false,
+    currentW = 1,
+    currentH = 1,
+    onWidthChange,
+    onHeightChange
   }: Props = $props();
 
   let editMode = $state(false);
@@ -182,6 +197,56 @@
           <Ungroup class="w-3.5 h-3.5" />
         </button>
       </div>
+      
+      <!-- 尺寸编辑按钮（节点模式下） -->
+      {#if sizeEditMode && !isFullscreen}
+        <div class="w-px h-5 bg-border/60 mx-1"></div>
+        <div class="flex items-center gap-0.5">
+          <!-- 宽度控制 -->
+          <button
+            type="button"
+            class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed"
+            onclick={() => onWidthChange?.(-1)}
+            disabled={currentW <= 1}
+            title="减小宽度"
+          >
+            <ChevronLeft class="w-3.5 h-3.5" />
+          </button>
+          <span class="text-xs text-muted-foreground min-w-[2ch] text-center">{currentW}</span>
+          <button
+            type="button"
+            class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed"
+            onclick={() => onWidthChange?.(1)}
+            disabled={currentW >= 2}
+            title="增大宽度"
+          >
+            <ChevronRight class="w-3.5 h-3.5" />
+          </button>
+          
+          <div class="w-px h-4 bg-border/40 mx-0.5"></div>
+          
+          <!-- 高度控制 -->
+          <button
+            type="button"
+            class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed"
+            onclick={() => onHeightChange?.(-1)}
+            disabled={currentH <= 1}
+            title="减小高度"
+          >
+            <ChevronUp class="w-3.5 h-3.5" />
+          </button>
+          <span class="text-xs text-muted-foreground min-w-[2ch] text-center">{currentH}</span>
+          <button
+            type="button"
+            class="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/50 disabled:opacity-30 disabled:cursor-not-allowed"
+            onclick={() => onHeightChange?.(1)}
+            disabled={currentH >= 4}
+            title="增大高度"
+          >
+            <ChevronDown class="w-3.5 h-3.5" />
+          </button>
+        </div>
+      {/if}
     </div>
   </div>
 

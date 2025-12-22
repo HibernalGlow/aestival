@@ -227,9 +227,9 @@ function validateAndFixConfig(config: unknown): NodeConfig {
 
 // ============ 存储 ============
 
-// 防抖保存定时器
-let saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-const SAVE_DEBOUNCE_MS = 500;
+// 防抖保存定时器 - 每个 nodeType 独立的定时器
+const saveDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const SAVE_DEBOUNCE_MS = 300; // 缩短防抖时间
 
 /** 从后端加载配置（异步） */
 async function loadFromBackend(nodeType: string): Promise<NodeConfig | null> {
@@ -245,22 +245,48 @@ async function loadFromBackend(nodeType: string): Promise<NodeConfig | null> {
   }
 }
 
-/** 保存到后端（异步，带防抖） */
+/** 保存到后端（异步，带防抖） - 每个 nodeType 独立防抖 */
 function saveToBackend(nodeType: string, config: NodeConfig): void {
-  // 清除之前的定时器
-  if (saveDebounceTimer) {
-    clearTimeout(saveDebounceTimer);
+  // 清除该 nodeType 之前的定时器
+  const existingTimer = saveDebounceTimers.get(nodeType);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
   }
   
-  // 防抖保存
-  saveDebounceTimer = setTimeout(async () => {
+  // 防抖保存 - 每个 nodeType 独立
+  const timer = setTimeout(async () => {
     try {
       const compressed = compressConfig(config);
       await storageClient.setLayout(nodeType, compressed);
+      saveDebounceTimers.delete(nodeType);
     } catch (e) {
       console.error('[nodeLayoutStore] 保存到后端失败:', e);
     }
   }, SAVE_DEBOUNCE_MS);
+  
+  saveDebounceTimers.set(nodeType, timer);
+}
+
+/** 立即保存所有待保存的配置（页面卸载前调用） */
+export function flushPendingSaves(): void {
+  // 清除所有定时器并立即保存
+  for (const [nodeType, timer] of saveDebounceTimers) {
+    clearTimeout(timer);
+    const config = nodeLayoutStore.state.get(nodeType);
+    if (config) {
+      const compressed = compressConfig(config);
+      // 使用 sendBeacon 或同步保存
+      try {
+        navigator.sendBeacon?.(
+          `${storageClient.getApiBase?.() || ''}/storage/layouts/${nodeType}`,
+          JSON.stringify({ config: compressed })
+        );
+      } catch (e) {
+        console.error('[nodeLayoutStore] flushPendingSaves 失败:', e);
+      }
+    }
+  }
+  saveDebounceTimers.clear();
 }
 
 /** 从 localStorage 加载（仅用于迁移） */

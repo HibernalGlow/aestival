@@ -571,7 +571,10 @@
         {@const tabGroup = tabGroups.find(g => g.blockIds[0] === gridItem.id)}
         {@const isHiddenByTab = hiddenBlockIds.has(gridItem.id)}
         {#if tabGroup}
-          <div class="{colSpan === 2 ? 'col-span-2' : ''}">
+          <div 
+            class="{colSpan === 2 ? 'col-span-2' : ''}"
+            style={getHeightStyle(gridItem.h)}
+          >
             <TabGroupCard
               group={tabGroup}
               {nodeType}
@@ -580,6 +583,11 @@
               onDissolve={() => handleDissolveTabGroup(tabGroup.id)}
               onRemoveBlock={(blockId) => handleRemoveBlockFromGroup(tabGroup.id, blockId)}
               onReorder={(newOrder) => handleReorderTabGroup(tabGroup.id, newOrder)}
+              sizeEditMode={editMode}
+              currentW={gridItem.w}
+              currentH={gridItem.h}
+              onWidthChange={(delta) => handleWidthChange(gridItem.id, delta)}
+              onHeightChange={(delta) => handleHeightChange(gridItem.id, delta)}
             >
               {#snippet renderContent(blockId: string)}
                 {@render renderBlock(blockId)}
@@ -631,6 +639,11 @@
             onDissolve={() => handleDissolveTabGroup(tabGroup.id)}
             onRemoveBlock={(blockId) => handleRemoveBlockFromGroup(tabGroup.id, blockId)}
             onReorder={(newOrder) => handleReorderTabGroup(tabGroup.id, newOrder)}
+            sizeEditMode={editMode}
+            currentW={lastItem.w}
+            currentH={lastItem.h}
+            onWidthChange={(delta) => handleWidthChange(lastItem.id, delta)}
+            onHeightChange={(delta) => handleHeightChange(lastItem.id, delta)}
           >
             {#snippet renderContent(blockId: string)}
               {@render renderBlock(blockId)}
