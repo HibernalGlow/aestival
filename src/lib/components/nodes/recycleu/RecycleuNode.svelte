@@ -56,6 +56,8 @@
   let progressText = $state('');
   let cleanCount = $state(0);
   let lastCleanTime = $state<string | null>(null);
+  let remainingSeconds = $state(0);
+  let countdownProgress = $state(100); // 倒计时进度：100 -> 0
   let layoutRenderer = $state<any>(undefined);
   
   // WebSocket 和取消控制
@@ -107,6 +109,8 @@
     progress = 0;
     progressText = '启动中...';
     cleanCount = 0;
+    countdownProgress = 100; // 初始化为满圆
+    remainingSeconds = interval;
     log(`🚀 启动自动清理，间隔 ${interval} 秒`);
     
     const taskId = `recycleu-${nodeId}-${Date.now()}`;
@@ -124,8 +128,15 @@
             progress = msg.progress;
             progressText = msg.message;
             // 解析清理次数
-            const match = msg.message.match(/已清理 (\d+) 次/);
-            if (match) cleanCount = parseInt(match[1]);
+            const countMatch = msg.message.match(/已清理 (\d+) 次/);
+            if (countMatch) cleanCount = parseInt(countMatch[1]);
+            // 解析剩余秒数并计算倒计时进度
+            const secMatch = msg.message.match(/(\d+)s 后清理/);
+            if (secMatch) {
+              remainingSeconds = parseInt(secMatch[1]);
+              // 倒计时进度：从满圆(100%)减少到空(0%)
+              countdownProgress = (remainingSeconds / interval) * 100;
+            }
           } else if (msg.type === 'log') {
             log(msg.message);
           }
@@ -266,27 +277,29 @@
 
 {#snippet statusBlock()}
   <div class="flex flex-col cq-gap h-full">
-    <!-- 圆形进度 -->
+    <!-- 圆形倒计时进度 -->
     <div class="flex-1 flex flex-col items-center justify-center">
-      <div class="relative w-20 h-20">
+      <div class="relative w-24 h-24">
         <!-- 背景圆 -->
         <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" class="text-muted/30" />
+          <!-- 倒计时圆环：从满圆减少到单点 -->
           <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="8" 
             class={phase === 'completed' ? 'text-green-500' : phase === 'error' ? 'text-red-500' : 'text-primary'}
-            stroke-dasharray={`${progress * 2.83} 283`}
+            stroke-dasharray={`${countdownProgress * 2.83} 283`}
             stroke-linecap="round" />
         </svg>
-        <!-- 中心图标 -->
+        <!-- 中心文字 -->
         <div class="absolute inset-0 flex flex-col items-center justify-center">
           {#if isRunning}
-            <LoaderCircle class="w-6 h-6 text-primary animate-spin" />
+            <span class="text-lg font-mono font-bold">{remainingSeconds}s</span>
+            <span class="cq-text-sm text-muted-foreground">{cleanCount}次</span>
           {:else if phase === 'completed'}
-            <CircleCheck class="w-6 h-6 text-green-500" />
+            <CircleCheck class="w-8 h-8 text-green-500" />
           {:else if phase === 'error'}
-            <CircleX class="w-6 h-6 text-red-500" />
+            <CircleX class="w-8 h-8 text-red-500" />
           {:else}
-            <Trash2 class="w-6 h-6 text-muted-foreground/50" />
+            <Trash2 class="w-8 h-8 text-muted-foreground/50" />
           {/if}
         </div>
       </div>
