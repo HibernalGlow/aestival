@@ -1417,7 +1417,7 @@ svelte-check@^4.0.0:
 
 svelte-dnd-action@^0.9.68:
   version "0.9.68"
-  resolved "https://registry.npmmirror.com/svelte-dnd-action/-/svelte-dnd-action-0.9.68.tgz"
+  resolved "https://registry.npmmirror.com/svelte-dnd-action/-/svelte-dnd-action-0.9.68.tgz#ac5a3182ac52df973586b0ebe78ea8faa75e3d95"
   integrity sha512-maFNIHwimGYbvIG8uOHsU9T/4+VKBIaAaFEGWYFIyo4f8qwUs0BIqwvBfHkaN+MXt8MBB9rByPTvF7fRx0eIjw==
 
 svelte-motion@^0.12.2:
