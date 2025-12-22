@@ -19,7 +19,7 @@
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
   import NodeWrapper from '../NodeWrapper.svelte';
   import { 
-    Play, LoaderCircle, Image, FolderOpen, Clipboard,
+    LoaderCircle, Image, FolderOpen, Clipboard,
     Copy, Check, RotateCcw, Zap, Search
   } from '@lucide/svelte';
 
@@ -164,7 +164,7 @@
       
       if (response.success) {
         phase = 'idle';
-        scannedPaths = response.data?.found_paths ?? [];
+        scannedPaths = response.data?.matched_paths ?? [];
         log(`✅ 找到 ${scannedPaths.length} 个匹配文件夹`);
       } else {
         phase = 'error';
@@ -266,12 +266,6 @@
       />
       <span class="cq-text-sm text-muted-foreground mt-1">{sourcePaths.length} 个路径</span>
     {/if}
-    
-    {#if scannedPaths.length > 0}
-      <div class="mt-2 p-2 bg-green-500/10 rounded cq-text-sm">
-        <span class="text-green-600">✅ 已扫描到 {scannedPaths.length} 个匹配文件夹</span>
-      </div>
-    {/if}
   </div>
 {/snippet}
 
@@ -320,13 +314,35 @@
 
 {#snippet operationBlock()}
   <div class="flex flex-col cq-gap h-full">
+    <!-- 显示当前操作路径来源 -->
+    <div class="p-2 rounded cq-text-sm {scannedPaths.length > 0 ? 'bg-green-500/10 border border-green-500/30' : 'bg-muted/50'}">
+      {#if scannedPaths.length > 0}
+        <div class="flex items-center gap-1 text-green-600 font-medium">
+          <Search class="w-3 h-3" />
+          <span>使用扫描结果</span>
+        </div>
+        <div class="text-muted-foreground mt-1">{scannedPaths.length} 个匹配文件夹</div>
+      {:else if hasInputConnection}
+        <div class="flex items-center gap-1 text-blue-600 font-medium">
+          <span>←</span>
+          <span>使用上游输入</span>
+        </div>
+      {:else}
+        <div class="flex items-center gap-1 text-muted-foreground">
+          <FolderOpen class="w-3 h-3" />
+          <span>使用输入路径</span>
+        </div>
+        <div class="text-muted-foreground mt-1">{sourcePaths.length} 个路径</div>
+      {/if}
+    </div>
+    
     <Button 
-      class="w-full cq-button flex-1" 
+      class="w-full cq-button flex-1 {scannedPaths.length > 0 ? 'bg-green-600 hover:bg-green-700' : ''}" 
       onclick={handleExecute}
       disabled={!canExecute}
     >
       {#if isRunning}<LoaderCircle class="cq-icon mr-1 animate-spin" />{:else}<Zap class="cq-icon mr-1" />{/if}
-      <span>处理</span>
+      <span>处理 {scannedPaths.length > 0 ? `(${scannedPaths.length})` : ''}</span>
     </Button>
     
     <Button 
