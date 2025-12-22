@@ -253,6 +253,16 @@
 
   let currentLayout = $derived(nodeConfig[mode].gridLayout);
   
+  // 节点模式下按 y, x 排序的布局（确保 CSS Grid 正确排列）
+  let sortedNormalLayout = $derived(
+    isFullscreen 
+      ? currentLayout 
+      : [...currentLayout].sort((a, b) => {
+          if (a.y !== b.y) return a.y - b.y;
+          return a.x - b.x;
+        })
+  );
+  
   // 每种模式使用自己的 tabGroups
   let tabGroups = $derived(nodeConfig[mode].tabGroups);
   
@@ -509,7 +519,7 @@
       class="grid grid-cols-2 gap-2 min-w-0 shrink-0"
       style="grid-auto-rows: minmax(auto, max-content);"
     >
-      {#each currentLayout.slice(0, -1) as gridItem (gridItem.id)}
+      {#each sortedNormalLayout.slice(0, -1) as gridItem (gridItem.id)}
         {@const colSpan = gridItem.w >= 2 ? 2 : 1}
         {@const tabGroup = tabGroups.find(g => g.blockIds[0] === gridItem.id)}
         {@const isHiddenByTab = hiddenBlockIds.has(gridItem.id)}
@@ -560,8 +570,8 @@
       {/each}
     </div>
     <!-- 最后一个区块：可拉伸填充剩余空间 -->
-    {#if currentLayout.length > 0}
-      {@const lastItem = currentLayout[currentLayout.length - 1]}
+    {#if sortedNormalLayout.length > 0}
+      {@const lastItem = sortedNormalLayout[sortedNormalLayout.length - 1]}
       {@const tabGroup = tabGroups.find(g => g.blockIds[0] === lastItem.id)}
       {@const isHiddenByTab = hiddenBlockIds.has(lastItem.id)}
       {#if tabGroup}
