@@ -1,12 +1,24 @@
 <script lang="ts">
   /**
-   * NodeTreePalette - 基于 tree-view 的节点树面板
-   * 支持分类展示、搜索过滤、JSON 导入导出
+   * NodeTreePalette - 节点树面板
+   * 保持原有样式，支持分类展示、搜索过滤、拖拽添加、JSON 导入导出
    */
-  import { NODE_DEFINITIONS } from '$lib/stores/nodeRegistry';
+  import { NODE_DEFINITIONS, getNodesByCategory } from '$lib/stores/nodeRegistry';
   import { flowStore } from '$lib/stores';
-  import * as TreeView from '$lib/components/ui/tree-view';
-  import { Search, Download, Upload, Terminal, Package, Folder, FileText } from '@lucide/svelte';
+  import * as Collapsible from '$lib/components/ui/collapsible';
+  import {
+    Clipboard, Folder, FileInput, Package, Search, AlertTriangle,
+    FolderSync, FileText, Video, Terminal, GripVertical, Download, Upload,
+    ChevronRight, ChevronDown, Star, FolderOpen, Archive, Monitor, Type,
+    Clock, Link, Trash2, Filter, BookOpen, Image, MousePointer, FolderInput
+  } from '@lucide/svelte';
+
+  // 图标映射
+  const icons: Record<string, any> = {
+    Clipboard, Folder, FileInput, Package, Search, AlertTriangle,
+    FolderSync, FileText, Video, Terminal, Image, Clock, Link,
+    Trash2, Filter, BookOpen, MousePointer, FolderInput, Download
+  };
 
   // 从 localStorage 加载保存的树结构
   const STORAGE_KEY = 'node-tree-layout';
@@ -16,105 +28,94 @@
   let fileInput: HTMLInputElement;
 
   // 树结构类型
-  interface TreeNode {
+  interface TreeFolder {
     id: string;
     name: string;
-    type: 'folder' | 'node';
-    nodeType?: string;  // 节点类型（仅 type='node' 时有效）
-    children?: TreeNode[];
-    expanded?: boolean;
+    icon: string;
+    expanded: boolean;
+    children: TreeFolder[];
+    nodeTypes: string[];  // 该文件夹包含的节点类型
   }
 
   // 默认分类结构
-  const defaultTreeData: TreeNode[] = [
+  const defaultTreeData: TreeFolder[] = [
     {
       id: 'favorites',
-      name: '⭐ 收藏',
-      type: 'folder',
+      name: '收藏',
+      icon: 'Star',
       expanded: true,
       children: [],
+      nodeTypes: [],
     },
     {
       id: 'input',
-      name: '📥 输入',
-      type: 'folder',
+      name: '输入',
+      icon: 'FileInput',
       expanded: true,
-      children: NODE_DEFINITIONS.filter(n => n.category === 'input').map(n => ({
-        id: n.type,
-        name: n.label,
-        type: 'node' as const,
-        nodeType: n.type,
-      })),
+      children: [],
+      nodeTypes: NODE_DEFINITIONS.filter(n => n.category === 'input').map(n => n.type),
     },
     {
       id: 'tool',
-      name: '🔧 工具',
-      type: 'folder',
+      name: '工具',
+      icon: 'Package',
       expanded: true,
       children: [
         {
           id: 'tool-file',
-          name: '📁 文件操作',
-          type: 'folder',
+          name: '文件操作',
+          icon: 'Folder',
           expanded: false,
-          children: NODE_DEFINITIONS.filter(n => 
-            ['repacku', 'movea', 'dissolvef', 'trename', 'migratef', 'linku'].includes(n.type)
-          ).map(n => ({ id: n.type, name: n.label, type: 'node' as const, nodeType: n.type })),
+          children: [],
+          nodeTypes: ['repacku', 'movea', 'dissolvef', 'trename', 'migratef', 'linku'],
         },
         {
           id: 'tool-archive',
-          name: '📦 压缩包',
-          type: 'folder',
+          name: '压缩包',
+          icon: 'Archive',
           expanded: false,
-          children: NODE_DEFINITIONS.filter(n => 
-            ['bandia', 'rawfilter', 'findz', 'encodeb'].includes(n.type)
-          ).map(n => ({ id: n.type, name: n.label, type: 'node' as const, nodeType: n.type })),
+          children: [],
+          nodeTypes: ['bandia', 'rawfilter', 'findz', 'encodeb'],
         },
         {
           id: 'tool-media',
-          name: '🎬 媒体',
-          type: 'folder',
+          name: '媒体',
+          icon: 'Video',
           expanded: false,
-          children: NODE_DEFINITIONS.filter(n => 
-            ['enginev', 'formatv', 'kavvka'].includes(n.type)
-          ).map(n => ({ id: n.type, name: n.label, type: 'node' as const, nodeType: n.type })),
+          children: [],
+          nodeTypes: ['enginev', 'formatv', 'kavvka'],
         },
         {
           id: 'tool-system',
-          name: '💻 系统',
-          type: 'folder',
+          name: '系统',
+          icon: 'Monitor',
           expanded: false,
-          children: NODE_DEFINITIONS.filter(n => 
-            ['sleept', 'scoolp', 'reinstallp', 'recycleu', 'owithu'].includes(n.type)
-          ).map(n => ({ id: n.type, name: n.label, type: 'node' as const, nodeType: n.type })),
+          children: [],
+          nodeTypes: ['sleept', 'scoolp', 'reinstallp', 'recycleu', 'owithu'],
         },
         {
           id: 'tool-text',
-          name: '📝 文本',
-          type: 'folder',
+          name: '文本',
+          icon: 'Type',
           expanded: false,
-          children: NODE_DEFINITIONS.filter(n => 
-            ['linedup', 'crashu', 'seriex'].includes(n.type)
-          ).map(n => ({ id: n.type, name: n.label, type: 'node' as const, nodeType: n.type })),
+          children: [],
+          nodeTypes: ['linedup', 'crashu', 'seriex'],
         },
       ],
+      nodeTypes: [],
     },
     {
       id: 'output',
-      name: '📤 输出',
-      type: 'folder',
+      name: '输出',
+      icon: 'Terminal',
       expanded: true,
-      children: NODE_DEFINITIONS.filter(n => n.category === 'output').map(n => ({
-        id: n.type,
-        name: n.label,
-        type: 'node' as const,
-        nodeType: n.type,
-      })),
+      children: [],
+      nodeTypes: NODE_DEFINITIONS.filter(n => n.category === 'output').map(n => n.type),
     },
   ];
 
   // 加载树数据
-  function loadTreeData(): TreeNode[] {
+  function loadTreeData(): TreeFolder[] {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
@@ -126,7 +127,7 @@
     return defaultTreeData;
   }
 
-  let treeData = $state<TreeNode[]>(loadTreeData());
+  let treeData = $state<TreeFolder[]>(loadTreeData());
 
   // 保存树数据
   function saveTreeData() {
@@ -134,14 +135,22 @@
   }
 
   // 添加节点到画布
-  function addNodeToCanvas(nodeType: string, label: string) {
+  function addNode(type: string, label: string) {
     const node = {
       id: `node-${nodeIdCounter++}-${Date.now()}`,
-      type: nodeType,
+      type,
       position: { x: 250 + Math.random() * 100, y: 150 + Math.random() * 100 },
       data: { label, status: 'idle' as const },
     };
     flowStore.addNode(node);
+  }
+
+  // 拖拽开始
+  function onDragStart(event: DragEvent, type: string, label: string) {
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('application/json', JSON.stringify({ type, label }));
+      event.dataTransfer.effectAllowed = 'move';
+    }
   }
 
   // 导出 JSON
@@ -174,76 +183,48 @@
       }
     };
     reader.readAsText(file);
-    input.value = '';  // 重置以便再次选择同一文件
+    input.value = '';
   }
 
-  // 搜索过滤
-  function filterNodes(nodes: TreeNode[], query: string): TreeNode[] {
-    if (!query) return nodes;
+  // 获取节点定义
+  function getNodeDef(type: string) {
+    return NODE_DEFINITIONS.find(n => n.type === type);
+  }
+
+  // 搜索过滤 - 检查节点是否匹配
+  function nodeMatches(type: string, query: string): boolean {
+    if (!query) return true;
+    const def = getNodeDef(type);
+    if (!def) return false;
     const q = query.toLowerCase();
-    
-    return nodes.map(node => {
-      if (node.type === 'folder' && node.children) {
-        const filteredChildren = filterNodes(node.children, query);
-        if (filteredChildren.length > 0) {
-          return { ...node, children: filteredChildren, expanded: true };
-        }
-        return null;
-      }
-      if (node.name.toLowerCase().includes(q)) {
-        return node;
-      }
-      return null;
-    }).filter(Boolean) as TreeNode[];
+    return def.label.toLowerCase().includes(q) || def.type.toLowerCase().includes(q);
   }
 
-  // 过滤后的树数据
-  let filteredTreeData = $derived(filterNodes(treeData, searchQuery));
-
-  // 文件夹展开状态 - 预先初始化所有文件夹
-  function buildInitialFolderStates(nodes: TreeNode[]): Record<string, boolean> {
-    const states: Record<string, boolean> = {};
-    function traverse(nodes: TreeNode[]) {
-      nodes.forEach(node => {
-        if (node.type === 'folder') {
-          states[node.id] = node.expanded ?? true;
-          if (node.children) {
-            traverse(node.children);
-          }
-        }
-      });
-    }
-    traverse(nodes);
-    return states;
+  // 搜索过滤 - 检查文件夹是否有匹配的节点
+  function folderHasMatches(folder: TreeFolder, query: string): boolean {
+    if (!query) return true;
+    if (folder.nodeTypes.some(t => nodeMatches(t, query))) return true;
+    return folder.children.some(c => folderHasMatches(c, query));
   }
 
-  let folderStates = $state<Record<string, boolean>>({});
-  
-  // 初始化文件夹状态
-  $effect(() => {
-    const newStates = buildInitialFolderStates(treeData);
-    // 只添加新的，不覆盖已有的
-    for (const [id, expanded] of Object.entries(newStates)) {
-      if (folderStates[id] === undefined) {
-        folderStates[id] = expanded;
-      }
-    }
-  });
-
-  // 获取文件夹展开状态（确保有默认值）
-  function getFolderOpen(id: string): boolean {
-    return folderStates[id] ?? true;
+  // 切换文件夹展开状态
+  function toggleFolder(folder: TreeFolder) {
+    folder.expanded = !folder.expanded;
+    saveTreeData();
   }
 
-  // 设置文件夹展开状态
-  function setFolderOpen(id: string, open: boolean) {
-    folderStates[id] = open;
+  // 获取分类颜色
+  function getCategoryColor(folderId: string): string {
+    if (folderId === 'input' || folderId.startsWith('input')) return 'green';
+    if (folderId === 'output' || folderId.startsWith('output')) return 'amber';
+    if (folderId === 'favorites') return 'yellow';
+    return 'blue';
   }
 </script>
 
-<div class="node-tree-palette h-full flex flex-col">
+<div class="h-full flex flex-col">
   <!-- 工具栏 -->
-  <div class="p-2 border-b flex items-center gap-2">
+  <div class="p-3 border-b flex items-center gap-2">
     <div class="relative flex-1">
       <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
       <input
@@ -277,48 +258,96 @@
   </div>
 
   <!-- 树容器 -->
-  <div class="flex-1 overflow-auto p-2">
-    <TreeView.Root class="text-sm">
-      {#each filteredTreeData as node (node.id)}
-        {#if node.type === 'folder'}
-          <TreeView.Folder name={node.name} open={getFolderOpen(node.id)}>
-            {#if node.children}
-              {#each node.children as child (child.id)}
-                {#if child.type === 'folder'}
-                  <TreeView.Folder name={child.name} open={getFolderOpen(child.id)}>
-                    {#if child.children}
-                      {#each child.children as grandchild (grandchild.id)}
-                        <TreeView.File 
-                          name={grandchild.name}
-                          onclick={() => grandchild.nodeType && addNodeToCanvas(grandchild.nodeType, grandchild.name)}
-                          class="hover:bg-muted rounded px-1 cursor-pointer"
-                        />
-                      {/each}
-                    {/if}
-                  </TreeView.Folder>
-                {:else}
-                  <TreeView.File 
-                    name={child.name}
-                    onclick={() => child.nodeType && addNodeToCanvas(child.nodeType, child.name)}
-                    class="hover:bg-muted rounded px-1 cursor-pointer"
-                  />
+  <div class="flex-1 overflow-y-auto p-3 space-y-3">
+    {#each treeData as folder (folder.id)}
+      {#if folderHasMatches(folder, searchQuery)}
+        {@const color = getCategoryColor(folder.id)}
+        {@const FolderIcon = icons[folder.icon] || Folder}
+        <div>
+          <!-- 文件夹标题 -->
+          <button
+            class="w-full flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground transition-colors"
+            onclick={() => toggleFolder(folder)}
+          >
+            {#if folder.expanded}
+              <ChevronDown class="w-3 h-3" />
+            {:else}
+              <ChevronRight class="w-3 h-3" />
+            {/if}
+            <FolderIcon class="w-3.5 h-3.5" />
+            <span>{folder.name}</span>
+          </button>
+
+          {#if folder.expanded}
+            <!-- 节点列表 -->
+            <div class="space-y-1 ml-1">
+              {#each folder.nodeTypes as nodeType}
+                {@const nodeDef = getNodeDef(nodeType)}
+                {#if nodeDef && nodeMatches(nodeType, searchQuery)}
+                  {@const Icon = icons[nodeDef.icon] || Terminal}
+                  <button
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-{color}-400 hover:bg-{color}-50 dark:hover:bg-{color}-950/30 transition-colors cursor-grab active:cursor-grabbing"
+                    draggable="true"
+                    onclick={() => addNode(nodeDef.type, nodeDef.label)}
+                    ondragstart={(e) => onDragStart(e, nodeDef.type, nodeDef.label)}
+                  >
+                    <GripVertical class="w-3 h-3 text-muted-foreground" />
+                    <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
+                    <span class="text-sm">{nodeDef.label}</span>
+                  </button>
                 {/if}
               {/each}
-            {/if}
-          </TreeView.Folder>
-        {:else}
-          <TreeView.File 
-            name={node.name}
-            onclick={() => node.nodeType && addNodeToCanvas(node.nodeType, node.name)}
-            class="hover:bg-muted rounded px-1 cursor-pointer"
-          />
-        {/if}
-      {/each}
-    </TreeView.Root>
+
+              <!-- 子文件夹 -->
+              {#each folder.children as subFolder (subFolder.id)}
+                {#if folderHasMatches(subFolder, searchQuery)}
+                  {@const SubIcon = icons[subFolder.icon] || Folder}
+                  <div class="mt-2">
+                    <button
+                      class="w-full flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5 hover:text-foreground transition-colors pl-2"
+                      onclick={() => toggleFolder(subFolder)}
+                    >
+                      {#if subFolder.expanded}
+                        <ChevronDown class="w-3 h-3" />
+                      {:else}
+                        <ChevronRight class="w-3 h-3" />
+                      {/if}
+                      <SubIcon class="w-3.5 h-3.5" />
+                      <span>{subFolder.name}</span>
+                    </button>
+
+                    {#if subFolder.expanded}
+                      <div class="space-y-1 ml-3">
+                        {#each subFolder.nodeTypes as nodeType}
+                          {@const nodeDef = getNodeDef(nodeType)}
+                          {#if nodeDef && nodeMatches(nodeType, searchQuery)}
+                            {@const Icon = icons[nodeDef.icon] || Terminal}
+                            <button
+                              class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-{color}-400 hover:bg-{color}-50 dark:hover:bg-{color}-950/30 transition-colors cursor-grab active:cursor-grabbing"
+                              draggable="true"
+                              onclick={() => addNode(nodeDef.type, nodeDef.label)}
+                              ondragstart={(e) => onDragStart(e, nodeDef.type, nodeDef.label)}
+                            >
+                              <GripVertical class="w-3 h-3 text-muted-foreground" />
+                              <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
+                              <span class="text-sm">{nodeDef.label}</span>
+                            </button>
+                          {/if}
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {/if}
+    {/each}
   </div>
 
   <!-- 提示 -->
-  <div class="p-2 border-t text-xs text-muted-foreground">
-    点击添加节点 · 导出/导入 JSON 自定义分类
+  <div class="p-2 border-t text-xs text-muted-foreground text-center">
+    拖拽或点击添加节点
   </div>
 </div>
