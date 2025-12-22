@@ -31,6 +31,7 @@ import { ReinstallpNode } from '$lib/components/nodes/reinstallp';
 import { RecycleuNode } from '$lib/components/nodes/recycleu';
 import { EncodebNode } from '$lib/components/nodes/encodeb';
 import { KavvkaNode } from '$lib/components/nodes/kavvka';
+import { LinedupNode } from '$lib/components/nodes/linedup';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -352,6 +353,20 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
     configSchema: {
       paths: { type: 'array', label: '路径列表', default: [] },
       force: { type: 'boolean', label: '强制移动', default: false }
+    }
+  },
+  {
+    type: 'linedup',
+    category: 'tool',
+    label: 'linedup',
+    description: '行去重：过滤包含特定内容的行',
+    icon: 'Filter',
+    inputs: ['text'],
+    outputs: ['text'],
+    component: LinedupNode,
+    configSchema: {
+      source_lines: { type: 'array', label: '源行列表', default: [] },
+      filter_lines: { type: 'array', label: '过滤行列表', default: [] }
     }
   },
 

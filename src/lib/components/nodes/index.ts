@@ -18,3 +18,4 @@ export { BandiaNode } from './bandia';
 export { RecycleuNode } from './recycleu';
 export { EncodebNode } from './encodeb';
 export { KavvkaNode } from './kavvka';
+export { LinedupNode } from './linedup';
