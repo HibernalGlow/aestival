@@ -1,15 +1,16 @@
 <script lang="ts">
   /**
    * NodeTreePalette - 节点树面板
-   * 支持分类展示、搜索过滤、拖拽添加到画布、JSON 导入导出
+   * 支持分类展示、搜索过滤、拖拽添加到画布、收藏、全屏打开、JSON 导入导出
    */
   import { NODE_DEFINITIONS } from '$lib/stores/nodeRegistry';
   import { flowStore } from '$lib/stores';
+  import { fullscreenNodeStore } from '$lib/stores/fullscreenNode.svelte';
   import {
     Clipboard, Folder, FileInput, Package, Search,
     FolderSync, FileText, Video, Terminal, GripVertical, Download, Upload,
     ChevronRight, ChevronDown, Trash2, Image, MousePointer, FolderInput,
-    Clock, Link, BookOpen, TriangleAlert
+    Clock, Link, BookOpen, TriangleAlert, Star, Maximize2
   } from '@lucide/svelte';
 
   // 图标映射
@@ -174,14 +175,22 @@
   }
 
   // 添加节点到画布
-  function addNode(type: string, label: string) {
+  function addNode(type: string, label: string): string {
+    const nodeId = `node-${nodeIdCounter++}-${Date.now()}`;
     const node = {
-      id: `node-${nodeIdCounter++}-${Date.now()}`,
+      id: nodeId,
       type,
       position: { x: 250 + Math.random() * 100, y: 150 + Math.random() * 100 },
       data: { label, status: 'idle' as const },
     };
     flowStore.addNode(node);
+    return nodeId;
+  }
+
+  // 全屏打开节点
+  function openFullscreen(type: string, label: string) {
+    const nodeId = addNode(type, label);
+    fullscreenNodeStore.open(nodeId);
   }
 
   // 拖拽到画布
@@ -331,16 +340,26 @@
               <div class="space-y-1 ml-1">
                 {#each folder.items.filter(item => nodeMatches(item, searchQuery)) as item (item.id)}
                   {@const Icon = icons[item.icon] || Terminal}
-                  <button
-                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-{color}-400 hover:bg-{color}-50 dark:hover:bg-{color}-950/30 transition-colors cursor-grab active:cursor-grabbing bg-card"
-                    draggable="true"
-                    ondragstart={(e) => onDragStart(e, item.type, item.label)}
-                    onclick={() => addNode(item.type, item.label)}
-                  >
-                    <GripVertical class="w-3 h-3 text-muted-foreground" />
-                    <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
-                    <span class="text-sm text-left flex-1">{item.label}</span>
-                  </button>
+                  <div class="flex items-center gap-1 group">
+                    <button
+                      class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-{color}-400 hover:bg-{color}-50 dark:hover:bg-{color}-950/30 transition-colors cursor-grab active:cursor-grabbing bg-card"
+                      draggable="true"
+                      ondragstart={(e) => onDragStart(e, item.type, item.label)}
+                      onclick={() => addNode(item.type, item.label)}
+                    >
+                      <GripVertical class="w-3 h-3 text-muted-foreground" />
+                      <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
+                      <span class="text-sm text-left flex-1">{item.label}</span>
+                    </button>
+                    <!-- 全屏打开按钮 -->
+                    <button
+                      class="p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-all"
+                      onclick={() => openFullscreen(item.type, item.label)}
+                      title="全屏打开"
+                    >
+                      <Maximize2 class="w-3.5 h-3.5 text-muted-foreground" />
+                    </button>
+                  </div>
                 {/each}
               </div>
             {/if}
@@ -368,16 +387,26 @@
                     <div class="space-y-1 ml-3">
                       {#each subFolder.items.filter(item => nodeMatches(item, searchQuery)) as item (item.id)}
                         {@const Icon = icons[item.icon] || Terminal}
-                        <button
-                          class="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-{color}-400 hover:bg-{color}-50 dark:hover:bg-{color}-950/30 transition-colors cursor-grab active:cursor-grabbing bg-card"
-                          draggable="true"
-                          ondragstart={(e) => onDragStart(e, item.type, item.label)}
-                          onclick={() => addNode(item.type, item.label)}
-                        >
-                          <GripVertical class="w-3 h-3 text-muted-foreground" />
-                          <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
-                          <span class="text-sm text-left flex-1">{item.label}</span>
-                        </button>
+                        <div class="flex items-center gap-1 group">
+                          <button
+                            class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:border-{color}-400 hover:bg-{color}-50 dark:hover:bg-{color}-950/30 transition-colors cursor-grab active:cursor-grabbing bg-card"
+                            draggable="true"
+                            ondragstart={(e) => onDragStart(e, item.type, item.label)}
+                            onclick={() => addNode(item.type, item.label)}
+                          >
+                            <GripVertical class="w-3 h-3 text-muted-foreground" />
+                            <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
+                            <span class="text-sm text-left flex-1">{item.label}</span>
+                          </button>
+                          <!-- 全屏打开按钮 -->
+                          <button
+                            class="p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-all"
+                            onclick={() => openFullscreen(item.type, item.label)}
+                            title="全屏打开"
+                          >
+                            <Maximize2 class="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
                       {/each}
                     </div>
                   {/if}
@@ -392,6 +421,6 @@
 
   <!-- 提示 -->
   <div class="p-2 border-t text-xs text-muted-foreground text-center">
-    拖拽或点击添加节点 · 导出 JSON 自定义分类
+    拖拽或点击添加 · 悬停显示全屏按钮
   </div>
 </div>
