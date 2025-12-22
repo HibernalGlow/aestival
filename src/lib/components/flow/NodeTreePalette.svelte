@@ -366,18 +366,19 @@
           </button>
 
           {#if folder.expanded}
-            <!-- 节点列表 - 支持拖拽排序 -->
-            <div
-              class="space-y-1 ml-1 min-h-[20px]"
-              use:dndzone={{
-                items: folder.items,
-                flipDurationMs,
-                dragDisabled: dragDisabled || !!searchQuery,
-                dropTargetStyle: { outline: '2px dashed hsl(var(--primary))', outlineOffset: '-2px' }
-              }}
-              onconsider={(e) => handleDndConsider(folder.id, e)}
-              onfinalize={(e) => { handleDndFinalize(folder.id, e); handleDragEnd(); }}
-            >
+            <!-- 节点列表 - 支持拖拽排序（仅当有节点时显示） -->
+            {#if folder.items.length > 0}
+              <div
+                class="space-y-1 ml-1"
+                use:dndzone={{
+                  items: folder.items,
+                  flipDurationMs,
+                  dragDisabled: dragDisabled || !!searchQuery,
+                  dropTargetStyle: { outline: '2px dashed hsl(var(--primary))', outlineOffset: '-2px' }
+                }}
+                onconsider={(e) => handleDndConsider(folder.id, e)}
+                onfinalize={(e) => { handleDndFinalize(folder.id, e); handleDragEnd(); }}
+              >
               {#each folder.items.filter(item => nodeMatches(item, searchQuery)) as item (item.id)}
                 {@const Icon = icons[item.icon] || Terminal}
                 <div
@@ -402,7 +403,8 @@
                   </button>
                 </div>
               {/each}
-            </div>
+              </div>
+            {/if}
 
             <!-- 子文件夹 -->
             {#each folder.children as subFolder (subFolder.id)}
