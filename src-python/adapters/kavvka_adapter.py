@@ -54,45 +54,38 @@ class KavvkaAdapter(BaseAdapter):
         return {}
     
     def _is_artist_folder(self, path: Path) -> bool:
-        """判断是否为画师文件夹（包含[]标记）"""
+        """判断是否为画师文件夹（包含[]标记）- 仅用于过滤同级文件夹"""
         return '[' in path.name and ']' in path.name
     
-    def _find_artist_folder(self, path: Path) -> Optional[Path]:
-        """从给定路径查找画师文件夹"""
+    def _get_target_folder(self, path: Path) -> Optional[Path]:
+        """
+        获取目标文件夹（用于创建 #compare）
+        
+        直接使用输入路径作为目标文件夹，不再强制查找 [] 标记的文件夹
+        """
         # 如果是压缩包，使用其所在目录
         if path.is_file() and path.suffix.lower() in ['.zip', '.7z', '.rar']:
-            base_path = path.parent
-        else:
-            base_path = path
+            return path.parent
         
-        # 向上查找画师文件夹
-        current = base_path
-        while current != current.parent:
-            if self._is_artist_folder(current) and current.exists():
-                return current
-            current = current.parent
-        
-        # 搜索当前目录下的画师文件夹
-        if base_path.is_dir():
-            for entry in base_path.iterdir():
-                if entry.is_dir() and self._is_artist_folder(entry):
-                    return entry
+        # 如果是目录，直接使用
+        if path.is_dir():
+            return path
         
         return None
     
-    def _get_siblings_to_move(self, path: Path, artist_folder: Path) -> List[Path]:
+    def _get_siblings_to_move(self, path: Path, target_folder: Path) -> List[Path]:
         """获取需要移动的同级文件夹"""
         siblings = []
-        parent_dir = path.parent if path.is_file() else path
+        parent_dir = target_folder.parent
         
         if not parent_dir.is_dir():
             return siblings
         
         for entry in parent_dir.iterdir():
             if (entry.is_dir() and 
-                entry.resolve() != path.resolve() and 
+                entry.resolve() != target_folder.resolve() and 
                 entry.name != "#compare" and 
-                not self._is_artist_folder(entry)):
+                not self._is_artist_folder(entry)):  # 跳过画师文件夹
                 siblings.append(entry)
         
         return siblings
@@ -187,21 +180,21 @@ class KavvkaAdapter(BaseAdapter):
                     on_log(f"❌ 路径不存在: {path}")
                 continue
             
-            # 查找画师文件夹
-            artist_folder = self._find_artist_folder(path)
-            if not artist_folder:
+            # 获取目标文件夹
+            target_folder = self._get_target_folder(path)
+            if not target_folder:
                 if on_log:
-                    on_log(f"❌ 未找到画师文件夹: {path}")
+                    on_log(f"❌ 无效路径: {path}")
                 continue
             
             if on_log:
-                on_log(f"📁 画师文件夹: {artist_folder.name}")
+                on_log(f"📁 目标文件夹: {target_folder.name}")
             
             # 创建比较文件夹
-            compare_folder = self._create_compare_folder(artist_folder)
+            compare_folder = self._create_compare_folder(target_folder)
             
             # 获取并移动同级文件夹
-            siblings = self._get_siblings_to_move(path, artist_folder)
+            siblings = self._get_siblings_to_move(path, target_folder)
             moved = []
             if siblings:
                 if on_log:
@@ -216,7 +209,7 @@ class KavvkaAdapter(BaseAdapter):
             
             results.append({
                 "path": str(path),
-                "artist_folder": str(artist_folder),
+                "target_folder": str(target_folder),
                 "compare_folder": str(compare_folder),
                 "moved_folders": moved,
                 "combined_path": combined_path
@@ -243,7 +236,7 @@ class KavvkaAdapter(BaseAdapter):
         on_progress: Optional[Callable[[int, str], None]] = None,
         on_log: Optional[Callable[[str], None]] = None
     ) -> KavvkaOutput:
-        """仅查找画师文件夹，不移动"""
+        """仅查找目标文件夹，不移动"""
         if not input_data.paths:
             return KavvkaOutput(success=False, message="请提供路径")
         
@@ -254,18 +247,18 @@ class KavvkaAdapter(BaseAdapter):
             if not path.exists():
                 continue
             
-            artist_folder = self._find_artist_folder(path)
-            if artist_folder:
+            target_folder = self._get_target_folder(path)
+            if target_folder:
                 results.append({
                     "path": str(path),
-                    "artist_folder": str(artist_folder)
+                    "target_folder": str(target_folder)
                 })
                 if on_log:
-                    on_log(f"✅ {path.name} -> {artist_folder.name}")
+                    on_log(f"✅ {path.name} -> {target_folder.name}")
         
         return KavvkaOutput(
             success=len(results) > 0,
-            message=f"找到 {len(results)} 个画师文件夹",
+            message=f"找到 {len(results)} 个目标文件夹",
             results=results,
             data={"results": results}
         )
