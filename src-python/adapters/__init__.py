@@ -27,6 +27,7 @@ _ADAPTER_REGISTRY: Dict[str, str] = {
     "linku": "adapters.linku_adapter.LinkuAdapter",
     "scoolp": "adapters.scoolp_adapter.ScoolpAdapter",
     "reinstallp": "adapters.reinstallp_adapter.ReinstallpAdapter",
+    "recycleu": "adapters.recycleu_adapter.RecycleuAdapter",
 }
 
 # 适配器实例缓存

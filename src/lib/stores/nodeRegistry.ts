@@ -28,6 +28,7 @@ import { OwithuNode } from '$lib/components/nodes/owithu';
 import { LinkuNode } from '$lib/components/nodes/linku';
 import { ScoolpNode } from '$lib/components/nodes/scoolp';
 import { ReinstallpNode } from '$lib/components/nodes/reinstallp';
+import { RecycleuNode } from '$lib/components/nodes/recycleu';
 
 /** 节点注册项 - 包含定义和组件 */
 export interface NodeRegistryEntry extends NodeDefinition {
@@ -305,6 +306,20 @@ export const NODE_REGISTRY: NodeRegistryEntry[] = [
     configSchema: {
       path: { type: 'path', label: '扫描路径', required: true },
       use_system: { type: 'boolean', label: '系统安装', default: true }
+    }
+  },
+  {
+    type: 'recycleu',
+    category: 'tool',
+    label: 'recycleu',
+    description: '回收站清理：定时自动清空 Windows 回收站',
+    icon: 'Trash2',
+    inputs: ['any'],
+    outputs: ['any'],
+    component: RecycleuNode,
+    configSchema: {
+      interval: { type: 'number', label: '清理间隔(秒)', default: 10 },
+      auto_start: { type: 'boolean', label: '自动启动', default: false }
     }
   },
 

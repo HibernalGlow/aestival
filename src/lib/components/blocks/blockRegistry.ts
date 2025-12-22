@@ -91,6 +91,7 @@ import { OWITHU_BLOCKS, OWITHU_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes
 import { LINKU_BLOCKS, LINKU_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/linku/blocks';
 import { SCOOLP_BLOCKS, SCOOLP_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/scoolp/blocks';
 import { REINSTALLP_BLOCKS, REINSTALLP_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/reinstallp/blocks';
+import { RECYCLEU_BLOCKS, RECYCLEU_DEFAULT_GRID_LAYOUT } from '$lib/components/nodes/recycleu/blocks';
 
 // 重新导出供外部使用
 export { FINDZ_BLOCKS, FINDZ_DEFAULT_GRID_LAYOUT };
@@ -108,6 +109,7 @@ export { OWITHU_BLOCKS, OWITHU_DEFAULT_GRID_LAYOUT };
 export { LINKU_BLOCKS, LINKU_DEFAULT_GRID_LAYOUT };
 export { SCOOLP_BLOCKS, SCOOLP_DEFAULT_GRID_LAYOUT };
 export { REINSTALLP_BLOCKS, REINSTALLP_DEFAULT_GRID_LAYOUT };
+export { RECYCLEU_BLOCKS, RECYCLEU_DEFAULT_GRID_LAYOUT };
 
 // ============ 注册表 ============
 export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
@@ -125,7 +127,8 @@ export const nodeBlockRegistry: Record<string, NodeBlockLayout> = {
   owithu: { nodeType: 'owithu', blocks: OWITHU_BLOCKS, defaultGridLayout: OWITHU_DEFAULT_GRID_LAYOUT },
   linku: { nodeType: 'linku', blocks: LINKU_BLOCKS, defaultGridLayout: LINKU_DEFAULT_GRID_LAYOUT },
   scoolp: { nodeType: 'scoolp', blocks: SCOOLP_BLOCKS, defaultGridLayout: SCOOLP_DEFAULT_GRID_LAYOUT },
-  reinstallp: { nodeType: 'reinstallp', blocks: REINSTALLP_BLOCKS, defaultGridLayout: REINSTALLP_DEFAULT_GRID_LAYOUT }
+  reinstallp: { nodeType: 'reinstallp', blocks: REINSTALLP_BLOCKS, defaultGridLayout: REINSTALLP_DEFAULT_GRID_LAYOUT },
+  recycleu: { nodeType: 'recycleu', blocks: RECYCLEU_BLOCKS, defaultGridLayout: RECYCLEU_DEFAULT_GRID_LAYOUT }
 };
 
 // ============ 工具函数 ============
