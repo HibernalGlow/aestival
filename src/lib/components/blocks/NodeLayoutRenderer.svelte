@@ -261,7 +261,10 @@
     return unsubscribe;
   });
 
-  let currentLayout = $derived(nodeConfig[mode].gridLayout);
+  // 过滤掉无效的布局项（没有 id 的项）
+  let currentLayout = $derived(
+    nodeConfig[mode].gridLayout.filter(item => item.id && typeof item.id === 'string')
+  );
   
   // 节点模式下按 y, x 排序的布局（确保 CSS Grid 正确排列）
   let sortedNormalLayout = $derived(
