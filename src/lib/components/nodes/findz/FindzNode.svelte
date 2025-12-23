@@ -5,11 +5,13 @@
    * 使用 Container Query 自动响应尺寸
    * - 一套 HTML 结构，CSS 控制尺寸变化
    * - 紧凑模式保留核心功能，详细操作在全屏
+   * - 支持 WebSocket 实时进度显示
    */
   import { Handle, Position, NodeResizer } from '@xyflow/svelte';
   import { Button } from '$lib/components/ui/button';
   import { Input } from '$lib/components/ui/input';
   import { Progress } from '$lib/components/ui/progress';
+  import { onMount, onDestroy } from 'svelte';
 
   import { NodeLayoutRenderer } from '$lib/components/blocks';
   import type { GridItem } from '$lib/components/ui/dashboard-grid';
@@ -17,6 +19,7 @@
   import { FINDZ_DEFAULT_GRID_LAYOUT } from '$lib/components/blocks/blockRegistry';
   import { api } from '$lib/services/api';
   import { getNodeState, setNodeState } from '$lib/stores/nodeStateStore';
+  import { getWsBaseUrl } from '$lib/stores/backend';
   import NodeWrapper from '../NodeWrapper.svelte';
   import FilterBuilder from './FilterBuilder.svelte';
   import AnalysisPanel from './AnalysisPanel.svelte';
@@ -75,12 +78,91 @@
   let layoutRenderer = $state<LayoutRendererInstance | undefined>(undefined);
   let advancedMode = $state(false);
   
+  // 实时进度状态
+  let progressMessage = $state('');
+  let scannedCount = $state(0);
+  let matchedCount = $state(0);
+  let elapsedTime = $state(0);
+  
+  // WebSocket 连接
+  let ws: WebSocket | null = null;
+  let taskId = $state<string | null>(null);
+  let wsReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  
   // 复制状态
   let copiedLogs = $state(false);
   let copiedPath = $state(false);
 
   // 初始化标记
   let initialized = $state(false);
+
+  // WebSocket 连接管理
+  function connectWebSocket(tid: string) {
+    if (ws) {
+      ws.close();
+    }
+    
+    const wsUrl = `${getWsBaseUrl()}/ws/tasks/${tid}`;
+    ws = new WebSocket(wsUrl);
+    
+    ws.onopen = () => {
+      log('📡 WebSocket 已连接');
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        
+        if (msg.type === 'progress') {
+          // 实时进度更新
+          progress = msg.progress;
+          progressMessage = msg.message || '';
+          
+          // 解析扫描统计（如果消息中包含）
+          const match = msg.message?.match(/(\d+)\s*文件.*?(\d+)\s*匹配/);
+          if (match) {
+            scannedCount = parseInt(match[1], 10);
+            matchedCount = parseInt(match[2], 10);
+          }
+        } else if (msg.type === 'log') {
+          log(msg.message);
+        } else if (msg.type === 'status') {
+          if (msg.status === 'completed') {
+            phase = 'completed';
+            progress = 100;
+          } else if (msg.status === 'error') {
+            phase = 'error';
+          }
+        }
+      } catch (e) {
+        console.error('WebSocket 消息解析失败:', e);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket 错误:', error);
+    };
+    
+    ws.onclose = () => {
+      ws = null;
+    };
+  }
+  
+  function disconnectWebSocket() {
+    if (ws) {
+      ws.close();
+      ws = null;
+    }
+    if (wsReconnectTimer) {
+      clearTimeout(wsReconnectTimer);
+      wsReconnectTimer = null;
+    }
+  }
+  
+  // 组件卸载时清理
+  onDestroy(() => {
+    disconnectWebSocket();
+  });
 
   // 初始化 effect - 只执行一次
   $effect(() => {
@@ -144,14 +226,31 @@
 
   async function executeAction(action: Action) {
     if (!canExecute) return;
-    phase = 'searching'; progress = 0;
+    phase = 'searching'; 
+    progress = 0;
+    progressMessage = '准备中...';
+    scannedCount = 0;
+    matchedCount = 0;
+    elapsedTime = 0;
+    
+    // 生成任务 ID 并连接 WebSocket
+    const newTaskId = `findz-${nodeId}-${Date.now()}`;
+    taskId = newTaskId;
+    connectWebSocket(newTaskId);
+    
     log(`🔍 开始搜索: ${targetPath}`);
+    
+    // 计时器
+    const startTime = Date.now();
+    const timer = setInterval(() => {
+      elapsedTime = (Date.now() - startTime) / 1000;
+    }, 100);
 
     try {
       progress = 10;
       const response = await api.executeNode('findz', {
         path: targetPath, where: whereClause, action, long_format: true, max_results: 0
-      }) as any;
+      }, { taskId: newTaskId, nodeId }) as any;
 
       if (response.logs) for (const m of response.logs) log(m);
 
@@ -166,6 +265,11 @@
         };
         files = response.data?.files ?? [];
         byExtension = response.data?.by_extension ?? {};
+        
+        // 更新统计
+        scannedCount = response.data?.scanned_files ?? scannedCount;
+        elapsedTime = response.data?.elapsed_time ?? elapsedTime;
+        
         log(`✅ ${response.message}`);
       } else {
         phase = 'error'; progress = 0;
@@ -174,6 +278,10 @@
     } catch (error) {
       phase = 'error'; progress = 0;
       log(`❌ 失败: ${error}`);
+    } finally {
+      clearInterval(timer);
+      // 延迟断开 WebSocket，确保最后的消息能收到
+      setTimeout(() => disconnectWebSocket(), 1000);
     }
   }
 
@@ -239,23 +347,37 @@
 {#snippet operationBlock()}
   <div class="flex flex-col cq-gap h-full">
     <!-- 状态指示 -->
-    <div class="flex items-center cq-gap cq-padding bg-muted/30 cq-rounded">
-      {#if phase === 'completed'}
-        <CircleCheck class="cq-icon text-green-500 shrink-0" />
-        <span class="cq-text text-green-600 font-medium">完成</span>
-        <span class="cq-text-sm text-muted-foreground ml-auto">{searchResult?.total_count ?? 0} 项</span>
-      {:else if phase === 'error'}
-        <CircleX class="cq-icon text-red-500 shrink-0" />
-        <span class="cq-text text-red-600 font-medium">失败</span>
-      {:else if isRunning}
-        <LoaderCircle class="cq-icon text-primary animate-spin shrink-0" />
-        <div class="flex-1">
-          <Progress value={progress} class="h-1.5" />
+    <div class="flex flex-col cq-gap cq-padding bg-muted/30 cq-rounded">
+      <div class="flex items-center cq-gap">
+        {#if phase === 'completed'}
+          <CircleCheck class="cq-icon text-green-500 shrink-0" />
+          <span class="cq-text text-green-600 font-medium">完成</span>
+          <span class="cq-text-sm text-muted-foreground ml-auto">{searchResult?.total_count ?? 0} 项</span>
+        {:else if phase === 'error'}
+          <CircleX class="cq-icon text-red-500 shrink-0" />
+          <span class="cq-text text-red-600 font-medium">失败</span>
+        {:else if isRunning}
+          <LoaderCircle class="cq-icon text-primary animate-spin shrink-0" />
+          <div class="flex-1 flex flex-col gap-0.5">
+            <Progress value={progress} class="h-1.5" />
+            <div class="flex items-center justify-between cq-text-sm text-muted-foreground">
+              <span class="truncate">{progressMessage || '搜索中...'}</span>
+              <span class="tabular-nums shrink-0">{progress}%</span>
+            </div>
+          </div>
+        {:else}
+          <Search class="cq-icon text-muted-foreground/50 shrink-0" />
+          <span class="cq-text text-muted-foreground">等待执行</span>
+        {/if}
+      </div>
+      
+      <!-- 实时统计（搜索中显示） -->
+      {#if isRunning && scannedCount > 0}
+        <div class="flex items-center justify-between cq-text-sm text-muted-foreground border-t pt-1">
+          <span>扫描: <span class="tabular-nums text-foreground">{scannedCount.toLocaleString()}</span></span>
+          <span>匹配: <span class="tabular-nums text-primary">{matchedCount.toLocaleString()}</span></span>
+          <span class="tabular-nums">{elapsedTime.toFixed(1)}s</span>
         </div>
-        <span class="cq-text-sm text-muted-foreground">{progress}%</span>
-      {:else}
-        <Search class="cq-icon text-muted-foreground/50 shrink-0" />
-        <span class="cq-text text-muted-foreground">等待执行</span>
       {/if}
     </div>
     <!-- 主按钮 -->

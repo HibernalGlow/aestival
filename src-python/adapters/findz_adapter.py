@@ -193,7 +193,22 @@ class FindzAdapter(BaseAdapter):
         on_progress: Optional[Callable[[int, str], None]] = None,
         on_log: Optional[Callable[[str], None]] = None
     ) -> FindzOutput:
-        """执行文件搜索"""
+        """
+        执行文件搜索
+        
+        优化策略：
+        1. 批量处理：每 BATCH_SIZE 个文件处理一次，减少 UI 更新频率
+        2. 实时进度：基于扫描文件数动态计算进度
+        3. 异步让出：定期让出控制权，避免阻塞事件循环
+        """
+        import asyncio
+        import time
+        
+        # 性能配置
+        BATCH_SIZE = 500  # 每批处理文件数
+        PROGRESS_INTERVAL = 0.1  # 进度更新最小间隔（秒）
+        YIELD_INTERVAL = 1000  # 每处理多少文件让出一次控制权
+        
         paths = self._collect_paths(input_data)
         where = input_data.where or "1"
         
@@ -234,11 +249,9 @@ class FindzAdapter(BaseAdapter):
             # 错误收集
             errors = []
             def error_handler(msg: str) -> None:
-                if on_log:
-                    on_log(f"⚠️ 错误: {msg[:100]}")
-                if input_data.continue_on_error:
+                if len(errors) < 100:  # 限制错误数量
                     errors.append(msg)
-                else:
+                if not input_data.continue_on_error:
                     raise RuntimeError(msg)
             
             if on_progress:
@@ -253,6 +266,11 @@ class FindzAdapter(BaseAdapter):
             archive_count = 0
             scanned_files = 0
             scanned_archives = 0
+            
+            # 进度控制
+            last_progress_time = time.time()
+            last_log_count = 0
+            start_time = time.time()
             
             for search_path in paths:
                 if on_log:
@@ -272,9 +290,29 @@ class FindzAdapter(BaseAdapter):
                     for file_info in walk(search_path, params):
                         scanned_files += 1
                         
-                        # 每 100 个文件记录一次进度
-                        if scanned_files % 100 == 0 and on_log:
-                            on_log(f"📊 已扫描 {scanned_files} 个文件，找到 {len(all_results)} 个匹配")
+                        # 定期让出控制权，避免阻塞
+                        if scanned_files % YIELD_INTERVAL == 0:
+                            await asyncio.sleep(0)
+                        
+                        # 实时进度更新（基于时间间隔）
+                        current_time = time.time()
+                        if current_time - last_progress_time >= PROGRESS_INTERVAL:
+                            # 动态计算进度（10-90%）
+                            elapsed = current_time - start_time
+                            # 基于扫描速度估算进度
+                            progress = min(10 + int(80 * (1 - 1 / (1 + scanned_files / 10000))), 90)
+                            
+                            if on_progress:
+                                on_progress(progress, f"扫描中: {scanned_files} 文件, {len(all_results)} 匹配")
+                            
+                            last_progress_time = current_time
+                        
+                        # 批量日志（每 BATCH_SIZE 个文件记录一次）
+                        if scanned_files - last_log_count >= BATCH_SIZE:
+                            if on_log:
+                                speed = scanned_files / max(current_time - start_time, 0.1)
+                                on_log(f"📊 已扫描 {scanned_files} 文件 ({speed:.0f}/s)，找到 {len(all_results)} 匹配")
+                            last_log_count = scanned_files
                         
                         # 限制结果数量（0表示无限制）
                         if input_data.max_results > 0 and len(all_results) >= input_data.max_results:
@@ -318,15 +356,18 @@ class FindzAdapter(BaseAdapter):
             if on_progress:
                 on_progress(100, "搜索完成")
             
+            # 计算总耗时
+            total_time = time.time() - start_time
+            
             if on_log:
-                on_log(f"✅ 搜索完成: 扫描 {scanned_files} 个文件，{scanned_archives} 个压缩包")
-                on_log(f"📊 找到 {len(all_results)} 个匹配 (文件:{file_count}, 目录:{dir_count}, 压缩包内:{archive_count})")
+                on_log(f"✅ 搜索完成: 扫描 {scanned_files} 文件，{scanned_archives} 压缩包，耗时 {total_time:.1f}s")
+                on_log(f"📊 找到 {len(all_results)} 匹配 (文件:{file_count}, 目录:{dir_count}, 压缩包内:{archive_count})")
                 if errors:
                     on_log(f"⚠️ {len(errors)} 个错误")
             
             return FindzOutput(
                 success=True,
-                message=f"找到 {len(all_results)} 个文件",
+                message=f"找到 {len(all_results)} 个文件 ({total_time:.1f}s)",
                 total_count=len(all_results),
                 file_count=file_count,
                 dir_count=dir_count,
@@ -346,6 +387,8 @@ class FindzAdapter(BaseAdapter):
                     'errors': errors[:20],
                     'paths': paths,
                     'where': where,
+                    'scanned_files': scanned_files,
+                    'elapsed_time': total_time,
                 }
             )
             
