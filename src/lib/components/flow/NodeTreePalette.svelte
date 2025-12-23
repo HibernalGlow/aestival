@@ -294,6 +294,12 @@
     if (folderId === 'input' || folderId.startsWith('input')) return 'green';
     if (folderId === 'output' || folderId.startsWith('output')) return 'amber';
     if (folderId === 'favorites') return 'yellow';
+    if (folderId === 'tool-file') return 'blue';
+    if (folderId === 'tool-archive') return 'purple';
+    if (folderId === 'tool-media') return 'pink';
+    if (folderId === 'tool-system') return 'orange';
+    if (folderId === 'tool-text') return 'cyan';
+    if (folderId === 'tool') return 'indigo';
     return 'blue';
   }
 </script>
@@ -318,7 +324,7 @@
         <div>
           <button class="w-full flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground transition-colors" onclick={() => toggleFolder(folder)}>
             {#if folder.expanded}<ChevronDown class="w-3 h-3" />{:else}<ChevronRight class="w-3 h-3" />{/if}
-            <FolderIcon class="w-3.5 h-3.5" />
+            <FolderIcon class="w-3.5 h-3.5 text-{color}-500" />
             <span>{folder.name}</span>
             {#if folder.items.length > 0}<span class="text-[10px] opacity-50">({folder.items.length})</span>{/if}
           </button>
@@ -363,10 +369,11 @@
             {#each folder.children as subFolder (subFolder.id)}
               {#if folderHasMatches(subFolder, searchQuery)}
                 {@const SubIcon = icons[subFolder.icon] || Folder}
+                {@const subColor = getCategoryColor(subFolder.id)}
                 <div class="mt-2 ml-2">
                   <button class="w-full flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-1.5 hover:text-foreground transition-colors" onclick={() => toggleFolder(subFolder)}>
                     {#if subFolder.expanded}<ChevronDown class="w-3 h-3" />{:else}<ChevronRight class="w-3 h-3" />{/if}
-                    <SubIcon class="w-3.5 h-3.5" />
+                    <SubIcon class="w-3.5 h-3.5 text-{subColor}-500" />
                     <span>{subFolder.name}</span>
                     <span class="text-[10px] opacity-50">({subFolder.items.length})</span>
                   </button>
@@ -383,7 +390,7 @@
                         <div class="flex items-center gap-1 group">
                           <div
                             class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-card
-                              {isOver ? 'border-primary bg-primary/10' : 'border-border hover:border-' + color + '-400 hover:bg-' + color + '-50 dark:hover:bg-' + color + '-950/30'}"
+                              {isOver ? 'border-primary bg-primary/10' : 'border-border hover:border-' + subColor + '-400 hover:bg-' + subColor + '-50 dark:hover:bg-' + subColor + '-950/30'}"
                             draggable="true"
                             ondragstart={(e) => handleDragStart(e, subFolder.id, item)}
                             ondragover={(e) => handleDragOver(e, subFolder.id, item.id)}
@@ -396,7 +403,7 @@
                             tabindex="0"
                           >
                             <GripVertical class="w-3 h-3 text-muted-foreground" />
-                            <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
+                            <Icon class="w-4 h-4 text-{subColor}-600 dark:text-{subColor}-400" />
                             <span class="text-sm text-left flex-1">{item.label}</span>
                           </div>
                           <button class="p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-all" onclick={() => openFullscreen(item.type, item.label)} title="全屏打开">
