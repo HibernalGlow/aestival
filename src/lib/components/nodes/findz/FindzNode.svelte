@@ -102,7 +102,8 @@
       ws.close();
     }
     
-    const wsUrl = `${getWsBaseUrl()}/ws/tasks/${tid}`;
+    // WebSocket 路由在 /v1 前缀下
+    const wsUrl = `${getWsBaseUrl()}/v1/ws/tasks/${tid}`;
     ws = new WebSocket(wsUrl);
     
     ws.onopen = () => {
