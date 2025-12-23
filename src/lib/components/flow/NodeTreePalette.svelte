@@ -10,13 +10,13 @@
     Clipboard, Folder, FileInput, Package, Search,
     FolderSync, FileText, Video, Terminal, GripVertical, Download, Upload,
     ChevronRight, ChevronDown, Trash2, Image, MousePointer, FolderInput,
-    Clock, Link, BookOpen, TriangleAlert, Maximize2
+    Clock, Link, BookOpen, TriangleAlert, Maximize2, Star
   } from '@lucide/svelte';
 
   const icons: Record<string, any> = {
     Clipboard, Folder, FileInput, Package, Search, TriangleAlert,
     FolderSync, FileText, Video, Terminal, Image, Clock, Link,
-    Trash2, BookOpen, MousePointer, FolderInput, Download,
+    Trash2, BookOpen, MousePointer, FolderInput, Download, Star,
     AlertTriangle: TriangleAlert, Filter: Search
   };
 
@@ -138,6 +138,30 @@
     fullscreenNodeStore.open(addNode(type, label));
   }
 
+  // 检查是否已收藏
+  function isFavorite(itemId: string): boolean {
+    const favFolder = treeData.find(f => f.id === 'favorites');
+    return favFolder?.items.some(i => i.id === itemId) ?? false;
+  }
+
+  // 切换收藏状态
+  function toggleFavorite(e: Event, item: NodeItem, currentFolderId: string) {
+    e.stopPropagation();
+    const favFolder = treeData.find(f => f.id === 'favorites');
+    if (!favFolder) return;
+
+    const favIdx = favFolder.items.findIndex(i => i.id === item.id);
+    if (favIdx !== -1) {
+      // 已收藏，取消收藏
+      favFolder.items.splice(favIdx, 1);
+    } else {
+      // 未收藏，添加到收藏（复制一份）
+      favFolder.items.push({ ...item });
+    }
+    treeData = [...treeData];
+    saveTreeData();
+  }
+
   // 查找文件夹
   function findFolder(folderId: string, folders: TreeFolder[] = treeData): TreeFolder | null {
     for (const f of folders) {
@@ -155,7 +179,7 @@
     e.dataTransfer.setData('application/json', JSON.stringify({ type: item.type, label: item.label }));
     e.dataTransfer.setData('text/plain', `sort:${folderId}:${item.id}`);
     e.dataTransfer.effectAllowed = 'copyMove';
-    dragState = { folderId, itemId: item.id, overItemId: null };
+    dragState = { folderId, itemId: item.id, overItemId: null, overFolderId: null };
   }
 
   // 原生拖拽：经过（支持跨文件夹）
@@ -333,32 +357,45 @@
             {#if folder.items.length > 0}
               <div 
                 class="space-y-1 ml-1"
+                role="list"
                 ondragover={(e) => e.preventDefault()}
                 ondrop={(e) => handleDropOnFolder(e, folder.id)}
               >
                 {#each folder.items.filter(item => nodeMatches(item, searchQuery)) as item (item.id)}
                   {@const Icon = icons[item.icon] || Terminal}
                   {@const isOver = dragState.overItemId === item.id && dragState.overFolderId === folder.id}
-                  <div class="flex items-center gap-1 group">
-                    <div
-                      class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-card
-                        {isOver ? 'border-primary bg-primary/10' : 'border-border hover:border-' + color + '-400 hover:bg-' + color + '-50 dark:hover:bg-' + color + '-950/30'}"
-                      draggable="true"
-                      ondragstart={(e) => handleDragStart(e, folder.id, item)}
-                      ondragover={(e) => handleDragOver(e, folder.id, item.id)}
-                      ondragleave={(e) => handleDragLeave(e, item.id)}
-                      ondrop={(e) => handleDrop(e, folder.id, item.id)}
-                      ondragend={handleDragEnd}
-                      onclick={() => addNode(item.type, item.label)}
-                      onkeydown={(e) => e.key === 'Enter' && addNode(item.type, item.label)}
-                      role="button"
-                      tabindex="0"
+                  {@const isFav = isFavorite(item.id)}
+                  <div
+                    class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-card group
+                      {isOver ? 'border-primary bg-primary/10' : 'border-border hover:border-' + color + '-400 hover:bg-' + color + '-50 dark:hover:bg-' + color + '-950/30'}"
+                    draggable="true"
+                    ondragstart={(e) => handleDragStart(e, folder.id, item)}
+                    ondragover={(e) => handleDragOver(e, folder.id, item.id)}
+                    ondragleave={(e) => handleDragLeave(e, item.id)}
+                    ondrop={(e) => handleDrop(e, folder.id, item.id)}
+                    ondragend={handleDragEnd}
+                    onclick={() => addNode(item.type, item.label)}
+                    onkeydown={(e) => e.key === 'Enter' && addNode(item.type, item.label)}
+                    role="listitem"
+                    tabindex="0"
+                  >
+                    <GripVertical class="w-3 h-3 text-muted-foreground" />
+                    <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
+                    <span class="text-sm text-left flex-1">{item.label}</span>
+                    <!-- 收藏按钮 -->
+                    <button
+                      class="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted/50 transition-all {isFav ? '!opacity-100' : ''}"
+                      onclick={(e) => toggleFavorite(e, item, folder.id)}
+                      title={isFav ? '取消收藏' : '收藏'}
                     >
-                      <GripVertical class="w-3 h-3 text-muted-foreground" />
-                      <Icon class="w-4 h-4 text-{color}-600 dark:text-{color}-400" />
-                      <span class="text-sm text-left flex-1">{item.label}</span>
-                    </div>
-                    <button class="p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-all" onclick={() => openFullscreen(item.type, item.label)} title="全屏打开">
+                      <Star class="w-3.5 h-3.5 {isFav ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}" />
+                    </button>
+                    <!-- 全屏按钮 -->
+                    <button
+                      class="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted/50 transition-all"
+                      onclick={(e) => { e.stopPropagation(); openFullscreen(item.type, item.label); }}
+                      title="全屏打开"
+                    >
                       <Maximize2 class="w-3.5 h-3.5 text-muted-foreground" />
                     </button>
                   </div>
@@ -381,32 +418,45 @@
                   {#if subFolder.expanded}
                     <div 
                       class="space-y-1 ml-3"
+                      role="list"
                       ondragover={(e) => e.preventDefault()}
                       ondrop={(e) => handleDropOnFolder(e, subFolder.id)}
                     >
                       {#each subFolder.items.filter(item => nodeMatches(item, searchQuery)) as item (item.id)}
                         {@const Icon = icons[item.icon] || Terminal}
                         {@const isOver = dragState.overItemId === item.id && dragState.overFolderId === subFolder.id}
-                        <div class="flex items-center gap-1 group">
-                          <div
-                            class="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-card
-                              {isOver ? 'border-primary bg-primary/10' : 'border-border hover:border-' + subColor + '-400 hover:bg-' + subColor + '-50 dark:hover:bg-' + subColor + '-950/30'}"
-                            draggable="true"
-                            ondragstart={(e) => handleDragStart(e, subFolder.id, item)}
-                            ondragover={(e) => handleDragOver(e, subFolder.id, item.id)}
-                            ondragleave={(e) => handleDragLeave(e, item.id)}
-                            ondrop={(e) => handleDrop(e, subFolder.id, item.id)}
-                            ondragend={handleDragEnd}
-                            onclick={() => addNode(item.type, item.label)}
-                            onkeydown={(e) => e.key === 'Enter' && addNode(item.type, item.label)}
-                            role="button"
-                            tabindex="0"
+                        {@const isFav = isFavorite(item.id)}
+                        <div
+                          class="flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors cursor-grab active:cursor-grabbing bg-card group
+                            {isOver ? 'border-primary bg-primary/10' : 'border-border hover:border-' + subColor + '-400 hover:bg-' + subColor + '-50 dark:hover:bg-' + subColor + '-950/30'}"
+                          draggable="true"
+                          ondragstart={(e) => handleDragStart(e, subFolder.id, item)}
+                          ondragover={(e) => handleDragOver(e, subFolder.id, item.id)}
+                          ondragleave={(e) => handleDragLeave(e, item.id)}
+                          ondrop={(e) => handleDrop(e, subFolder.id, item.id)}
+                          ondragend={handleDragEnd}
+                          onclick={() => addNode(item.type, item.label)}
+                          onkeydown={(e) => e.key === 'Enter' && addNode(item.type, item.label)}
+                          role="listitem"
+                          tabindex="0"
+                        >
+                          <GripVertical class="w-3 h-3 text-muted-foreground" />
+                          <Icon class="w-4 h-4 text-{subColor}-600 dark:text-{subColor}-400" />
+                          <span class="text-sm text-left flex-1">{item.label}</span>
+                          <!-- 收藏按钮 -->
+                          <button
+                            class="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted/50 transition-all {isFav ? '!opacity-100' : ''}"
+                            onclick={(e) => toggleFavorite(e, item, subFolder.id)}
+                            title={isFav ? '取消收藏' : '收藏'}
                           >
-                            <GripVertical class="w-3 h-3 text-muted-foreground" />
-                            <Icon class="w-4 h-4 text-{subColor}-600 dark:text-{subColor}-400" />
-                            <span class="text-sm text-left flex-1">{item.label}</span>
-                          </div>
-                          <button class="p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-muted transition-all" onclick={() => openFullscreen(item.type, item.label)} title="全屏打开">
+                            <Star class="w-3.5 h-3.5 {isFav ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}" />
+                          </button>
+                          <!-- 全屏按钮 -->
+                          <button
+                            class="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted/50 transition-all"
+                            onclick={(e) => { e.stopPropagation(); openFullscreen(item.type, item.label); }}
+                            title="全屏打开"
+                          >
                             <Maximize2 class="w-3.5 h-3.5 text-muted-foreground" />
                           </button>
                         </div>
