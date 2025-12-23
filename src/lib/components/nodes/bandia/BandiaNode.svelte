@@ -179,11 +179,22 @@
           const msg = JSON.parse(event.data);
           if (msg.type === 'progress') {
             progress = msg.progress;
-            progressText = msg.message;
-            // 从进度消息中解析当前文件索引（格式: "解压 X/Y: filename"）
-            const match = msg.message.match(/解压 (\d+)\/(\d+)/);
+            // 解析消息格式: "解压 X/Y|filename" 或 "解压 X/Y"
+            const parts = msg.message.split('|');
+            const progressMsg = parts[0];
+            const currentFileName = parts[1] || '';
+            
+            progressText = progressMsg;
+            
+            // 从进度消息中解析当前文件索引
+            const match = progressMsg.match(/解压 (\d+)\/(\d+)/);
             if (match) {
               currentFileIndex = parseInt(match[1]) - 1;
+            }
+            
+            // 如果有文件名，更新显示
+            if (currentFileName) {
+              progressText = `${progressMsg}: ${currentFileName}`;
             }
           } else if (msg.type === 'log') {
             log(msg.message);
@@ -295,26 +306,33 @@
 
 {#snippet operationBlock()}
   <div class="flex flex-col cq-gap h-full">
-    <div class="flex items-center cq-gap cq-padding bg-muted/30 cq-rounded">
-      {#if extractResult}
-        {#if extractResult.success && extractResult.failed === 0}
-          <CircleCheck class="cq-icon text-green-500 shrink-0" />
-          <span class="cq-text text-green-600 font-medium">完成</span>
-          <span class="cq-text-sm text-muted-foreground ml-auto">{extractResult.extracted} 成功</span>
-        {:else if extractResult.success}
-          <CircleCheck class="cq-icon text-yellow-500 shrink-0" />
-          <span class="cq-text text-yellow-600 font-medium">部分完成</span>
+    <div class="flex flex-col cq-gap cq-padding bg-muted/30 cq-rounded">
+      <div class="flex items-center cq-gap">
+        {#if extractResult}
+          {#if extractResult.success && extractResult.failed === 0}
+            <CircleCheck class="cq-icon text-green-500 shrink-0" />
+            <span class="cq-text text-green-600 font-medium">完成</span>
+            <span class="cq-text-sm text-muted-foreground ml-auto">{extractResult.extracted} 成功</span>
+          {:else if extractResult.success}
+            <CircleCheck class="cq-icon text-yellow-500 shrink-0" />
+            <span class="cq-text text-yellow-600 font-medium">部分完成</span>
+          {:else}
+            <CircleX class="cq-icon text-red-500 shrink-0" />
+            <span class="cq-text text-red-600 font-medium">失败</span>
+          {/if}
+        {:else if isRunning}
+          <LoaderCircle class="cq-icon text-primary animate-spin shrink-0" />
+          <div class="flex-1"><Progress value={progress} class="h-1.5" /></div>
+          <span class="cq-text-sm text-muted-foreground">{progress}%</span>
         {:else}
-          <CircleX class="cq-icon text-red-500 shrink-0" />
-          <span class="cq-text text-red-600 font-medium">失败</span>
+          <FileArchive class="cq-icon text-muted-foreground/50 shrink-0" />
+          <span class="cq-text text-muted-foreground">等待解压</span>
         {/if}
-      {:else if isRunning}
-        <LoaderCircle class="cq-icon text-primary animate-spin shrink-0" />
-        <div class="flex-1"><Progress value={progress} class="h-1.5" /></div>
-        <span class="cq-text-sm text-muted-foreground">{progress}%</span>
-      {:else}
-        <FileArchive class="cq-icon text-muted-foreground/50 shrink-0" />
-        <span class="cq-text text-muted-foreground">等待解压</span>
+      </div>
+      {#if isRunning && progressText}
+        <div class="cq-text-sm text-muted-foreground truncate" title={progressText}>
+          {progressText}
+        </div>
       {/if}
     </div>
     {#if phase === 'idle' || phase === 'error'}

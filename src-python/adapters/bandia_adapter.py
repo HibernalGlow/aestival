@@ -6,6 +6,7 @@ bandia 适配器
 - 从路径列表批量解压压缩包
 - 支持解压后删除源文件（可选移入回收站）
 - 支持 .zip .7z .rar .tar .gz .bz2 .xz 格式
+- 支持 WebSocket 实时进度推送（带节流，减少性能影响）
 """
 
 import os
@@ -19,6 +20,69 @@ from typing import Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from .base import BaseAdapter, AdapterOutput
+
+
+# ============ 节流进度回调 ============
+
+class ThrottledProgress:
+    """
+    节流进度回调器
+    减少 WebSocket 消息频率，降低对解压速度的影响
+    """
+    
+    def __init__(
+        self, 
+        on_progress: Optional[Callable[[int, str], None]] = None,
+        on_log: Optional[Callable[[str], None]] = None,
+        min_interval: float = 0.15  # 最小间隔 150ms
+    ):
+        self.on_progress = on_progress
+        self.on_log = on_log
+        self.min_interval = min_interval
+        self._last_progress_time = 0.0
+        self._last_progress_value = -1
+        self._pending_progress: Optional[tuple] = None  # (progress, message, current_file)
+    
+    def progress(self, progress: int, message: str, current_file: str = ""):
+        """
+        发送进度（带节流）
+        - 进度变化 >= 5% 或距上次 >= min_interval 才发送
+        - 100% 和 0% 总是立即发送
+        """
+        if not self.on_progress:
+            return
+        
+        now = time.time()
+        should_send = (
+            progress == 0 or 
+            progress == 100 or
+            progress - self._last_progress_value >= 5 or
+            now - self._last_progress_time >= self.min_interval
+        )
+        
+        # 构建带文件名的消息
+        full_message = f"{message}|{current_file}" if current_file else message
+        
+        if should_send:
+            self.on_progress(progress, full_message)
+            self._last_progress_time = now
+            self._last_progress_value = progress
+            self._pending_progress = None
+        else:
+            # 保存待发送的进度（确保最终状态能发送）
+            self._pending_progress = (progress, full_message, current_file)
+    
+    def flush(self):
+        """刷新待发送的进度"""
+        if self._pending_progress and self.on_progress:
+            progress, message, _ = self._pending_progress
+            self.on_progress(progress, message)
+            self._pending_progress = None
+    
+    def log(self, message: str):
+        """发送日志（不节流，但日志本身应该较少）"""
+        if self.on_log:
+            self.on_log(message)
 
 
 # Bandizip 可执行文件名
@@ -119,7 +183,13 @@ class BandiaAdapter(BaseAdapter):
         on_progress: Optional[Callable[[int, str], None]] = None,
         on_log: Optional[Callable[[str], None]] = None
     ) -> BandiaOutput:
-        """执行解压操作"""
+        """
+        执行解压操作
+        使用节流进度回调，减少 WebSocket 消息频率
+        """
+        # 创建节流进度回调器
+        throttled = ThrottledProgress(on_progress, on_log, min_interval=0.15)
+        
         # 查找 Bandizip
         bz_path = find_bz_executable()
         if not bz_path:
@@ -128,8 +198,7 @@ class BandiaAdapter(BaseAdapter):
                 message="未找到 Bandizip (bz.exe)，请安装 Bandizip 或设置环境变量 BANDIZIP_PATH"
             )
         
-        if on_log:
-            on_log(f"使用 Bandizip: {bz_path}")
+        throttled.log(f"使用 Bandizip: {bz_path}")
         
         # 过滤有效的压缩包路径
         paths = self._filter_archives(input_data.paths)
@@ -140,10 +209,8 @@ class BandiaAdapter(BaseAdapter):
             )
         
         total = len(paths)
-        if on_log:
-            on_log(f"开始解压 {total} 个压缩包...")
-        if on_progress:
-            on_progress(5, f"准备解压 {total} 个文件...")
+        throttled.log(f"开始解压 {total} 个压缩包...")
+        throttled.progress(0, f"准备解压 {total} 个文件...")
         
         results = []
         extracted = 0
@@ -151,21 +218,24 @@ class BandiaAdapter(BaseAdapter):
         
         for idx, archive_path in enumerate(paths):
             p = Path(archive_path)
-            progress_pct = int(10 + (idx / total) * 85)
+            # 计算进度百分比 (5% - 95%)
+            progress_pct = int(5 + (idx / total) * 90)
             
-            if on_progress:
-                on_progress(progress_pct, f"解压 {idx + 1}/{total}: {p.name}")
+            # 发送进度，包含当前文件名
+            throttled.progress(
+                progress_pct, 
+                f"解压 {idx + 1}/{total}", 
+                current_file=p.name
+            )
             
             if not p.exists():
-                if on_log:
-                    on_log(f"❌ 文件不存在: {p}")
+                throttled.log(f"❌ 文件不存在: {p}")
                 results.append({'path': str(p), 'success': False, 'error': '文件不存在'})
                 failed += 1
                 continue
             
             if p.is_dir():
-                if on_log:
-                    on_log(f"⚠️ 跳过目录: {p}")
+                throttled.log(f"⚠️ 跳过目录: {p}")
                 results.append({'path': str(p), 'success': False, 'error': '是目录'})
                 failed += 1
                 continue
@@ -186,54 +256,43 @@ class BandiaAdapter(BaseAdapter):
                 duration = time.time() - start_time
                 
                 if proc.returncode == 0:
-                    if on_log:
-                        on_log(f"✅ 成功 ({duration:.2f}s): {p.name}")
+                    throttled.log(f"✅ 成功 ({duration:.2f}s): {p.name}")
                     
                     # 删除源文件
                     if input_data.delete_after:
                         try:
                             if input_data.use_trash:
-                                # 尝试使用 send2trash
                                 try:
                                     from send2trash import send2trash
                                     send2trash(str(p))
-                                    if on_log:
-                                        on_log(f"🗑️ 已移入回收站: {p.name}")
+                                    # 删除成功不发日志，减少消息量
                                 except ImportError:
-                                    # 如果没有 send2trash，直接删除
                                     p.unlink()
-                                    if on_log:
-                                        on_log(f"🗑️ 已删除: {p.name}")
                             else:
                                 p.unlink()
-                                if on_log:
-                                    on_log(f"🗑️ 已删除: {p.name}")
                         except Exception as e:
-                            if on_log:
-                                on_log(f"⚠️ 删除失败 {p.name}: {e}")
+                            throttled.log(f"⚠️ 删除失败 {p.name}: {e}")
                     
                     results.append({'path': str(p), 'success': True, 'duration': duration})
                     extracted += 1
                 else:
                     error_msg = proc.stderr or proc.stdout or f"返回码 {proc.returncode}"
-                    if on_log:
-                        on_log(f"❌ 失败: {p.name} - {error_msg[:100]}")
+                    throttled.log(f"❌ 失败: {p.name} - {error_msg[:100]}")
                     results.append({'path': str(p), 'success': False, 'error': error_msg})
                     failed += 1
                     
             except Exception as e:
-                if on_log:
-                    on_log(f"❌ 执行失败 {p.name}: {e}")
+                throttled.log(f"❌ 执行失败 {p.name}: {e}")
                 results.append({'path': str(p), 'success': False, 'error': str(e)})
                 failed += 1
         
-        if on_progress:
-            on_progress(100, "解压完成")
+        # 刷新待发送的进度
+        throttled.flush()
+        throttled.progress(100, "解压完成")
         
         success = failed == 0
         message = f"解压完成: {extracted} 成功, {failed} 失败"
-        if on_log:
-            on_log(f"📊 {message}")
+        throttled.log(f"📊 {message}")
         
         return BandiaOutput(
             success=success,
