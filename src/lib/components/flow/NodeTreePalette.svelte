@@ -422,7 +422,4 @@
     {/each}
   </div>
 
-  <div class="p-2 border-t text-xs text-muted-foreground text-center">
-    拖拽排序或到画布 · 点击添加
-  </div>
 </div>
